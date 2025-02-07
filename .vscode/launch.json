@@ -10,13 +10,7 @@
             "type": "dart"
         },
         {
-            "name": "bleya (profile mode)",
-            "request": "launch",
-            "type": "dart",
-            "flutterMode": "profile"
-        },
-        {
-            "name": "bleya (release mode)",
+            "name": "bleya (release)",
             "request": "launch",
             "type": "dart",
             "flutterMode": "release"
