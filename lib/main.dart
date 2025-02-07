@@ -1,23 +1,49 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'viewmodels/app_viewmodel.dart';
+import 'views/home_page.dart';
+import 'views/authorisation_page.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(App());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class App extends StatelessWidget {
+  const App({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      home: Scaffold(
-        appBar: AppBar(
-          title: Text('Initial Screen'),
+    return ChangeNotifierProvider(
+      create: (context) => AppViewModel(),
+      child: MaterialApp(
+        title: 'Bleya',
+        theme: ThemeData(
+          useMaterial3: true,
+          colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
         ),
-        body: Center(
-          child: Text('Welcome to the initial screen!'),
-        ),
+        home: InitialScreen(),
       ),
+    );
+  }
+}
+
+class InitialScreen extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final appViewModel = Provider.of<AppViewModel>(context);
+    return FutureBuilder(
+      future: appViewModel.isLoggedIn(),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return Center(child: CircularProgressIndicator());
+        } else {
+          if (snapshot.hasData && snapshot.data == true) {
+            return HomePage();
+          } else {
+            return AuthorisationPage();
+          }
+        }
+      },
     );
   }
 }
