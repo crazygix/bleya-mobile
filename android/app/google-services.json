@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "676518923946",
+    "project_id": "bleya-ed88a",
+    "storage_bucket": "bleya-ed88a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676518923946:android:816f51cf7fae899a644ad3",
+        "android_client_info": {
+          "package_name": "com.example.bleya"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQC7FHRnzb-ksz2ws5vLNPcUMgVv8QqMw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676518923946:android:413a37d39dbf1e91644ad3",
+        "android_client_info": {
+          "package_name": "org.bleya"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQC7FHRnzb-ksz2ws5vLNPcUMgVv8QqMw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

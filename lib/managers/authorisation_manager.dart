@@ -38,8 +38,7 @@ class AuthorisationManager extends ChangeNotifier {
     await _auth.signInWithCredential(credential);
   }
 
-  Future<bool> isLoggedIn() async {
-    await Future.delayed(Duration(seconds: 2));
+  bool isLoggedIn() {
     return false;
   }
 }

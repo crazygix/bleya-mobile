@@ -7,23 +7,13 @@ import 'authorisation_page.dart';
 class InitialScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Consumer<AuthorisationManager>(
-      builder: (context, authorisationManager, child) {
-        return FutureBuilder(
-          future: authorisationManager.isLoggedIn(),
-          builder: (context, snapshot) {
-            if (snapshot.connectionState == ConnectionState.waiting) {
-              return Center(child: CircularProgressIndicator());
-            } else {
-              if (snapshot.hasData && snapshot.data == true) {
-                return HomePage();
-              } else {
-                return AuthorisationPage();
-              }
-            }
-          },
-        );
-      },
-    );
+    // final authManager =
+    // Provider.of<AuthorisationManager>(context, listen: false);
+
+    // if (authManager.isLoggedIn()) {
+    // return HomePage();
+    // } else {
+    return AuthorisationPage();
+    // }
   }
 }
