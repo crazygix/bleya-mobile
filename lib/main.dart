@@ -5,12 +5,14 @@ import 'firebase_options.dart';
 import 'managers/authorisation_manager.dart';
 import 'view_models/app_viewmodel.dart';
 import 'views/initial_page.dart';
+import 'views/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+
   runApp(MyApp());
 }
 
@@ -29,6 +31,9 @@ class MyApp extends StatelessWidget {
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
         ),
         home: InitialScreen(),
+        routes: {
+          '/home': (context) => HomePage(),
+        },
       ),
     );
   }

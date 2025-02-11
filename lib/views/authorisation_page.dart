@@ -41,7 +41,7 @@ class AuthorisationPage extends StatelessWidget {
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: () => manager.signInWithPhoneNumber(),
+                    onPressed: () => manager.signInWithPhoneNumber(context),
                     child: Text('Sign In'),
                   ),
                 ],

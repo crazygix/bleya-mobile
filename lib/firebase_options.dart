@@ -65,4 +65,5 @@ class DefaultFirebaseOptions {
     storageBucket: 'bleya-ed88a.firebasestorage.app',
     iosBundleId: 'org.bleya',
   );
+
 }

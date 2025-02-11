@@ -29,13 +29,20 @@ class AuthorisationManager extends ChangeNotifier {
     );
   }
 
-  void signInWithPhoneNumber() async {
+  void signInWithPhoneNumber(BuildContext context) async {
     final PhoneAuthCredential credential = PhoneAuthProvider.credential(
       verificationId: _verificationId,
       smsCode: codeController.text,
     );
 
-    await _auth.signInWithCredential(credential);
+    try {
+      await _auth.signInWithCredential(credential);
+
+      Navigator.of(context)
+          .pushNamedAndRemoveUntil('/home', (Route<dynamic> route) => false);
+    } catch (e) {
+      print('Failed to sign in: $e');
+    }
   }
 
   bool isLoggedIn() {
