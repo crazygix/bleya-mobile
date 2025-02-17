@@ -17,7 +17,7 @@ class AuthorisationPage extends StatelessWidget {
               return Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text('Login or Signup'),
+                  Text('Authorisation'),
                   Padding(
                     padding: const EdgeInsets.all(8.0),
                     child: TextField(

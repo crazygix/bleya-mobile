@@ -7,13 +7,12 @@ import 'authorisation_page.dart';
 class InitialScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    // final authManager =
-    // Provider.of<AuthorisationManager>(context, listen: false);
+    final authManager =
+        Provider.of<AuthorisationManager>(context, listen: false);
 
-    // if (authManager.isLoggedIn()) {
-    // return HomePage();
-    // } else {
+    if (authManager.isLoggedIn()) {
+      return HomePage();
+    }
     return AuthorisationPage();
-    // }
   }
 }

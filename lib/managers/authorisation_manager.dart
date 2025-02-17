@@ -46,6 +46,6 @@ class AuthorisationManager extends ChangeNotifier {
   }
 
   bool isLoggedIn() {
-    return false;
+    return _auth.currentUser != null;
   }
 }
