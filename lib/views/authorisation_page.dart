@@ -28,21 +28,8 @@ class AuthorisationPage extends StatelessWidget {
                     ),
                   ),
                   ElevatedButton(
-                    onPressed: () => manager.verifyPhoneNumber(),
+                    onPressed: () => manager.verifyPhoneNumber(context),
                     child: Text('Verify Phone Number'),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: TextField(
-                      controller: manager.codeController,
-                      decoration: InputDecoration(
-                        labelText: 'Verification Code',
-                      ),
-                    ),
-                  ),
-                  ElevatedButton(
-                    onPressed: () => manager.signInWithPhoneNumber(context),
-                    child: Text('Sign In'),
                   ),
                 ],
               );

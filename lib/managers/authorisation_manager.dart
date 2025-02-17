@@ -5,47 +5,49 @@ class AuthorisationManager extends ChangeNotifier {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController codeController = TextEditingController();
-  String _verificationId = '';
+  String? _verificationId;
 
-  void verifyPhoneNumber() async {
+  Future<void> verifyPhoneNumber(BuildContext context) async {
     await _auth.verifyPhoneNumber(
       phoneNumber: phoneController.text,
       verificationCompleted: (PhoneAuthCredential credential) async {
         await _auth.signInWithCredential(credential);
+        notifyListeners();
       },
       verificationFailed: (FirebaseAuthException e) {
-        if (e.code == 'invalid-phone-number') {
-          print('The provided phone number is not valid.');
-        }
+        print('Verification failed: ${e.message}');
       },
       codeSent: (String verificationId, int? resendToken) {
         _verificationId = verificationId;
         notifyListeners();
+        Navigator.pushNamed(context, '/verification_code_page');
       },
       codeAutoRetrievalTimeout: (String verificationId) {
         _verificationId = verificationId;
-        notifyListeners();
       },
     );
   }
 
-  void signInWithPhoneNumber(BuildContext context) async {
-    final PhoneAuthCredential credential = PhoneAuthProvider.credential(
-      verificationId: _verificationId,
-      smsCode: codeController.text,
+  Future<void> signInWithPhoneNumber(BuildContext context) async {
+    final code = codeController.text.trim();
+    if (_verificationId == null) {
+      print('Verification ID is null');
+      return;
+    }
+    final credential = PhoneAuthProvider.credential(
+      verificationId: _verificationId!,
+      smsCode: code,
     );
 
     try {
       await _auth.signInWithCredential(credential);
-
-      Navigator.of(context)
-          .pushNamedAndRemoveUntil('/home', (Route<dynamic> route) => false);
+      Navigator.pushReplacementNamed(context, '/home');
     } catch (e) {
       print('Failed to sign in: $e');
     }
   }
 
-  bool isLoggedIn() {
+  Future<bool> isLoggedIn() async {
     return _auth.currentUser != null;
   }
 }

@@ -30,7 +30,7 @@ class MyApp extends StatelessWidget {
           useMaterial3: true,
           colorScheme: ColorScheme.fromSeed(seedColor: Colors.purple),
         ),
-        home: InitialScreen(),
+        home: InitialPage(),
         routes: {
           '/home': (context) => HomePage(),
         },
