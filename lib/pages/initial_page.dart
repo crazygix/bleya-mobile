@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-class AuthorisationPage extends StatelessWidget {
+class InitialPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return Text("Authorisation page");
+    return Text("Initial page");
   }
 }
