@@ -1,5 +1,12 @@
 include: package:flutter_lints/flutter.yaml
 
+# Formatting rules
+dart_style:
+  indent_size: 2
+  newline_before_members: true
+  trailing_comma: false
+  preserve_closing_brace_indentation: true
+
 linter:
   rules:
     avoid_print: false
