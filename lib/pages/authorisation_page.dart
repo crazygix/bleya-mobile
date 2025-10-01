@@ -1,14 +1,14 @@
 import 'package:flutter/cupertino.dart';
-import '../services/api_service.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../providers/auth_providers.dart';
 
-class AuthorisationPage extends StatefulWidget {
+class AuthorisationPage extends ConsumerStatefulWidget {
   @override
   AuthorisationPageState createState() => AuthorisationPageState();
 }
 
-class AuthorisationPageState extends State<AuthorisationPage> {
+class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
   final TextEditingController _phoneController = TextEditingController();
-  final ApiService _apiService = ApiService();
   String? _errorMessage;
 
   @override
@@ -20,7 +20,15 @@ class AuthorisationPageState extends State<AuthorisationPage> {
   Future<void> _requestCode() async {
     try {
       setState(() => _errorMessage = null);
-      await _apiService.requestCode(phone: _phoneController.text);
+      final authService = ref.read(authServiceProvider);
+      await authService.requestCode(phone: _phoneController.text);
+
+      if (mounted) {
+        Navigator.of(context).pushNamed(
+          '/verification_code',
+          arguments: _phoneController.text,
+        );
+      }
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     }

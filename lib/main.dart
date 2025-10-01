@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'pages/initial_page.dart';
+import 'pages/verification_code_page.dart';
+import 'pages/home_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,11 +22,11 @@ class MyApp extends StatelessWidget {
         scaffoldBackgroundColor: CupertinoColors.systemBackground,
       ),
       debugShowCheckedModeBanner: false,
-      home: Builder(
-        builder: (context) {
-          return InitialPage();
-        },
-      ),
+      routes: {
+        '/': (context) => InitialPage(),
+        '/verification_code': (context) => VerificationCodePage(),
+        '/home': (context) => HomePage(),
+      },
     );
   }
 }
