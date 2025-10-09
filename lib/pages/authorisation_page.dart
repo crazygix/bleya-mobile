@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import 'verification_code_page.dart';
 
 class AuthorisationPage extends ConsumerStatefulWidget {
   @override
@@ -24,9 +25,12 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
       await authService.requestCode(phone: _phoneController.text);
 
       if (mounted) {
-        Navigator.of(context).pushNamed(
-          '/verification_code',
-          arguments: _phoneController.text,
+        Navigator.of(context).push(
+          CupertinoPageRoute(
+            builder: (context) => VerificationCodePage(
+              phoneNumber: _phoneController.text,
+            ),
+          ),
         );
       }
     } catch (e) {
@@ -46,13 +50,17 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
           children: [
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
-              child: CupertinoTextField(
-                controller: _phoneController,
-                placeholder: 'Enter your phone number',
-                keyboardType: TextInputType.phone,
+              child: Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: CupertinoColors.systemGrey),
                   borderRadius: BorderRadius.circular(5),
+                ),
+                child: CupertinoTextField(
+                  controller: _phoneController,
+                  placeholder: 'Enter your phone number',
+                  keyboardType: TextInputType.phone,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                 ),
               ),
             ),

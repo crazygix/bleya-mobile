@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class _ApiUrls {
   static const String requestCode = '/auth/request-code';
@@ -8,8 +9,9 @@ class _ApiUrls {
 
 class AuthService {
   final Dio _dio;
+  final FlutterSecureStorage _secureStorage;
 
-  AuthService(this._dio);
+  AuthService(this._dio, this._secureStorage);
 
   Future<void> requestCode({required String phone}) async {
     try {
@@ -34,7 +36,10 @@ class AuthService {
           'code': code,
         },
       );
-      return response.data['token'];
+      final String token = response.data['token'];
+      // Persist token securely for subsequent sessions
+      await _secureStorage.write(key: 'auth_token', value: token);
+      return token;
     } on DioException catch (e) {
       throw _handleDioError(e);
     }

@@ -1,11 +1,21 @@
+import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'pages/initial_page.dart';
-import 'pages/verification_code_page.dart';
 import 'pages/home_page.dart';
+import 'config/environment.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Set environment based on build configuration
+  // In debug mode, use development environment
+  // In release mode, use production environment
+  EnvironmentConfig.setEnvironment(
+    kDebugMode ? Environment.dev : Environment.prod,
+  );
+
   runApp(ProviderScope(
     child: MyApp(),
   ));
@@ -14,17 +24,17 @@ void main() async {
 class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return CupertinoApp(
+    return MaterialApp(
       title: 'Bleya',
-      theme: const CupertinoThemeData(
+      theme: ThemeData(
         brightness: Brightness.light,
-        primaryColor: CupertinoColors.systemBlue,
+        colorScheme:
+            ColorScheme.fromSeed(seedColor: CupertinoColors.systemBlue),
         scaffoldBackgroundColor: CupertinoColors.systemBackground,
       ),
-      debugShowCheckedModeBanner: false,
+      debugShowCheckedModeBanner: kDebugMode, // Show banner only in debug mode
       routes: {
         '/': (context) => InitialPage(),
-        '/verification_code': (context) => VerificationCodePage(),
         '/home': (context) => HomePage(),
       },
     );

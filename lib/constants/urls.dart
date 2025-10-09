@@ -1,3 +1,5 @@
+import '../config/environment.dart';
+
 class ApiUrls {
-  static const String baseUrl = 'http://localhost:8080/api';
+  static String get baseUrl => EnvironmentConfig.baseUrl;
 }
