@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
@@ -44,7 +46,8 @@ final dioProvider = Provider<Dio>((ref) {
   // Set up lazily because path_provider is async
   () async {
     final dir = await getApplicationSupportDirectory();
-    final cookieJar = PersistCookieJar(storage: FileStorage('${dir.path}/cookies'));
+    final cookieJar =
+        PersistCookieJar(storage: FileStorage('${dir.path}/cookies'));
     dio.interceptors.add(CookieManager(cookieJar));
   }();
 
@@ -59,6 +62,11 @@ final dioProvider = Provider<Dio>((ref) {
     },
     onError: (error, handler) async {
       if (error.response?.statusCode == 401) {
+        // Skip refresh logic for refresh calls themselves
+        final reqExtra = error.requestOptions.extra;
+        if (reqExtra['refresh'] == true) {
+          return handler.next(error);
+        }
         // Prevent infinite loop by checking a custom flag
         final requestOptions = error.requestOptions;
         final alreadyRetried = requestOptions.extra['retried'] == true;
@@ -66,11 +74,22 @@ final dioProvider = Provider<Dio>((ref) {
         // Single-flight refresh guard
         Future<String?>? refreshing = _refreshingFuture;
         if (refreshing == null) {
-          final authService = ref.read(authServiceProvider);
           _refreshingCompleter = Completer<String?>();
           _refreshingFuture = _refreshingCompleter!.future;
           try {
-            final newToken = await authService.refresh();
+            // Perform refresh directly using the same Dio instance.
+            // Cookies (httpOnly refresh token) are attached by CookieManager.
+            final refreshResponse = await dio.post(
+              '/auth/refresh',
+              options: Options(
+                // Mark as refresh to avoid recursive handling
+                extra: {'refresh': true},
+              ),
+            );
+            final String newToken = refreshResponse.data['token'];
+            // Persist token securely
+            final storage = ref.read(secureStorageProvider);
+            await storage.write(key: 'auth_token', value: newToken);
             ref.read(tokenProvider.notifier).state = newToken;
             _refreshingCompleter?.complete(newToken);
           } catch (e) {
@@ -79,7 +98,8 @@ final dioProvider = Provider<Dio>((ref) {
             _refreshingCompleter = null;
             _refreshingFuture = null;
           }
-          refreshing = _refreshingFuture ?? Future.value(ref.read(tokenProvider));
+          refreshing =
+              _refreshingFuture ?? Future.value(ref.read(tokenProvider));
         }
 
         final token = await refreshing;
@@ -87,7 +107,8 @@ final dioProvider = Provider<Dio>((ref) {
           // Retry original request once with new token
           final newOptions = Options(
             method: requestOptions.method,
-            headers: Map<String, dynamic>.from(requestOptions.headers)..['Authorization'] = 'Bearer $token',
+            headers: Map<String, dynamic>.from(requestOptions.headers)
+              ..['Authorization'] = 'Bearer $token',
             responseType: requestOptions.responseType,
             contentType: requestOptions.contentType,
             followRedirects: requestOptions.followRedirects,
@@ -120,7 +141,6 @@ final dioProvider = Provider<Dio>((ref) {
 });
 
 // Single-flight refresh synchronization
-import 'dart:async';
 Completer<String?>? _refreshingCompleter;
 Future<String?>? _refreshingFuture;
 
