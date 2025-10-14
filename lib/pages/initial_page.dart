@@ -2,6 +2,7 @@ import 'package:bleya/pages/authorisation_page.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../services/auth_service.dart';
 
 class InitialPage extends ConsumerStatefulWidget {
   @override
@@ -25,6 +26,17 @@ class _InitialPageState extends ConsumerState<InitialPage> {
       ref.read(tokenProvider.notifier).state = existingToken;
       Navigator.of(context).pushReplacementNamed('/home');
     } else {
+      // Attempt silent refresh using httpOnly cookie
+      try {
+        final authService = ref.read(authServiceProvider);
+        final newToken = await authService.refresh();
+        ref.read(tokenProvider.notifier).state = newToken;
+        if (!mounted) return;
+        Navigator.of(context).pushReplacementNamed('/home');
+        return;
+      } catch (_) {
+        // ignore and show auth page
+      }
       setState(() {
         _checked = true;
       });

@@ -5,6 +5,8 @@ class _ApiUrls {
   static const String requestCode = '/auth/request-code';
   static const String verifyCode = '/auth/verify-code';
   static const String getMyInfo = '/auth/me';
+  static const String refresh = '/auth/refresh';
+  static const String logout = '/auth/logout';
 }
 
 class AuthService {
@@ -57,6 +59,25 @@ class AuthService {
     } on DioException catch (e) {
       throw _handleDioError(e);
     }
+  }
+
+  Future<String> refresh() async {
+    try {
+      // Cookies (httpOnly refreshToken) are sent by CookieManager
+      final response = await _dio.post(_ApiUrls.refresh);
+      final String token = response.data['token'];
+      await _secureStorage.write(key: 'auth_token', value: token);
+      return token;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<void> logout() async {
+    try {
+      await _dio.post(_ApiUrls.logout);
+    } catch (_) {}
+    await _secureStorage.delete(key: 'auth_token');
   }
 
   Exception _handleDioError(DioException e) {
