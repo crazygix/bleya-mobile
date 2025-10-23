@@ -35,9 +35,6 @@ final dioProvider = Provider<Dio>((ref) {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
-    // Enable credentials for httpOnly cookies
-    sendCookies: true,
-    receiveCookies: true,
   ));
 
   // Add logging interceptor
