@@ -12,6 +12,15 @@ import '../constants/urls.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
 
+// Initialize token from secure storage on app startup
+final tokenInitializerProvider = FutureProvider<void>((ref) async {
+  final storage = ref.read(secureStorageProvider);
+  final token = await storage.read(key: 'auth_token');
+  if (token != null && token.isNotEmpty) {
+    ref.read(tokenProvider.notifier).state = token;
+  }
+});
+
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   return const FlutterSecureStorage();
 });
@@ -26,6 +35,9 @@ final dioProvider = Provider<Dio>((ref) {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
     },
+    // Enable credentials for httpOnly cookies
+    sendCookies: true,
+    receiveCookies: true,
   ));
 
   // Add logging interceptor

@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'pages/initial_page.dart';
 import 'pages/home_page.dart';
 import 'config/environment.dart';
+import 'providers/auth_providers.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -21,9 +22,12 @@ void main() async {
   ));
 }
 
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    // Initialize token from secure storage
+    ref.watch(tokenInitializerProvider);
+
     return MaterialApp(
       title: 'Bleya',
       theme: ThemeData(
