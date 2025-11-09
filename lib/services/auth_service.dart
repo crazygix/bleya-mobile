@@ -47,14 +47,9 @@ class AuthService {
     }
   }
 
-  Future<Map<String, dynamic>> getMyInfo({required String token}) async {
+  Future<Map<String, dynamic>> getMyInfo() async {
     try {
-      final response = await _dio.get(
-        _ApiUrls.getMyInfo,
-        options: Options(
-          headers: {'Authorization': 'Bearer $token'},
-        ),
-      );
+      final response = await _dio.get(_ApiUrls.getMyInfo);
       return response.data;
     } on DioException catch (e) {
       throw _handleDioError(e);
