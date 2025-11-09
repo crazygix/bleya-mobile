@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
-import '../providers/auth_providers.dart';
-import '../services/socket_service.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final String roomId;
@@ -21,85 +19,36 @@ class ChatRoomPage extends ConsumerStatefulWidget {
 class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  SocketService? _socketService;
+  int _previousMessageCount = 0;
+  ProviderSubscription<List<Message>>? _messagesSubscription;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _setupSocketListeners();
-      _joinRoom();
-    });
-  }
+      // Initialize controller - it will automatically set up socket listeners and join room
+      ref.read(chatRoomControllerProvider(widget.roomId));
 
-  void _setupSocketListeners() {
-    _socketService = ref.read(socketServiceProvider);
-    final socketService = _socketService!;
-
-    socketService.onRoomJoined((data) {
-      if (!mounted) return;
-      final messages =
-          (data['messages'] as List).map((m) => Message.fromJson(m)).toList();
-      ref.read(roomMessagesProvider(widget.roomId).notifier).state = messages;
-      _scrollToBottom();
-    });
-
-    socketService.onNewMessage((data) {
-      if (!mounted) return;
-      final message = Message.fromJson(data);
-      if (message.roomId == widget.roomId) {
-        ref.read(roomMessagesProvider(widget.roomId).notifier).state = [
-          ...ref.read(roomMessagesProvider(widget.roomId)),
-          message,
-        ];
-        _scrollToBottom();
-      }
-    });
-
-    socketService.onError((data) {
-      if (!mounted) return;
-      final errorMsg = data['message'] ?? 'An error occurred';
-      print('Socket error: $errorMsg');
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMsg)),
-      );
-
-      // If "Not in a room" error, try to rejoin
-      if (errorMsg.contains('Not in a room')) {
-        print('Attempting to rejoin room...');
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (mounted) {
-            _joinRoom();
+      // Listen to messages to auto-scroll
+      _messagesSubscription = ref.listenManual<List<Message>>(
+        roomMessagesProvider(widget.roomId),
+        (previous, next) {
+          if (next.length > _previousMessageCount) {
+            _scrollToBottom();
           }
-        });
-      }
+          _previousMessageCount = next.length;
+        },
+      );
     });
-  }
-
-  void _joinRoom() {
-    if (!mounted) return;
-    _socketService ??= ref.read(socketServiceProvider);
-    // SocketService.joinRoom already handles waiting for connection,
-    // so we can call it directly without duplicating the connection wait logic
-    _socketService!.joinRoom(widget.roomId);
   }
 
   void _sendMessage() {
-    if (!mounted) return;
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    _socketService ??= ref.read(socketServiceProvider);
-    final socket = _socketService!.socket;
-
-    if (socket == null || !socket.connected) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Not connected. Please wait...')),
-      );
-      return;
-    }
-
-    _socketService!.sendMessage(text);
+    final controller =
+        ref.read(chatRoomControllerProvider(widget.roomId).notifier);
+    controller.sendMessage(text);
     _messageController.clear();
   }
 
@@ -117,11 +66,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   @override
   void dispose() {
-    // Use stored reference instead of ref.read to avoid disposed widget error
-    _socketService?.off('room_joined');
-    _socketService?.off('new_message');
-    _socketService?.off('error');
-    _socketService?.leaveRoom();
+    _messagesSubscription?.close();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();

@@ -1,7 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
-import '../constants/urls.dart';
 import 'auth_providers.dart';
+import '../services/socket_service.dart';
 
 class Room {
   final String id;
@@ -104,3 +104,91 @@ final joinedRoomsProvider = StateProvider<List<Room>>((ref) => []);
 // Provider for current room messages
 final roomMessagesProvider =
     StateProvider.family<List<Message>, String>((ref, roomId) => []);
+
+// ChatRoomController manages socket listeners and room operations
+class ChatRoomController extends StateNotifier<AsyncValue<void>> {
+  final Ref ref;
+  final String roomId;
+  final SocketService socketService;
+  bool _isInitialized = false;
+
+  ChatRoomController(this.ref, this.roomId, this.socketService)
+      : super(const AsyncValue.data(null)) {
+    _initialize();
+  }
+
+  void _initialize() {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    _setupSocketListeners();
+    _joinRoom();
+  }
+
+  void _setupSocketListeners() {
+    socketService.onRoomJoined((data) {
+      final messages =
+          (data['messages'] as List).map((m) => Message.fromJson(m)).toList();
+      ref.read(roomMessagesProvider(roomId).notifier).state = messages;
+    });
+
+    socketService.onNewMessage((data) {
+      final message = Message.fromJson(data);
+      if (message.roomId == roomId) {
+        final currentMessages = ref.read(roomMessagesProvider(roomId));
+        ref.read(roomMessagesProvider(roomId).notifier).state = [
+          ...currentMessages,
+          message,
+        ];
+      }
+    });
+
+    socketService.onError((data) {
+      final errorMsg = data['message'] ?? 'An error occurred';
+      print('Socket error: $errorMsg');
+
+      // If "Not in a room" error, try to rejoin
+      if (errorMsg.contains('Not in a room')) {
+        print('Attempting to rejoin room...');
+        Future.delayed(const Duration(milliseconds: 500), () {
+          _joinRoom();
+        });
+      }
+    });
+  }
+
+  void _joinRoom() {
+    socketService.joinRoom(roomId);
+  }
+
+  void sendMessage(String text) {
+    if (text.trim().isEmpty) return;
+
+    final socket = socketService.socket;
+    if (socket == null || !socket.connected) {
+      print('Not connected. Cannot send message.');
+      return;
+    }
+
+    socketService.sendMessage(text);
+  }
+
+  void dispose() {
+    socketService.off('room_joined');
+    socketService.off('new_message');
+    socketService.off('error');
+    socketService.leaveRoom();
+    super.dispose();
+  }
+}
+
+// Provider for ChatRoomController (family provider for each room)
+final chatRoomControllerProvider =
+    StateNotifierProvider.family<ChatRoomController, AsyncValue<void>, String>(
+  (ref, roomId) {
+    final socketService = ref.read(socketServiceProvider);
+    final controller = ChatRoomController(ref, roomId, socketService);
+    ref.onDispose(() => controller.dispose());
+    return controller;
+  },
+);
