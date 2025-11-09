@@ -6,6 +6,7 @@ import 'pages/initial_page.dart';
 import 'pages/home_page.dart';
 import 'config/environment.dart';
 import 'providers/auth_providers.dart';
+import 'utils/navigation.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -29,6 +30,7 @@ class MyApp extends ConsumerWidget {
     ref.watch(tokenInitializerProvider);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'Bleya',
       theme: ThemeData(
         brightness: Brightness.light,

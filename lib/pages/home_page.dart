@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'chats_page.dart';
 import 'settings_page.dart';
+import 'join_room_dialog.dart';
 
 class HomePage extends StatelessWidget {
   @override
@@ -10,6 +11,17 @@ class HomePage extends StatelessWidget {
       child: Scaffold(
         appBar: AppBar(
           title: Text('Bleya'),
+          actions: [
+            IconButton(
+              icon: Icon(Icons.add),
+              onPressed: () {
+                showDialog(
+                  context: context,
+                  builder: (context) => JoinRoomDialog(),
+                );
+              },
+            ),
+          ],
         ),
         body: SafeArea(
           child: TabBarView(
@@ -22,8 +34,8 @@ class HomePage extends StatelessWidget {
         bottomNavigationBar: SafeArea(
           child: TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.home), text: 'Home'),
-              Tab(icon: Icon(Icons.favorite), text: 'Favorites'),
+              Tab(icon: Icon(Icons.chat), text: 'Chats'),
+              Tab(icon: Icon(Icons.settings), text: 'Settings'),
             ],
           ),
         ),

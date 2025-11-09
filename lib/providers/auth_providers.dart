@@ -8,7 +8,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/auth_service.dart';
+import '../services/socket_service.dart';
 import '../constants/urls.dart';
+import '../utils/navigation.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
 
@@ -74,11 +76,28 @@ final dioProvider = Provider<Dio>((ref) {
         // Skip refresh logic for refresh calls themselves
         final reqExtra = error.requestOptions.extra;
         if (reqExtra['refresh'] == true) {
+          // Refresh failed - logout user and navigate to auth screen
+          await _logoutUser(ref);
           return handler.next(error);
         }
+
+        // Check if token exists - if not, logout immediately
+        final currentToken = ref.read(tokenProvider);
+        if (currentToken == null || currentToken.isEmpty) {
+          // No token at all - logout immediately
+          await _logoutUser(ref);
+          return handler.next(error);
+        }
+
         // Prevent infinite loop by checking a custom flag
         final requestOptions = error.requestOptions;
         final alreadyRetried = requestOptions.extra['retried'] == true;
+
+        if (alreadyRetried) {
+          // Already retried once, logout and don't retry again
+          await _logoutUser(ref);
+          return handler.next(error);
+        }
 
         // Single-flight refresh guard
         Future<String?>? refreshing = _refreshingFuture;
@@ -102,6 +121,9 @@ final dioProvider = Provider<Dio>((ref) {
             ref.read(tokenProvider.notifier).state = newToken;
             _refreshingCompleter?.complete(newToken);
           } catch (e) {
+            print('Token refresh failed: $e');
+            // Refresh failed - logout user
+            await _logoutUser(ref);
             _refreshingCompleter?.complete(null);
           } finally {
             _refreshingCompleter = null;
@@ -124,8 +146,8 @@ final dioProvider = Provider<Dio>((ref) {
             validateStatus: requestOptions.validateStatus,
             sendTimeout: requestOptions.sendTimeout,
             receiveTimeout: requestOptions.receiveTimeout,
+            extra: {'retried': true},
           );
-          requestOptions.extra['retried'] = true;
           try {
             final response = await dio.request(
               requestOptions.path,
@@ -138,8 +160,15 @@ final dioProvider = Provider<Dio>((ref) {
             );
             return handler.resolve(response);
           } catch (e) {
-            // fall through to original error handler
+            // If retry also fails, logout and don't retry again
+            print('Retry after refresh also failed: $e');
+            await _logoutUser(ref);
+            return handler.next(error);
           }
+        } else {
+          // Refresh failed or already retried, logout
+          await _logoutUser(ref);
+          return handler.next(error);
         }
       }
       return handler.next(error);
@@ -153,22 +182,69 @@ final dioProvider = Provider<Dio>((ref) {
 Completer<String?>? _refreshingCompleter;
 Future<String?>? _refreshingFuture;
 
+// Helper function to logout user and navigate to auth screen
+Future<void> _logoutUser(Ref ref) async {
+  try {
+    // Clear token
+    ref.read(tokenProvider.notifier).state = null;
+
+    // Clear secure storage
+    final storage = ref.read(secureStorageProvider);
+    await storage.delete(key: 'auth_token');
+
+    // Disconnect socket
+    final socketService = ref.read(socketServiceProvider);
+    socketService.disconnect();
+
+    // Navigate to authorization screen
+    navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
+  } catch (e) {
+    print('Error during logout: $e');
+  }
+}
+
 final authServiceProvider = Provider<AuthService>((ref) {
   final dio = ref.watch(dioProvider);
   final storage = ref.watch(secureStorageProvider);
   return AuthService(dio, storage);
 });
 
+final socketServiceProvider = Provider<SocketService>((ref) {
+  final service = SocketService();
+
+  // Connect socket when token is available
+  ref.listen(tokenProvider, (previous, next) {
+    if (next != null && next.isNotEmpty) {
+      service.connect(next);
+    } else {
+      service.disconnect();
+    }
+  });
+
+  // Initial connection if token exists
+  final token = ref.read(tokenProvider);
+  if (token != null && token.isNotEmpty) {
+    service.connect(token);
+  }
+
+  // Cleanup on dispose
+  ref.onDispose(() {
+    service.disconnect();
+  });
+
+  return service;
+});
+
 // Bootstrap provider to check authentication status on app startup
 final bootstrapProvider = FutureProvider<bool>((ref) async {
   final storage = ref.read(secureStorageProvider);
   final existingToken = await storage.read(key: 'auth_token');
-  
+
   if (existingToken != null && existingToken.isNotEmpty) {
     ref.read(tokenProvider.notifier).state = existingToken;
     return true;
   }
-  
+
   // Attempt silent refresh using httpOnly cookie
   try {
     final authService = ref.read(authServiceProvider);
