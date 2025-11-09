@@ -35,12 +35,11 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   void _setupSocketListeners() {
     _socketService = ref.read(socketServiceProvider);
     final socketService = _socketService!;
-    
+
     socketService.onRoomJoined((data) {
       if (!mounted) return;
-      final messages = (data['messages'] as List)
-          .map((m) => Message.fromJson(m))
-          .toList();
+      final messages =
+          (data['messages'] as List).map((m) => Message.fromJson(m)).toList();
       ref.read(roomMessagesProvider(widget.roomId).notifier).state = messages;
       _scrollToBottom();
     });
@@ -64,7 +63,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(errorMsg)),
       );
-      
+
       // If "Not in a room" error, try to rejoin
       if (errorMsg.contains('Not in a room')) {
         print('Attempting to rejoin room...');
@@ -80,19 +79,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   void _joinRoom() {
     if (!mounted) return;
     _socketService ??= ref.read(socketServiceProvider);
-    final socket = _socketService!.socket;
-    
-    if (socket == null || !socket.connected) {
-      print('Socket not ready, waiting for connection...');
-      // Wait for socket to connect
-      socket?.once('connect', (_) {
-        if (!mounted) return;
-        print('Socket connected, joining room now');
-        _socketService!.joinRoom(widget.roomId);
-      });
-    } else {
-      _socketService!.joinRoom(widget.roomId);
-    }
+    // SocketService.joinRoom already handles waiting for connection,
+    // so we can call it directly without duplicating the connection wait logic
+    _socketService!.joinRoom(widget.roomId);
   }
 
   void _sendMessage() {
@@ -102,14 +91,14 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
     _socketService ??= ref.read(socketServiceProvider);
     final socket = _socketService!.socket;
-    
+
     if (socket == null || !socket.connected) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Not connected. Please wait...')),
       );
       return;
     }
-    
+
     _socketService!.sendMessage(text);
     _messageController.clear();
   }
@@ -232,4 +221,3 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     );
   }
 }
-
