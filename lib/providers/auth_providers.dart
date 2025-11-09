@@ -158,3 +158,24 @@ final authServiceProvider = Provider<AuthService>((ref) {
   final storage = ref.watch(secureStorageProvider);
   return AuthService(dio, storage);
 });
+
+// Bootstrap provider to check authentication status on app startup
+final bootstrapProvider = FutureProvider<bool>((ref) async {
+  final storage = ref.read(secureStorageProvider);
+  final existingToken = await storage.read(key: 'auth_token');
+  
+  if (existingToken != null && existingToken.isNotEmpty) {
+    ref.read(tokenProvider.notifier).state = existingToken;
+    return true;
+  }
+  
+  // Attempt silent refresh using httpOnly cookie
+  try {
+    final authService = ref.read(authServiceProvider);
+    final newToken = await authService.refresh();
+    ref.read(tokenProvider.notifier).state = newToken;
+    return true;
+  } catch (_) {
+    return false;
+  }
+});

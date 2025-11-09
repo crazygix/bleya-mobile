@@ -9,46 +9,35 @@ class InitialPage extends ConsumerStatefulWidget {
 }
 
 class _InitialPageState extends ConsumerState<InitialPage> {
-  bool _checked = false;
-
   @override
   void initState() {
     super.initState();
-    _bootstrap();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkAuthAndNavigate();
+    });
   }
 
-  Future<void> _bootstrap() async {
-    final storage = ref.read(secureStorageProvider);
-    final existingToken = await storage.read(key: 'auth_token');
+  Future<void> _checkAuthAndNavigate() async {
+    final bootstrap = ref.read(bootstrapProvider.future);
+    final isAuthenticated = await bootstrap;
+    
     if (!mounted) return;
-    if (existingToken != null && existingToken.isNotEmpty) {
-      ref.read(tokenProvider.notifier).state = existingToken;
+    
+    if (isAuthenticated) {
       Navigator.of(context).pushReplacementNamed('/home');
-    } else {
-      // Attempt silent refresh using httpOnly cookie
-      try {
-        final authService = ref.read(authServiceProvider);
-        final newToken = await authService.refresh();
-        ref.read(tokenProvider.notifier).state = newToken;
-        if (!mounted) return;
-        Navigator.of(context).pushReplacementNamed('/home');
-        return;
-      } catch (_) {
-        // ignore and show auth page
-      }
-      setState(() {
-        _checked = true;
-      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    if (!_checked) {
-      return const Scaffold(
+    final bootstrapAsync = ref.watch(bootstrapProvider);
+    
+    return bootstrapAsync.when(
+      data: (isAuthenticated) => AuthorisationPage(),
+      loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
-      );
-    }
-    return AuthorisationPage();
+      ),
+      error: (_, __) => AuthorisationPage(),
+    );
   }
 }
