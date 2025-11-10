@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_providers.dart';
-import '../config/environment.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -78,10 +77,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     if (_selectedImage != null) {
       return _selectedImage!.path;
     }
-    if (_profileImageUrl != null && _profileImageUrl!.isNotEmpty) {
-      // Construct full URL - profileImageUrl is like "/uploads/profiles/..."
-      final baseUrl = EnvironmentConfig.baseUrl.replaceAll('/api', '');
-      return '$baseUrl$_profileImageUrl';
+    if (_profileImageUrl != null &&
+        _profileImageUrl!.isNotEmpty &&
+        _profileImageUrl!.startsWith('https://')) {
+      return _profileImageUrl;
     }
     return null;
   }
@@ -170,19 +169,32 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                   onTap: _pickImage,
                   child: Stack(
                     children: [
-                      CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.grey[300],
-                        backgroundImage: _getImageUrl() != null
-                            ? (_selectedImage != null
-                                ? FileImage(_selectedImage!)
-                                : NetworkImage(_getImageUrl()!)
-                                    as ImageProvider)
-                            : null,
-                        child: _getImageUrl() == null
-                            ? const Icon(Icons.person,
-                                size: 60, color: Colors.grey)
-                            : null,
+                      Builder(
+                        builder: (context) {
+                          final imageUrl = _getImageUrl();
+                          final hasImage = imageUrl != null;
+
+                          return CircleAvatar(
+                            radius: 60,
+                            backgroundColor: Colors.grey[300],
+                            backgroundImage: hasImage
+                                ? (_selectedImage != null
+                                    ? FileImage(_selectedImage!)
+                                    : NetworkImage(imageUrl) as ImageProvider)
+                                : null,
+                            onBackgroundImageError: hasImage
+                                ? (exception, stackTrace) {
+                                    // Handle image loading errors (e.g., network issues, invalid URL)
+                                    print(
+                                        'Error loading profile image: $exception');
+                                  }
+                                : null,
+                            child: !hasImage
+                                ? const Icon(Icons.person,
+                                    size: 60, color: Colors.grey)
+                                : null,
+                          );
+                        },
                       ),
                       Positioned(
                         bottom: 0,
