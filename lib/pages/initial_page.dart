@@ -33,7 +33,13 @@ class _InitialPageState extends ConsumerState<InitialPage> {
     final bootstrapAsync = ref.watch(bootstrapProvider);
     
     return bootstrapAsync.when(
-      data: (isAuthenticated) => AuthorisationPage(),
+      data: (isAuthenticated) {
+        // If authenticated, show loading while navigating (navigation happens in _checkAuthAndNavigate)
+        // If not authenticated, show authorization page
+        return isAuthenticated 
+          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+          : AuthorisationPage();
+      },
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),

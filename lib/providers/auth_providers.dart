@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../services/auth_service.dart';
 import '../services/socket_service.dart';
+import '../services/user_service.dart';
 import '../constants/urls.dart';
 import '../utils/navigation.dart';
 
@@ -26,6 +27,32 @@ final tokenInitializerProvider = FutureProvider<void>((ref) async {
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   return const FlutterSecureStorage();
 });
+
+// Cookie jar singleton to ensure it's initialized before use
+PersistCookieJar? _cookieJar;
+CookieManager? _cookieManager;
+Completer<void>? _cookieManagerInitCompleter;
+
+Future<void> _ensureCookieManagerInitialized(Dio dio) async {
+  if (_cookieManager != null) return;
+
+  if (_cookieManagerInitCompleter != null) {
+    return _cookieManagerInitCompleter!.future;
+  }
+
+  _cookieManagerInitCompleter = Completer<void>();
+  try {
+    final dir = await getApplicationSupportDirectory();
+    _cookieJar = PersistCookieJar(storage: FileStorage('${dir.path}/cookies'));
+    _cookieManager = CookieManager(_cookieJar!);
+    dio.interceptors.add(_cookieManager!);
+    _cookieManagerInitCompleter!.complete();
+  } catch (e) {
+    _cookieManagerInitCompleter!.completeError(e);
+    _cookieManagerInitCompleter = null;
+    rethrow;
+  }
+}
 
 final dioProvider = Provider<Dio>((ref) {
   final dio = Dio(BaseOptions(
@@ -53,18 +80,15 @@ final dioProvider = Provider<Dio>((ref) {
     },
   ));
 
-  // Cookie manager with persistent cookie jar (for httpOnly refresh token)
-  // Set up lazily because path_provider is async
-  () async {
-    final dir = await getApplicationSupportDirectory();
-    final cookieJar =
-        PersistCookieJar(storage: FileStorage('${dir.path}/cookies'));
-    dio.interceptors.add(CookieManager(cookieJar));
-  }();
+  // Initialize cookie manager eagerly (non-blocking)
+  _ensureCookieManagerInitialized(dio);
 
   // Add auth interceptor to inject Authorization header when token exists
   dio.interceptors.add(InterceptorsWrapper(
-    onRequest: (options, handler) {
+    onRequest: (options, handler) async {
+      // Ensure cookie manager is initialized before making requests
+      await _ensureCookieManagerInitialized(dio);
+
       final token = ref.read(tokenProvider);
       if (token != null && token.isNotEmpty) {
         options.headers['Authorization'] = 'Bearer $token';
@@ -73,6 +97,11 @@ final dioProvider = Provider<Dio>((ref) {
     },
     onError: (error, handler) async {
       if (error.response?.statusCode == 401) {
+        // Don't attempt refresh if we're already logging out
+        if (_isLoggingOut) {
+          return handler.next(error);
+        }
+
         // Skip refresh logic for refresh calls themselves
         final reqExtra = error.requestOptions.extra;
         if (reqExtra['refresh'] == true) {
@@ -103,7 +132,8 @@ final dioProvider = Provider<Dio>((ref) {
         Future<String?>? refreshing = _refreshingFuture;
         if (refreshing == null) {
           _refreshingCompleter = Completer<String?>();
-          _refreshingFuture = _refreshingCompleter!.future;
+          refreshing = _refreshingCompleter!.future;
+          _refreshingFuture = refreshing;
           try {
             // Perform refresh directly using the same Dio instance.
             // Cookies (httpOnly refresh token) are attached by CookieManager.
@@ -129,8 +159,6 @@ final dioProvider = Provider<Dio>((ref) {
             _refreshingCompleter = null;
             _refreshingFuture = null;
           }
-          refreshing =
-              _refreshingFuture ?? Future.value(ref.read(tokenProvider));
         }
 
         final token = await refreshing;
@@ -182,8 +210,15 @@ final dioProvider = Provider<Dio>((ref) {
 Completer<String?>? _refreshingCompleter;
 Future<String?>? _refreshingFuture;
 
+// Flag to prevent bootstrap refresh loop
+bool _isLoggingOut = false;
+
 // Helper function to logout user and navigate to auth screen
 Future<void> _logoutUser(Ref ref) async {
+  // Prevent multiple simultaneous logout calls
+  if (_isLoggingOut) return;
+  _isLoggingOut = true;
+
   try {
     // Clear token
     ref.read(tokenProvider.notifier).state = null;
@@ -196,10 +231,15 @@ Future<void> _logoutUser(Ref ref) async {
     final socketService = ref.read(socketServiceProvider);
     socketService.disconnect();
 
-    // Navigate to authorization screen
+    // Navigate to authorization screen (InitialPage will show AuthorisationPage when not authenticated)
     navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
+
+    // Don't invalidate bootstrapProvider here - it causes a loop
+    // The bootstrap will naturally re-check when the app restarts or navigates
   } catch (e) {
     print('Error during logout: $e');
+  } finally {
+    _isLoggingOut = false;
   }
 }
 
@@ -207,6 +247,11 @@ final authServiceProvider = Provider<AuthService>((ref) {
   final dio = ref.watch(dioProvider);
   final storage = ref.watch(secureStorageProvider);
   return AuthService(dio, storage);
+});
+
+final userServiceProvider = Provider<UserService>((ref) {
+  final dio = ref.watch(dioProvider);
+  return UserService(dio);
 });
 
 final socketServiceProvider = Provider<SocketService>((ref) {
@@ -237,6 +282,11 @@ final socketServiceProvider = Provider<SocketService>((ref) {
 
 // Bootstrap provider to check authentication status on app startup
 final bootstrapProvider = FutureProvider<bool>((ref) async {
+  // Don't attempt refresh if we're in the middle of logging out
+  if (_isLoggingOut) {
+    return false;
+  }
+
   final storage = ref.read(secureStorageProvider);
   final existingToken = await storage.read(key: 'auth_token');
 
@@ -246,12 +296,17 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
   }
 
   // Attempt silent refresh using httpOnly cookie
-  try {
-    final authService = ref.read(authServiceProvider);
-    final newToken = await authService.refresh();
-    ref.read(tokenProvider.notifier).state = newToken;
-    return true;
-  } catch (_) {
-    return false;
+  // Only if we're not logging out
+  if (!_isLoggingOut) {
+    try {
+      final authService = ref.read(authServiceProvider);
+      final newToken = await authService.refresh();
+      ref.read(tokenProvider.notifier).state = newToken;
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
+
+  return false;
 });

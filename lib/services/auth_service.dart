@@ -59,7 +59,13 @@ class AuthService {
   Future<String> refresh() async {
     try {
       // Cookies (httpOnly refreshToken) are sent by CookieManager
-      final response = await _dio.post(_ApiUrls.refresh);
+      // Mark as refresh to prevent interceptor from retrying on 401
+      final response = await _dio.post(
+        _ApiUrls.refresh,
+        options: Options(
+          extra: {'refresh': true},
+        ),
+      );
       final String token = response.data['token'];
       await _secureStorage.write(key: 'auth_token', value: token);
       return token;
