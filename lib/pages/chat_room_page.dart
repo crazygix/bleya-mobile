@@ -7,10 +7,10 @@ class ChatRoomPage extends ConsumerStatefulWidget {
   final String roomName;
 
   const ChatRoomPage({
-    Key? key,
+    super.key,
     required this.roomId,
     required this.roomName,
-  }) : super(key: key);
+  });
 
   @override
   ConsumerState<ChatRoomPage> createState() => _ChatRoomPageState();
@@ -128,7 +128,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withOpacity(0.2),
+                  color: Colors.grey.withValues(alpha: 0.2),
                   spreadRadius: 1,
                   blurRadius: 5,
                 ),

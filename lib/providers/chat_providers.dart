@@ -173,6 +173,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
     socketService.sendMessage(text);
   }
 
+  @override
   void dispose() {
     socketService.off('room_joined');
     socketService.off('new_message');

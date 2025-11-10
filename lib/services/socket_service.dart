@@ -1,11 +1,11 @@
-import 'package:socket_io_client/socket_io_client.dart' as IO;
+import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
 
 class SocketService {
-  IO.Socket? _socket;
+  io.Socket? _socket;
   String? _currentRoomId;
 
-  IO.Socket? get socket => _socket;
+  io.Socket? get socket => _socket;
 
   void connect(String token) {
     if (_socket?.connected == true) {
@@ -16,9 +16,9 @@ class SocketService {
     final baseUrl = EnvironmentConfig.baseUrl.replaceAll('/api', '');
     final serverUrl = baseUrl;
 
-    _socket = IO.io(
+    _socket = io.io(
       serverUrl,
-      IO.OptionBuilder()
+      io.OptionBuilder()
           .setTransports(['websocket'])
           .setAuth({'token': token})
           .setExtraHeaders({'Authorization': 'Bearer $token'})
