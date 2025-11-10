@@ -292,17 +292,55 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
 
   if (existingToken != null && existingToken.isNotEmpty) {
     ref.read(tokenProvider.notifier).state = existingToken;
-    return true;
+
+    // Validate the token by making a test API call
+    try {
+      final userService = ref.read(userServiceProvider);
+      await userService.getProfile();
+      // Token is valid
+      return true;
+    } catch (e) {
+      // Token is invalid, try to refresh
+      // Attempt silent refresh using httpOnly cookie
+      if (!_isLoggingOut) {
+        try {
+          final authService = ref.read(authServiceProvider);
+          final newToken = await authService.refresh();
+          ref.read(tokenProvider.notifier).state = newToken;
+          // Validate the new token
+          try {
+            final userService = ref.read(userServiceProvider);
+            await userService.getProfile();
+            return true;
+          } catch (_) {
+            // New token is also invalid
+            return false;
+          }
+        } catch (_) {
+          // Refresh failed
+          return false;
+        }
+      }
+      return false;
+    }
   }
 
-  // Attempt silent refresh using httpOnly cookie
+  // No token exists, attempt silent refresh using httpOnly cookie
   // Only if we're not logging out
   if (!_isLoggingOut) {
     try {
       final authService = ref.read(authServiceProvider);
       final newToken = await authService.refresh();
       ref.read(tokenProvider.notifier).state = newToken;
-      return true;
+      // Validate the new token
+      try {
+        final userService = ref.read(userServiceProvider);
+        await userService.getProfile();
+        return true;
+      } catch (_) {
+        // New token is invalid
+        return false;
+      }
     } catch (_) {
       return false;
     }

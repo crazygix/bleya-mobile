@@ -1,12 +1,30 @@
 {
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Flutter: Run",
-            "type": "dart",
-            "request": "launch",
-            "program": "lib/main.dart",
-            "cwd": "${workspaceFolder}"
-        }
-    ]
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Flutter: Run (Dev)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLUTTER_ENV=dev"
+      ]
+    },
+    {
+      "name": "Flutter: Run (Prod)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "args": [
+        "--dart-define=FLUTTER_ENV=prod"
+      ]
+    },
+    {
+      "name": "Flutter: Run (Release Mode - Prod)",
+      "type": "dart",
+      "request": "launch",
+      "program": "lib/main.dart",
+      "flutterMode": "release"
+    }
+  ]
 }

@@ -11,12 +11,14 @@ import 'utils/navigation.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Set environment based on build configuration
-  // In debug mode, use development environment
-  // In release mode, use production environment
-  EnvironmentConfig.setEnvironment(
-    kDebugMode ? Environment.dev : Environment.prod,
-  );
+  // Set environment based on build configuration or environment variable
+  // Check for explicit environment variable first, then fall back to build mode
+  const envOverride = String.fromEnvironment('FLUTTER_ENV', defaultValue: '');
+  final environment = envOverride == 'prod' 
+      ? Environment.prod
+      : (kDebugMode ? Environment.dev : Environment.prod);
+  
+  EnvironmentConfig.setEnvironment(environment);
 
   runApp(ProviderScope(
     child: MyApp(),
