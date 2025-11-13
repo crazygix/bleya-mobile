@@ -101,7 +101,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                       const SizedBox(height: 24),
                       // Username
                       Text(
-                        _userData!['username']?.toString().isNotEmpty == true
+                        (_userData!['username']?.toString() ?? '').isNotEmpty
                             ? _userData!['username']
                             : 'No username',
                         style:
