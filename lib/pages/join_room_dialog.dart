@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dio/dio.dart';
 import '../providers/chat_providers.dart';
+import '../providers/auth_providers.dart';
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   @override
@@ -8,6 +10,8 @@ class JoinRoomDialog extends ConsumerStatefulWidget {
 }
 
 class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
+  bool _isJoining = false;
+
   @override
   void initState() {
     super.initState();
@@ -15,6 +19,57 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(availableRoomsProvider);
     });
+  }
+
+  Future<void> _joinRoom(Room room) async {
+    if (_isJoining) return;
+
+    setState(() => _isJoining = true);
+
+    try {
+      final dio = ref.read(dioProvider);
+      await dio.post(
+        '/rooms/${room.id}/join',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      // Update local state
+      final notifier = ref.read(joinedRoomsProvider.notifier);
+      await notifier.addRoom(room);
+
+      // Refresh joined rooms from backend
+      await notifier.refresh();
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Successfully joined ${room.name}')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isJoining = false);
+      if (mounted) {
+        String errorMessage = 'Failed to join room';
+        if (e is DioException && e.response != null) {
+          final errorData = e.response?.data;
+          if (errorData is Map && errorData['error'] != null) {
+            errorMessage = errorData['error'];
+          }
+        } else if (e is Exception) {
+          errorMessage = e.toString().replaceAll('Exception: ', '');
+        }
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMessage),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -58,8 +113,24 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                       .toList();
 
                   if (availableRooms.isEmpty) {
-                    return const Center(
-                      child: Text('You have joined all available rooms'),
+                    return Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('You have joined all available rooms'),
+                          if (joinedRooms.length >= 5)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: Text(
+                                'You have reached the limit of 5 rooms',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey[600],
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
                     );
                   }
 
@@ -68,19 +139,21 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                     itemCount: availableRooms.length,
                     itemBuilder: (context, index) {
                       final room = availableRooms[index];
+                      final isJoiningThis = _isJoining;
                       return ListTile(
                         leading: CircleAvatar(
                           child: Text(room.name[0].toUpperCase()),
                         ),
                         title: Text(room.name),
-                        onTap: () {
-                          // Add room to joined rooms
-                          ref.read(joinedRoomsProvider.notifier).state = [
-                            ...joinedRooms,
-                            room,
-                          ];
-                          Navigator.pop(context);
-                        },
+                        trailing: isJoiningThis
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : null,
+                        onTap: isJoiningThis ? null : () => _joinRoom(room),
                       );
                     },
                   );

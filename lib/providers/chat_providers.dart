@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'auth_providers.dart';
@@ -66,7 +67,8 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
     print('Fetching rooms from: ${dio.options.baseUrl}/rooms');
     print('Token available: ${token != null && token.isNotEmpty}');
     if (token != null && token.isNotEmpty) {
-      print('Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
+      print(
+          'Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
     }
 
     // Let the request go through - interceptor will handle token and 401
@@ -101,8 +103,130 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
   }
 });
 
-// Provider to track joined rooms (stored in memory for now)
-final joinedRoomsProvider = StateProvider<List<Room>>((ref) => []);
+// Provider to fetch joined rooms from backend
+final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
+  try {
+    final dio = ref.read(dioProvider);
+    final token = ref.read(tokenProvider);
+
+    if (token == null || token.isEmpty) {
+      return [];
+    }
+
+    final response = await dio.get(
+      '/rooms/joined',
+      options: Options(
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+      ),
+    );
+
+    if (response.data is! List) {
+      throw Exception('Invalid response format: expected List');
+    }
+
+    final List<dynamic> roomsJson = response.data;
+    final rooms = roomsJson.map((json) => Room.fromJson(json)).toList();
+
+    // Save to secure storage for offline access
+    final storage = ref.read(secureStorageProvider);
+    final roomsJsonString = jsonEncode(roomsJson);
+    await storage.write(key: 'joined_rooms', value: roomsJsonString);
+
+    return rooms;
+  } catch (e) {
+    print('Error fetching joined rooms: $e');
+    // Try to load from secure storage as fallback
+    try {
+      final storage = ref.read(secureStorageProvider);
+      final roomsJsonString = await storage.read(key: 'joined_rooms');
+      if (roomsJsonString != null) {
+        final List<dynamic> roomsJson = jsonDecode(roomsJsonString);
+        return roomsJson.map((json) => Room.fromJson(json)).toList();
+      }
+    } catch (e2) {
+      print('Error loading joined rooms from storage: $e2');
+    }
+    return [];
+  }
+});
+
+// Provider to track joined rooms (synced with backend)
+final joinedRoomsProvider =
+    StateNotifierProvider<JoinedRoomsNotifier, List<Room>>((ref) {
+  final notifier = JoinedRoomsNotifier(ref);
+  // Initialize from storage first for immediate display
+  notifier.loadFromStorage();
+  // Then sync with backend
+  ref.listen(joinedRoomsFutureProvider, (previous, next) {
+    next.whenData((rooms) {
+      notifier.setRooms(rooms);
+    });
+  });
+  return notifier;
+});
+
+// Notifier for managing joined rooms
+class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
+  final Ref ref;
+
+  JoinedRoomsNotifier(this.ref) : super([]);
+
+  Future<void> loadFromStorage() async {
+    try {
+      final storage = ref.read(secureStorageProvider);
+      final roomsJsonString = await storage.read(key: 'joined_rooms');
+      if (roomsJsonString != null) {
+        final List<dynamic> roomsJson = jsonDecode(roomsJsonString);
+        state = roomsJson.map((json) => Room.fromJson(json)).toList();
+      }
+    } catch (e) {
+      print('Error loading joined rooms from storage: $e');
+    }
+  }
+
+  void setRooms(List<Room> rooms) {
+    state = rooms;
+  }
+
+  Future<void> addRoom(Room room) async {
+    if (state.any((r) => r.id == room.id)) {
+      return; // Already joined
+    }
+
+    if (state.length >= 5) {
+      throw Exception('You can only join up to 5 rooms at a time');
+    }
+
+    state = [...state, room];
+
+    // Save to secure storage
+    try {
+      final storage = ref.read(secureStorageProvider);
+      final roomsJson = state.map((r) => {'id': r.id, 'name': r.name}).toList();
+      await storage.write(key: 'joined_rooms', value: jsonEncode(roomsJson));
+    } catch (e) {
+      print('Error saving joined rooms to storage: $e');
+    }
+  }
+
+  Future<void> removeRoom(String roomId) async {
+    state = state.where((r) => r.id != roomId).toList();
+
+    // Save to secure storage
+    try {
+      final storage = ref.read(secureStorageProvider);
+      final roomsJson = state.map((r) => {'id': r.id, 'name': r.name}).toList();
+      await storage.write(key: 'joined_rooms', value: jsonEncode(roomsJson));
+    } catch (e) {
+      print('Error saving joined rooms to storage: $e');
+    }
+  }
+
+  Future<void> refresh() async {
+    ref.invalidate(joinedRoomsFutureProvider);
+  }
+}
 
 // Provider for current room messages
 final roomMessagesProvider =

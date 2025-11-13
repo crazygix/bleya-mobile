@@ -6,6 +6,8 @@ import 'chat_room_page.dart';
 class ChatsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Initialize joined rooms from backend on first load
+    ref.watch(joinedRoomsFutureProvider);
     final joinedRooms = ref.watch(joinedRoomsProvider);
 
     if (joinedRooms.isEmpty) {
