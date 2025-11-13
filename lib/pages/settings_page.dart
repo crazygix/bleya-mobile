@@ -18,7 +18,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   bool _isLoadingProfile = true;
   String? _profileImageUrl;
   File? _selectedImage;
-  Map<String, dynamic>? _userData;
 
   @override
   void initState() {
@@ -33,7 +32,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final profile = await userService.getProfile();
 
       setState(() {
-        _userData = profile;
         _usernameController.text = profile['username'] ?? '';
         _bioController.text = profile['bio'] ?? '';
         _profileImageUrl = profile['profileImageUrl'];
@@ -262,17 +260,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       )
                     : const Text('Save Profile'),
               ),
-              if (_userData != null) ...[
-                const SizedBox(height: 30),
-                const Divider(),
-                const SizedBox(height: 10),
-                Text(
-                  'Phone: ${_userData!['phoneNumber'] ?? 'N/A'}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
-                      ),
-                ),
-              ],
             ],
           ),
         ),

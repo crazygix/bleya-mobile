@@ -5,6 +5,7 @@ class _ApiUrls {
   static const String getProfile = '/users/me';
   static const String updateProfile = '/users/profile';
   static const String uploadProfileImage = '/users/profile-image';
+  static String getUserById(String userId) => '/users/$userId';
 }
 
 class UserService {
@@ -52,6 +53,15 @@ class UserService {
         _ApiUrls.uploadProfileImage,
         data: formData,
       );
+      return response.data;
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> getUserById(String userId) async {
+    try {
+      final response = await _dio.get(_ApiUrls.getUserById(userId));
       return response.data;
     } on DioException catch (e) {
       throw _handleDioError(e);

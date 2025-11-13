@@ -254,6 +254,16 @@ final userServiceProvider = Provider<UserService>((ref) {
   return UserService(dio);
 });
 
+// Current user profile provider
+final currentUserProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
+  try {
+    final userService = ref.read(userServiceProvider);
+    return await userService.getProfile();
+  } catch (e) {
+    return null;
+  }
+});
+
 final socketServiceProvider = Provider<SocketService>((ref) {
   final service = SocketService();
 

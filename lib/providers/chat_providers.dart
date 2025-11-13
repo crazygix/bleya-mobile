@@ -22,6 +22,7 @@ class Message {
   final String roomId;
   final String userId;
   final String phoneNumber;
+  final String username;
   final String text;
   final DateTime createdAt;
 
@@ -30,6 +31,7 @@ class Message {
     required this.roomId,
     required this.userId,
     required this.phoneNumber,
+    required this.username,
     required this.text,
     required this.createdAt,
   });
@@ -48,6 +50,7 @@ class Message {
       roomId: json['roomId'] as String,
       userId: json['userId'] as String,
       phoneNumber: json['phoneNumber'] as String,
+      username: json['username'] as String? ?? '',
       text: json['text'] as String,
       createdAt: createdAt,
     );

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
+import '../providers/auth_providers.dart';
+import 'user_details_page.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final String roomId;
@@ -75,6 +77,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   Widget build(BuildContext context) {
     final messages = ref.watch(roomMessagesProvider(widget.roomId));
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final currentUserId = currentUserAsync.value?['id'] as String?;
 
     return Scaffold(
       appBar: AppBar(
@@ -91,29 +95,53 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
+                      final isCurrentUser = currentUserId != null && message.userId == currentUserId;
+                      
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Align(
-                          alignment: Alignment.centerLeft,
+                          alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
                           child: Container(
+                            constraints: BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width * 0.75,
+                            ),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: Colors.blue[100],
+                              color: isCurrentUser ? Colors.blue[600] : Colors.grey[200],
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
+                                if (!isCurrentUser && message.username.isNotEmpty)
+                                  GestureDetector(
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => UserDetailsPage(
+                                            userId: message.userId,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    child: Text(
+                                      message.username,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: Colors.blue[700],
+                                        fontWeight: FontWeight.bold,
+                                        decoration: TextDecoration.underline,
+                                      ),
+                                    ),
+                                  ),
+                                if (!isCurrentUser && message.username.isNotEmpty)
+                                  const SizedBox(height: 4),
                                 Text(
-                                  message.phoneNumber,
+                                  message.text,
                                   style: TextStyle(
-                                    fontSize: 12,
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.bold,
+                                    color: isCurrentUser ? Colors.white : Colors.black87,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
-                                Text(message.text),
                               ],
                             ),
                           ),
