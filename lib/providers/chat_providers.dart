@@ -58,6 +58,29 @@ class Message {
   }
 }
 
+class RoomMember {
+  final String id;
+  final String username;
+  final String phoneNumber;
+  final String profileImageUrl;
+
+  RoomMember({
+    required this.id,
+    required this.username,
+    required this.phoneNumber,
+    required this.profileImageUrl,
+  });
+
+  factory RoomMember.fromJson(Map<String, dynamic> json) {
+    return RoomMember(
+      id: json['id'] as String,
+      username: json['username'] as String? ?? '',
+      phoneNumber: json['phoneNumber'] as String,
+      profileImageUrl: json['profileImageUrl'] as String? ?? '',
+    );
+  }
+}
+
 // Provider to fetch available rooms
 final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
   try {
@@ -320,3 +343,52 @@ final chatRoomControllerProvider =
     return controller;
   },
 );
+
+// Provider to fetch room members
+final roomMembersProvider =
+    FutureProvider.family<List<RoomMember>, String>((ref, roomId) async {
+  try {
+    final dio = ref.read(dioProvider);
+    final response = await dio.get(
+      '/rooms/$roomId/members',
+      options: Options(
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+      ),
+    );
+
+    if (response.data is! List) {
+      throw Exception('Invalid response format: expected List');
+    }
+
+    final List<dynamic> membersJson = response.data;
+    return membersJson.map((json) => RoomMember.fromJson(json)).toList();
+  } catch (e) {
+    print('Error fetching room members: $e');
+    rethrow;
+  }
+});
+
+// Function to leave a room
+Future<void> leaveRoom(WidgetRef ref, String roomId) async {
+  try {
+    final dio = ref.read(dioProvider);
+    await dio.post(
+      '/rooms/$roomId/leave',
+      options: Options(
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+      ),
+    );
+
+    // Remove from local state
+    final joinedRoomsNotifier = ref.read(joinedRoomsProvider.notifier);
+    await joinedRoomsNotifier.removeRoom(roomId);
+
+    // Refresh joined rooms
+    await joinedRoomsNotifier.refresh();
+  } catch (e) {
+    print('Error leaving room: $e');
+    rethrow;
+  }
+}

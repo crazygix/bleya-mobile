@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import 'user_details_page.dart';
+import 'room_details_page.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final String roomId;
@@ -83,6 +84,21 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.roomName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.info_outline),
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => RoomDetailsPage(
+                    roomId: widget.roomId,
+                    roomName: widget.roomName,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
