@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../utils/app_errors.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
   final String phoneNumber;
@@ -44,7 +45,11 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
         Navigator.of(context).pushReplacementNamed('/home');
       }
     } catch (e) {
-      setState(() => _errorMessage = e.toString());
+      if (e is AppError) {
+        setState(() => _errorMessage = e.getUserMessage());
+      } else {
+        setState(() => _errorMessage = 'An unexpected error occurred. Please try again.');
+      }
     }
   }
 

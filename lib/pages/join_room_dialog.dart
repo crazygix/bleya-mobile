@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../utils/app_errors.dart';
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   @override
@@ -52,14 +53,14 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     } catch (e) {
       setState(() => _isJoining = false);
       if (mounted) {
-        String errorMessage = 'Failed to join room';
-        if (e is DioException && e.response != null) {
-          final errorData = e.response?.data;
-          if (errorData is Map && errorData['error'] != null) {
-            errorMessage = errorData['error'];
-          }
-        } else if (e is Exception) {
-          errorMessage = e.toString().replaceAll('Exception: ', '');
+        String errorMessage;
+        if (e is AppError) {
+          errorMessage = e.getUserMessage();
+        } else if (e is DioException) {
+          // This shouldn't happen if services are using AppError, but handle it just in case
+          errorMessage = 'Failed to join room. Please try again.';
+        } else {
+          errorMessage = 'An unexpected error occurred. Please try again.';
         }
 
         ScaffoldMessenger.of(context).showSnackBar(

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_providers.dart';
+import '../utils/app_errors.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -40,8 +41,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } catch (e) {
       setState(() => _isLoadingProfile = false);
       if (mounted) {
+        String errorMessage;
+        if (e is AppError) {
+          errorMessage = e.getUserMessage();
+        } else {
+          errorMessage = 'Failed to load profile. Please try again.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading profile: $e')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
     }
@@ -64,8 +71,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       }
     } catch (e) {
       if (mounted) {
+        // Image picker errors are usually not AppErrors, so show generic message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error picking image: $e')),
+          const SnackBar(content: Text('Failed to pick image. Please try again.')),
         );
       }
     }
@@ -115,8 +123,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       }
     } catch (e) {
       if (mounted) {
+        String errorMessage;
+        if (e is AppError) {
+          errorMessage = e.getUserMessage();
+        } else {
+          errorMessage = 'Failed to update profile. Please try again.';
+        }
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error updating profile: $e')),
+          SnackBar(content: Text(errorMessage)),
         );
       }
     } finally {

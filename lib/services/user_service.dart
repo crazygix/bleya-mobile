@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'dart:io';
+import '../utils/app_errors.dart';
 
 class _ApiUrls {
   static const String getProfile = '/users/me';
@@ -68,19 +69,86 @@ class UserService {
     }
   }
 
-  Exception _handleDioError(DioException e) {
+  AppError _handleDioError(DioException e) {
     if (e.response != null) {
-      switch (e.response?.statusCode) {
+      final statusCode = e.response?.statusCode;
+      final responseData = e.response?.data;
+      
+      // Try to extract error message from backend response
+      String? errorMessage;
+      String? userMessage;
+      Map<String, dynamic>? details;
+      
+      if (responseData is Map<String, dynamic> && responseData['error'] != null) {
+        final errorData = responseData['error'];
+        if (errorData is Map<String, dynamic>) {
+          errorMessage = errorData['message'] as String?;
+          userMessage = errorMessage;
+          details = errorData['details'] as Map<String, dynamic>?;
+        }
+      }
+      
+      switch (statusCode) {
         case 400:
-          return Exception('Invalid request: ${e.response?.data}');
+          return BadRequestError(
+            message: errorMessage ?? 'Invalid request',
+            userMessage: userMessage,
+            details: details,
+            originalError: e,
+          );
         case 401:
-          return Exception('Unauthorized');
+          return UnauthorizedError(
+            message: errorMessage ?? 'Unauthorized',
+            userMessage: userMessage,
+            originalError: e,
+          );
         case 404:
-          return Exception('User not found');
+          return NotFoundError(
+            message: errorMessage ?? 'User not found',
+            userMessage: userMessage,
+            originalError: e,
+          );
+        case 500:
+        case 502:
+        case 503:
+        case 504:
+          return ServerError(
+            message: errorMessage ?? 'Server error',
+            userMessage: userMessage,
+            originalError: e,
+          );
         default:
-          return Exception('Server error: ${e.response?.statusCode}');
+          return ServerError(
+            message: errorMessage ?? 'Server error: $statusCode',
+            userMessage: userMessage,
+            originalError: e,
+          );
       }
     }
-    return Exception('Network error: ${e.message}');
+    
+    // Handle network errors
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout) {
+      return AppError(
+        code: AppErrorCode.connectionTimeout,
+        message: 'Connection timeout',
+        userMessage: 'Request timed out. Please check your connection and try again.',
+        originalError: e,
+      );
+    }
+    
+    if (e.type == DioExceptionType.connectionError) {
+      return NetworkError(
+        message: 'Network connection error',
+        userMessage: 'Unable to connect to the server. Please check your internet connection.',
+        originalError: e,
+      );
+    }
+    
+    return NetworkError(
+      message: e.message ?? 'Network error',
+      originalError: e,
+    );
   }
 }

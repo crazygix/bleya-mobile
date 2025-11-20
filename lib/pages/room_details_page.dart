@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../utils/app_errors.dart';
 import 'user_details_page.dart';
 
 class RoomDetailsPage extends ConsumerWidget {
@@ -58,8 +59,14 @@ class RoomDetailsPage extends ConsumerWidget {
                     }
                   } catch (e) {
                     if (context.mounted) {
+                      String errorMessage;
+                      if (e is AppError) {
+                        errorMessage = e.getUserMessage();
+                      } else {
+                        errorMessage = 'Failed to leave room. Please try again.';
+                      }
                       ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error leaving room: $e')),
+                        SnackBar(content: Text(errorMessage)),
                       );
                     }
                   }
