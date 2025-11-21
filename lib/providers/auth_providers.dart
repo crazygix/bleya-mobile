@@ -12,6 +12,7 @@ import '../services/socket_service.dart';
 import '../services/user_service.dart';
 import '../constants/urls.dart';
 import '../utils/navigation.dart';
+import '../utils/jwt_utils.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
 
@@ -89,9 +90,65 @@ final dioProvider = Provider<Dio>((ref) {
       // Ensure cookie manager is initialized before making requests
       await _ensureCookieManagerInitialized(dio);
 
+      // Skip proactive refresh for refresh endpoint itself
+      final reqExtra = options.extra;
+      if (reqExtra['refresh'] == true) {
+        handler.next(options);
+        return;
+      }
+
       final token = ref.read(tokenProvider);
       if (token != null && token.isNotEmpty) {
-        options.headers['Authorization'] = 'Bearer $token';
+        // Proactive token refresh: check if token is expired or expiring soon
+        if (JwtUtils.isTokenExpiredOrExpiringSoon(token, bufferMinutes: 5)) {
+          // Token is expired or will expire soon, refresh it proactively
+          if (!_isLoggingOut) {
+            try {
+              // Single-flight refresh guard
+              Future<String?>? refreshing = _refreshingFuture;
+              if (refreshing == null) {
+                _refreshingCompleter = Completer<String?>();
+                refreshing = _refreshingCompleter!.future;
+                _refreshingFuture = refreshing;
+                try {
+                  final refreshResponse = await dio.post(
+                    '/auth/refresh',
+                    options: Options(
+                      extra: {'refresh': true},
+                    ),
+                  );
+                  final String newToken = refreshResponse.data['token'];
+                  final storage = ref.read(secureStorageProvider);
+                  await storage.write(key: 'auth_token', value: newToken);
+                  ref.read(tokenProvider.notifier).state = newToken;
+                  _refreshingCompleter?.complete(newToken);
+                } catch (e) {
+                  print('Proactive token refresh failed: $e');
+                  _refreshingCompleter?.complete(null);
+                } finally {
+                  _refreshingCompleter = null;
+                  _refreshingFuture = null;
+                }
+              }
+
+              final newToken = await refreshing;
+              if (newToken != null && newToken.isNotEmpty) {
+                options.headers['Authorization'] = 'Bearer $newToken';
+              } else {
+                // Refresh failed, use existing token and let error handler deal with it
+                options.headers['Authorization'] = 'Bearer $token';
+              }
+            } catch (e) {
+              // If refresh fails, use existing token and let error handler deal with it
+              options.headers['Authorization'] = 'Bearer $token';
+            }
+          } else {
+            options.headers['Authorization'] = 'Bearer $token';
+          }
+        } else {
+          // Token is still valid, use it
+          options.headers['Authorization'] = 'Bearer $token';
+        }
       }
       handler.next(options);
     },
@@ -227,6 +284,24 @@ Future<void> _logoutUser(Ref ref) async {
     final storage = ref.read(secureStorageProvider);
     await storage.delete(key: 'auth_token');
 
+    // Clear cookies by calling logout endpoint
+    try {
+      final authService = ref.read(authServiceProvider);
+      await authService.logout();
+    } catch (e) {
+      // If logout endpoint fails, still continue with local cleanup
+      print('Logout endpoint call failed: $e');
+    }
+
+    // Clear cookie jar to ensure cookies are removed
+    if (_cookieJar != null) {
+      try {
+        await _cookieJar!.deleteAll();
+      } catch (e) {
+        print('Error clearing cookie jar: $e');
+      }
+    }
+
     // Disconnect socket
     final socketService = ref.read(socketServiceProvider);
     socketService.disconnect();
@@ -335,26 +410,7 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
     }
   }
 
-  // No token exists, attempt silent refresh using httpOnly cookie
-  // Only if we're not logging out
-  if (!_isLoggingOut) {
-    try {
-      final authService = ref.read(authServiceProvider);
-      final newToken = await authService.refresh();
-      ref.read(tokenProvider.notifier).state = newToken;
-      // Validate the new token
-      try {
-        final userService = ref.read(userServiceProvider);
-        await userService.getProfile();
-        return true;
-      } catch (_) {
-        // New token is invalid
-        return false;
-      }
-    } catch (_) {
-      return false;
-    }
-  }
-
+  // No token exists - don't attempt refresh, just return false
+  // Refresh should only happen when we have a token that's expired
   return false;
 });
