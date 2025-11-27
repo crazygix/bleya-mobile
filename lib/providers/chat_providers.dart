@@ -262,13 +262,23 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
   final SocketService socketService;
   bool _isInitialized = false;
 
+  // Store handler references returned from socketService so we can remove only our specific listeners
+  dynamic _roomJoinedHandler;
+  dynamic _newMessageHandler;
+  dynamic _errorHandler;
+
   ChatRoomController(this.ref, this.roomId, this.socketService)
       : super(const AsyncValue.data(null)) {
     _initialize();
   }
 
   void _initialize() {
-    if (_isInitialized) return;
+    if (_isInitialized) {
+      // If already initialized, check if we need to rejoin the room
+      // This handles the case where we navigate back to a room we were previously in
+      _joinRoom();
+      return;
+    }
     _isInitialized = true;
 
     _setupSocketListeners();
@@ -276,14 +286,28 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
   }
 
   void _setupSocketListeners() {
-    socketService.onRoomJoined((data) {
-      final messages =
-          (data['messages'] as List).map((m) => Message.fromJson(m)).toList();
-      ref.read(roomMessagesProvider(roomId).notifier).state = messages;
+    // Register room_joined listener and store handler reference
+    _roomJoinedHandler = socketService.addListener('room_joined', (data) {
+      // Only process if this is for our room
+      final roomData = data['room'] as Map<String, dynamic>?;
+      final joinedRoomId = roomData?['id'] as String?;
+      if (joinedRoomId == roomId) {
+        print('Received room_joined for room: $roomId');
+        // Confirm room join in socket service
+        socketService.onRoomJoinedConfirmed(roomId);
+        final messages =
+            (data['messages'] as List).map((m) => Message.fromJson(m)).toList();
+        ref.read(roomMessagesProvider(roomId).notifier).state = messages;
+      } else {
+        print(
+            'Received room_joined for different room: $joinedRoomId (expected: $roomId)');
+      }
     });
 
-    socketService.onNewMessage((data) {
+    // Register new_message listener and store handler reference
+    _newMessageHandler = socketService.addListener('new_message', (data) {
       final message = Message.fromJson(data);
+      // Only add message if it's for this room
       if (message.roomId == roomId) {
         final currentMessages = ref.read(roomMessagesProvider(roomId));
         ref.read(roomMessagesProvider(roomId).notifier).state = [
@@ -293,7 +317,8 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       }
     });
 
-    socketService.onError((data) {
+    // Register error listener and store handler reference
+    _errorHandler = socketService.addListener('error', (data) {
       final errorMsg = data['message'] ?? 'An error occurred';
       print('Socket error: $errorMsg');
 
@@ -308,6 +333,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
   }
 
   void _joinRoom() {
+    print('ChatRoomController: Requesting to join room: $roomId');
     socketService.joinRoom(roomId);
   }
 
@@ -323,12 +349,30 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
     socketService.sendMessage(text);
   }
 
+  /// Ensure we're in the room - call this when the page becomes visible again
+  void ensureInRoom() {
+    _joinRoom();
+  }
+
   @override
   void dispose() {
-    socketService.off('room_joined');
-    socketService.off('new_message');
-    socketService.off('error');
-    socketService.leaveRoom();
+    // Clear messages for this room when leaving
+    ref.read(roomMessagesProvider(roomId).notifier).state = [];
+
+    // Remove only our specific socket listeners by passing the handler references
+    if (_roomJoinedHandler != null) {
+      socketService.removeListener('room_joined', _roomJoinedHandler);
+    }
+    if (_newMessageHandler != null) {
+      socketService.removeListener('new_message', _newMessageHandler);
+    }
+    if (_errorHandler != null) {
+      socketService.removeListener('error', _errorHandler);
+    }
+
+    // Leave the socket room only if this controller's room is still the current room
+    // This prevents leaving a newly joined room when an old controller disposes
+    socketService.leaveRoom(roomId);
     super.dispose();
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../services/socket_service.dart';
 import 'user_details_page.dart';
 import 'room_details_page.dart';
 
@@ -24,13 +25,24 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   final ScrollController _scrollController = ScrollController();
   int _previousMessageCount = 0;
   ProviderSubscription<List<Message>>? _messagesSubscription;
+  SocketService? _socketService;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Capture socket service reference for dispose
+      _socketService = ref.read(socketServiceProvider);
+
+      // Clear any old messages for this room to ensure fresh data
+      ref.read(roomMessagesProvider(widget.roomId).notifier).state = [];
+
       // Initialize controller - it will automatically set up socket listeners and join room
-      ref.read(chatRoomControllerProvider(widget.roomId));
+      // The family provider ensures each roomId gets its own controller instance
+      final controller =
+          ref.read(chatRoomControllerProvider(widget.roomId).notifier);
+      // Ensure we're in the room (handles case where controller was reused)
+      controller.ensureInRoom();
 
       // Listen to messages to auto-scroll
       _messagesSubscription = ref.listenManual<List<Message>>(
@@ -69,6 +81,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   @override
   void dispose() {
+    // Leave the room when navigating away from the page
+    _socketService?.leaveRoom(widget.roomId);
+
     _messagesSubscription?.close();
     _messageController.dispose();
     _scrollController.dispose();
@@ -77,6 +92,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Watch the controller to keep it alive for the lifetime of the page
+    ref.watch(chatRoomControllerProvider(widget.roomId));
+
     final messages = ref.watch(roomMessagesProvider(widget.roomId));
     final currentUserAsync = ref.watch(currentUserProvider);
     final currentUserId = currentUserAsync.value?['id'] as String?;
@@ -111,25 +129,32 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                     itemCount: messages.length,
                     itemBuilder: (context, index) {
                       final message = messages[index];
-                      final isCurrentUser = currentUserId != null && message.userId == currentUserId;
-                      
+                      final isCurrentUser = currentUserId != null &&
+                          message.userId == currentUserId;
+
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
                         child: Align(
-                          alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
+                          alignment: isCurrentUser
+                              ? Alignment.centerRight
+                              : Alignment.centerLeft,
                           child: Container(
                             constraints: BoxConstraints(
-                              maxWidth: MediaQuery.of(context).size.width * 0.75,
+                              maxWidth:
+                                  MediaQuery.of(context).size.width * 0.75,
                             ),
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: isCurrentUser ? Colors.blue[600] : Colors.grey[200],
+                              color: isCurrentUser
+                                  ? Colors.blue[600]
+                                  : Colors.grey[200],
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                if (!isCurrentUser && message.username.isNotEmpty)
+                                if (!isCurrentUser &&
+                                    message.username.isNotEmpty)
                                   GestureDetector(
                                     onTap: () {
                                       Navigator.of(context).push(
@@ -150,12 +175,15 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                       ),
                                     ),
                                   ),
-                                if (!isCurrentUser && message.username.isNotEmpty)
+                                if (!isCurrentUser &&
+                                    message.username.isNotEmpty)
                                   const SizedBox(height: 4),
                                 Text(
                                   message.text,
                                   style: TextStyle(
-                                    color: isCurrentUser ? Colors.white : Colors.black87,
+                                    color: isCurrentUser
+                                        ? Colors.white
+                                        : Colors.black87,
                                   ),
                                 ),
                               ],

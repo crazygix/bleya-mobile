@@ -5,7 +5,7 @@ import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 import 'user_details_page.dart';
 
-class RoomDetailsPage extends ConsumerWidget {
+class RoomDetailsPage extends ConsumerStatefulWidget {
   final String roomId;
   final String roomName;
 
@@ -16,14 +16,28 @@ class RoomDetailsPage extends ConsumerWidget {
   });
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(roomMembersProvider(roomId));
+  ConsumerState<RoomDetailsPage> createState() => _RoomDetailsPageState();
+}
+
+class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
+  @override
+  void initState() {
+    super.initState();
+    // Invalidate and refresh room members when page is opened to get latest data
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.invalidate(roomMembersProvider(widget.roomId));
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final membersAsync = ref.watch(roomMembersProvider(widget.roomId));
     final currentUserAsync = ref.watch(currentUserProvider);
     final currentUserId = currentUserAsync.value?['id'] as String?;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(roomName),
+        title: Text(widget.roomName),
       ),
       body: Column(
         children: [
@@ -53,7 +67,7 @@ class RoomDetailsPage extends ConsumerWidget {
 
                 if (confirmed == true) {
                   try {
-                    await leaveRoom(ref, roomId);
+                    await leaveRoom(ref, widget.roomId);
                     if (context.mounted) {
                       Navigator.of(context).popUntil((route) => route.isFirst);
                     }
@@ -201,7 +215,7 @@ class RoomDetailsPage extends ConsumerWidget {
                     const SizedBox(height: 16),
                     ElevatedButton(
                       onPressed: () {
-                        ref.invalidate(roomMembersProvider(roomId));
+                        ref.invalidate(roomMembersProvider(widget.roomId));
                       },
                       child: const Text('Retry'),
                     ),
