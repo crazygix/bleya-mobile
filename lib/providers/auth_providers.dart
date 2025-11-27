@@ -365,6 +365,13 @@ final socketServiceProvider = Provider<SocketService>((ref) {
   return service;
 });
 
+// Logout provider to allow logout from UI
+final logoutProvider = Provider<void Function()>((ref) {
+  return () async {
+    await _logoutUser(ref);
+  };
+});
+
 // Bootstrap provider to check authentication status on app startup
 final bootstrapProvider = FutureProvider<bool>((ref) async {
   // Don't attempt refresh if we're in the middle of logging out

@@ -73,7 +73,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       if (mounted) {
         // Image picker errors are usually not AppErrors, so show generic message
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to pick image. Please try again.')),
+          const SnackBar(
+              content: Text('Failed to pick image. Please try again.')),
         );
       }
     }
@@ -147,11 +148,39 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     super.dispose();
   }
 
+  Future<void> _handleLogout() async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to logout?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldLogout == true) {
+      final logout = ref.read(logoutProvider);
+      logout();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoadingProfile) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Settings')),
+        appBar: AppBar(
+          title: const Text('Settings'),
+          automaticallyImplyLeading: false,
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -159,12 +188,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Settings'),
+        automaticallyImplyLeading: false,
         actions: [
-          if (!_isLoading)
-            IconButton(
-              icon: const Icon(Icons.save),
-              onPressed: _saveProfile,
-            ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            onPressed: _handleLogout,
+            tooltip: 'Logout',
+          ),
         ],
       ),
       body: Form(
