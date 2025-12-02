@@ -7,13 +7,11 @@ import 'user_details_page.dart';
 import 'room_details_page.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
-  final String roomId;
-  final String roomName;
+  final Room room;
 
   const ChatRoomPage({
     super.key,
-    required this.roomId,
-    required this.roomName,
+    required this.room,
   });
 
   @override
@@ -31,22 +29,17 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Capture socket service reference for dispose
       _socketService = ref.read(socketServiceProvider);
 
       // Clear any old messages for this room to ensure fresh data
-      ref.read(roomMessagesProvider(widget.roomId).notifier).state = [];
+      ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
 
       // Initialize controller - it will automatically set up socket listeners and join room
-      // The family provider ensures each roomId gets its own controller instance
-      final controller =
-          ref.read(chatRoomControllerProvider(widget.roomId).notifier);
-      // Ensure we're in the room (handles case where controller was reused)
-      controller.ensureInRoom();
+      ref.read(chatRoomControllerProvider(widget.room).notifier);
 
       // Listen to messages to auto-scroll
       _messagesSubscription = ref.listenManual<List<Message>>(
-        roomMessagesProvider(widget.roomId),
+        roomMessagesProvider(widget.room.id),
         (previous, next) {
           if (next.length > _previousMessageCount) {
             _scrollToBottom();
@@ -62,7 +55,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     if (text.isEmpty) return;
 
     final controller =
-        ref.read(chatRoomControllerProvider(widget.roomId).notifier);
+        ref.read(chatRoomControllerProvider(widget.room).notifier);
     controller.sendMessage(text);
     _messageController.clear();
   }
@@ -81,9 +74,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   @override
   void dispose() {
-    // Leave the room when navigating away from the page
-    _socketService?.leaveRoom(widget.roomId);
-
+    _socketService?.leaveRoom(widget.room.id);
     _messagesSubscription?.close();
     _messageController.dispose();
     _scrollController.dispose();
@@ -92,16 +83,15 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Watch the controller to keep it alive for the lifetime of the page
-    ref.watch(chatRoomControllerProvider(widget.roomId));
+    ref.watch(chatRoomControllerProvider(widget.room));
 
-    final messages = ref.watch(roomMessagesProvider(widget.roomId));
+    final messages = ref.watch(roomMessagesProvider(widget.room.id));
     final currentUserAsync = ref.watch(currentUserProvider);
     final currentUserId = currentUserAsync.value?['id'] as String?;
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.roomName),
+        title: Text(widget.room.name),
         actions: [
           IconButton(
             icon: const Icon(Icons.info_outline),
@@ -109,8 +99,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               Navigator.of(context).push(
                 MaterialPageRoute(
                   builder: (context) => RoomDetailsPage(
-                    roomId: widget.roomId,
-                    roomName: widget.roomName,
+                    roomId: widget.room.id,
+                    roomName: widget.room.name,
                   ),
                 ),
               );

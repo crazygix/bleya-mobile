@@ -44,10 +44,7 @@ class ChatsPage extends ConsumerWidget {
             Navigator.push(
               context,
               MaterialPageRoute(
-                builder: (context) => ChatRoomPage(
-                  roomId: room.id,
-                  roomName: room.name,
-                ),
+                builder: (context) => ChatRoomPage(room: room),
               ),
             );
           },

@@ -1,9 +1,10 @@
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
+import '../models/room.dart';
 
 class SocketService {
   io.Socket? _socket;
-  String? _currentRoomId;
+  Room? _currentRoom;
 
   io.Socket? get socket => _socket;
 
@@ -32,7 +33,7 @@ class SocketService {
 
     _socket!.onDisconnect((_) {
       print('Socket disconnected');
-      _currentRoomId = null;
+      _currentRoom = null;
     });
 
     _socket!.onError((error) {
@@ -45,76 +46,68 @@ class SocketService {
   }
 
   void disconnect() {
-    if (_currentRoomId != null) {
+    if (_currentRoom != null) {
       leaveRoom();
     }
     _socket?.disconnect();
     _socket = null;
   }
 
-  void joinRoom(String roomId) {
+  void joinRoom(Room room) {
     if (_socket?.connected != true) {
       print('Socket not connected, waiting for connection...');
-      // Wait for connection if not connected yet
       _socket?.once('connect', (_) {
-        print('Socket connected, joining room: $roomId');
-        _doJoinRoom(roomId);
+        print('Socket connected, joining room...');
+        _doJoinRoom(room);
       });
       return;
     }
-    _doJoinRoom(roomId);
+    _doJoinRoom(room);
   }
 
-  void _doJoinRoom(String roomId) {
-    // If already in this room, no need to do anything
-    if (_currentRoomId == roomId) {
-      print('Already in room: $roomId, skipping join');
+  void _doJoinRoom(Room room) {
+    if (_currentRoom?.id == room.id) {
+      print('[Room] Already in $room, skipping');
       return;
     }
 
-    // Leave previous room if we're in one
-    if (_currentRoomId != null) {
-      print('Leaving room: $_currentRoomId');
+    if (_currentRoom != null) {
+      print('[Room] Leaving $_currentRoom');
       _socket?.emit('leave_room');
     }
 
-    // The server automatically leaves the previous room when joining a new one
-    // But we also handle it on client side for proper state management
-    _currentRoomId = roomId;
-    _socket?.emit('join_room', {'roomId': roomId});
-    print('Joining room: $roomId');
+    _currentRoom = room;
+    _socket?.emit('join_room', {'roomId': room.id});
+    print('[Room] Joining $room');
   }
 
   /// Called when room_joined event is received to confirm we're in the room
-  void onRoomJoinedConfirmed(String roomId) {
-    if (_currentRoomId == roomId) {
-      print('Confirmed: Successfully joined room: $roomId');
+  void onRoomJoinedConfirmed(Room room) {
+    if (_currentRoom?.id == room.id) {
+      _currentRoom = room; // Update with server data
+      print('[Room] Joined $room');
     } else {
       print(
-          'Warning: room_joined received for $roomId but currentRoomId is $_currentRoomId');
-      _currentRoomId = roomId;
+          '[Room] Warning: room_joined for ${room.id} but current is ${_currentRoom?.id}');
+      _currentRoom = room;
     }
   }
 
   void leaveRoom([String? specificRoomId]) {
-    // If a specific roomId is provided, only leave if we're currently in that room
-    // Otherwise, leave whatever room we're currently in
     if (specificRoomId != null) {
-      if (_currentRoomId == specificRoomId) {
-        print('Leaving room: $specificRoomId');
+      if (_currentRoom?.id == specificRoomId) {
+        print('[Room] Leaving $_currentRoom');
         _socket?.emit('leave_room');
-        _currentRoomId = null;
+        _currentRoom = null;
       } else {
-        // If we're not in the specified room, do nothing
-        // We're already not in that room, so there's nothing to leave
         print(
-            'Not in room $specificRoomId (currently in: $_currentRoomId), nothing to leave');
+            '[Room] Not in room $specificRoomId (currently in: ${_currentRoom?.id}), skipping');
       }
     } else {
-      if (_currentRoomId != null) {
-        print('Leaving room: $_currentRoomId');
+      if (_currentRoom != null) {
+        print('[Room] Leaving $_currentRoom');
         _socket?.emit('leave_room');
-        _currentRoomId = null;
+        _currentRoom = null;
       }
     }
   }
@@ -124,11 +117,10 @@ class SocketService {
       print('Socket not connected, cannot send message');
       return;
     }
-    if (_currentRoomId == null) {
+    if (_currentRoom == null) {
       print('Not in a room, cannot send message');
       return;
     }
-    print('Sending message to room: $_currentRoomId');
     _socket!.emit('send_message', {'text': text});
   }
 
