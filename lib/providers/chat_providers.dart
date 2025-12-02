@@ -11,7 +11,6 @@ class Message {
   final String id;
   final String roomId;
   final String userId;
-  final String phoneNumber;
   final String username;
   final String text;
   final DateTime createdAt;
@@ -20,7 +19,6 @@ class Message {
     required this.id,
     required this.roomId,
     required this.userId,
-    required this.phoneNumber,
     required this.username,
     required this.text,
     required this.createdAt,
@@ -39,7 +37,6 @@ class Message {
       id: json['id'] as String,
       roomId: json['roomId'] as String,
       userId: json['userId'] as String,
-      phoneNumber: json['phoneNumber'] as String,
       username: json['username'] as String? ?? '',
       text: json['text'] as String,
       createdAt: createdAt,
@@ -169,7 +166,11 @@ final joinedRoomsProvider =
   final notifier = JoinedRoomsNotifier(ref);
   // Initialize from storage first for immediate display
   notifier.loadFromStorage();
-  // Then sync with backend
+  // Sync with backend - check current value and listen for changes
+  final currentValue = ref.read(joinedRoomsFutureProvider);
+  currentValue.whenData((rooms) {
+    notifier.setRooms(rooms);
+  });
   ref.listen(joinedRoomsFutureProvider, (previous, next) {
     next.whenData((rooms) {
       notifier.setRooms(rooms);

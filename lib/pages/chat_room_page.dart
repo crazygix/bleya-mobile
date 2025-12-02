@@ -28,9 +28,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _socketService = ref.read(socketServiceProvider);
+    // Capture socket service reference immediately for dispose
+    _socketService = ref.read(socketServiceProvider);
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       // Clear any old messages for this room to ensure fresh data
       ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
 
