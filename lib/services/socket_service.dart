@@ -5,17 +5,34 @@ import '../models/room.dart';
 class SocketService {
   io.Socket? _socket;
   Room? _currentRoom;
+  String? _currentToken;
+
+  /// Optional callback invoked when an authentication error is detected
+  /// on the socket connection.
+  Future<void> Function()? onAuthError;
 
   io.Socket? get socket => _socket;
 
   void connect(String token) {
-    if (_socket?.connected == true) {
+    // If already connected with the same token, nothing to do
+    if (_socket?.connected == true && _currentToken == token) {
       return;
+    }
+
+    // If we have an existing socket (possibly with a different token),
+    // clean it up before establishing a new connection.
+    if (_socket != null) {
+      _socket!.disconnect();
+      _socket = null;
+      _currentRoom = null;
+      _currentToken = null;
     }
 
     // Extract base URL from environment config
     final baseUrl = EnvironmentConfig.baseUrl.replaceAll('/api', '');
     final serverUrl = baseUrl;
+
+    _currentToken = token;
 
     _socket = io.io(
       serverUrl,
@@ -36,12 +53,14 @@ class SocketService {
       _currentRoom = null;
     });
 
-    _socket!.onError((error) {
+    _socket!.onError((error) async {
       print('Socket error: $error');
+      await _handleAuthErrorIfNeeded(error);
     });
 
-    _socket!.onConnectError((error) {
+    _socket!.onConnectError((error) async {
       print('Socket connection error: $error');
+      await _handleAuthErrorIfNeeded(error);
     });
   }
 
@@ -51,17 +70,45 @@ class SocketService {
     }
     _socket?.disconnect();
     _socket = null;
+    _currentRoom = null;
+    _currentToken = null;
+  }
+
+  Future<void> _handleAuthErrorIfNeeded(dynamic error) async {
+    final message = error?.toString() ?? '';
+    if (message.contains('Authentication error')) {
+      print('Detected socket authentication error');
+      final callback = onAuthError;
+      if (callback != null) {
+        await callback();
+      }
+    }
   }
 
   void joinRoom(Room room) {
-    if (_socket?.connected != true) {
-      print('Socket not connected, waiting for connection...');
-      _socket?.once('connect', (_) {
-        print('Socket connected, joining room...');
-        _doJoinRoom(room);
-      });
+    // If socket instance itself is null, we can't join; caller must ensure connect() was called
+    if (_socket == null) {
+      print(
+          'Socket instance is null, cannot join room. Ensure connect(token) is called first.');
       return;
     }
+
+    // If socket exists but is not connected, force a reconnect and wait for connect
+    if (_socket!.connected != true) {
+      print(
+          'Socket not connected, forcing reconnect and waiting for connection...');
+
+      // Avoid stacking multiple connect handlers if joinRoom is called repeatedly
+      _socket!
+        ..off('connect')
+        ..connect()
+        ..once('connect', (_) {
+          print('Socket connected, joining room...');
+          _doJoinRoom(room);
+        });
+      return;
+    }
+
     _doJoinRoom(room);
   }
 

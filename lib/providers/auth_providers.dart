@@ -342,6 +342,12 @@ final currentUserProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
 final socketServiceProvider = Provider<SocketService>((ref) {
   final service = SocketService();
 
+  // When the socket experiences an authentication error, route it through
+  // the same logout flow used for HTTP authentication failures.
+  service.onAuthError = () async {
+    await _logoutUser(ref);
+  };
+
   // Connect socket when token is available
   ref.listen(tokenProvider, (previous, next) {
     if (next != null && next.isNotEmpty) {
@@ -378,46 +384,25 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
   if (_isLoggingOut) {
     return false;
   }
-
   final storage = ref.read(secureStorageProvider);
   final existingToken = await storage.read(key: 'auth_token');
 
   if (existingToken != null && existingToken.isNotEmpty) {
     ref.read(tokenProvider.notifier).state = existingToken;
-
-    // Validate the token by making a test API call
     try {
       final userService = ref.read(userServiceProvider);
+      // Validate the token by making a test API call.
+      // The Dio interceptor will handle refresh and logout on 401/expired token.
       await userService.getProfile();
-      // Token is valid
       return true;
     } catch (e) {
-      // Token is invalid, try to refresh
-      // Attempt silent refresh using httpOnly cookie
-      if (!_isLoggingOut) {
-        try {
-          final authService = ref.read(authServiceProvider);
-          final newToken = await authService.refresh();
-          ref.read(tokenProvider.notifier).state = newToken;
-          // Validate the new token
-          try {
-            final userService = ref.read(userServiceProvider);
-            await userService.getProfile();
-            return true;
-          } catch (_) {
-            // New token is also invalid
-            return false;
-          }
-        } catch (_) {
-          // Refresh failed
-          return false;
-        }
-      }
+      // If validation fails (including after any interceptor refresh attempts),
+      // ensure the user is logged out and treated as unauthenticated.
+      await _logoutUser(ref);
       return false;
     }
   }
 
   // No token exists - don't attempt refresh, just return false
-  // Refresh should only happen when we have a token that's expired
   return false;
 });
