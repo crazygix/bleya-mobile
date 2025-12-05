@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../utils/app_errors.dart';
 
@@ -22,9 +23,14 @@ class AuthService {
         _ApiUrls.requestCode,
         data: {'phoneNumber': phone},
       );
-      print("Code sent: ${response.data["code"]}");
+      // Don't log verification code in production
+      if (kDebugMode) {
+        print("Code sent: ${response.data["code"]}");
+      }
     } on DioException catch (e) {
-      print(e);
+      if (kDebugMode) {
+        print('Auth service error: $e');
+      }
       throw _handleDioError(e);
     }
   }

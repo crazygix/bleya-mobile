@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
 import 'auth_providers.dart';
@@ -73,11 +74,9 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
     final dio = ref.read(dioProvider);
     final token = ref.read(tokenProvider);
 
-    print('Fetching rooms from: ${dio.options.baseUrl}/rooms');
-    print('Token available: ${token != null && token.isNotEmpty}');
-    if (token != null && token.isNotEmpty) {
-      print(
-          'Token preview: ${token.substring(0, token.length > 20 ? 20 : token.length)}...');
+    if (kDebugMode) {
+      print('Fetching rooms from: ${dio.options.baseUrl}/rooms');
+      print('Token available: ${token != null && token.isNotEmpty}');
     }
 
     // Let the request go through - interceptor will handle token and 401
@@ -90,8 +89,9 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
       ),
     );
 
-    print('Rooms response status: ${response.statusCode}');
-    print('Rooms response data: ${response.data}');
+    if (kDebugMode) {
+      print('Rooms response status: ${response.statusCode}');
+    }
 
     if (response.data is! List) {
       throw Exception('Invalid response format: expected List');
@@ -100,13 +100,14 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
     final List<dynamic> roomsJson = response.data;
     return roomsJson.map((json) => Room.fromJson(json)).toList();
   } catch (e, stack) {
-    print('Error in availableRoomsProvider: $e');
-    print('Stack: $stack');
-    if (e is DioException) {
-      print(
-          'DioException details: ${e.response?.statusCode} - ${e.response?.data}');
-      print('Request path: ${e.requestOptions.path}');
-      print('Request headers: ${e.requestOptions.headers}');
+    if (kDebugMode) {
+      print('Error in availableRoomsProvider: $e');
+      print('Stack: $stack');
+      if (e is DioException) {
+        print('DioException details: ${e.response?.statusCode}');
+        print('Request path: ${e.requestOptions.path}');
+        // Don't log response data or headers (may contain sensitive data)
+      }
     }
     rethrow;
   }
@@ -144,7 +145,9 @@ final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
 
     return rooms;
   } catch (e) {
-    print('Error fetching joined rooms: $e');
+    if (kDebugMode) {
+      print('Error fetching joined rooms: $e');
+    }
     // Try to load from secure storage as fallback
     try {
       final storage = ref.read(secureStorageProvider);
@@ -154,7 +157,9 @@ final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
         return roomsJson.map((json) => Room.fromJson(json)).toList();
       }
     } catch (e2) {
-      print('Error loading joined rooms from storage: $e2');
+      if (kDebugMode) {
+        print('Error loading joined rooms from storage: $e2');
+      }
     }
     return [];
   }
@@ -194,7 +199,9 @@ class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
         state = roomsJson.map((json) => Room.fromJson(json)).toList();
       }
     } catch (e) {
-      print('Error loading joined rooms from storage: $e');
+      if (kDebugMode) {
+        print('Error loading joined rooms from storage: $e');
+      }
     }
   }
 
@@ -219,7 +226,9 @@ class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
       final roomsJson = state.map((r) => {'id': r.id, 'name': r.name}).toList();
       await storage.write(key: 'joined_rooms', value: jsonEncode(roomsJson));
     } catch (e) {
-      print('Error saving joined rooms to storage: $e');
+      if (kDebugMode) {
+        print('Error saving joined rooms to storage: $e');
+      }
     }
   }
 
@@ -232,7 +241,9 @@ class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
       final roomsJson = state.map((r) => {'id': r.id, 'name': r.name}).toList();
       await storage.write(key: 'joined_rooms', value: jsonEncode(roomsJson));
     } catch (e) {
-      print('Error saving joined rooms to storage: $e');
+      if (kDebugMode) {
+        print('Error saving joined rooms to storage: $e');
+      }
     }
   }
 
@@ -319,11 +330,15 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       if (_disposed) return;
 
       final errorMsg = data['message'] ?? 'An error occurred';
-      print('Socket error: $errorMsg');
+      if (kDebugMode) {
+        print('Socket error: $errorMsg');
+      }
 
       // If "Not in a room" error, try to rejoin
       if (errorMsg.contains('Not in a room')) {
-        print('Attempting to rejoin room...');
+        if (kDebugMode) {
+          print('Attempting to rejoin room...');
+        }
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!_disposed) _joinRoom();
         });
@@ -340,7 +355,9 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
 
     final socket = socketService.socket;
     if (socket == null || !socket.connected) {
-      print('Not connected. Cannot send message.');
+      if (kDebugMode) {
+        print('Not connected. Cannot send message.');
+      }
       return;
     }
 
@@ -406,7 +423,9 @@ final roomMembersProvider =
     final List<dynamic> membersJson = response.data;
     return membersJson.map((json) => RoomMember.fromJson(json)).toList();
   } catch (e) {
-    print('Error fetching room members: $e');
+    if (kDebugMode) {
+      print('Error fetching room members: $e');
+    }
     rethrow;
   }
 });
@@ -430,7 +449,9 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
     // Refresh joined rooms
     await joinedRoomsNotifier.refresh();
   } catch (e) {
-    print('Error leaving room: $e');
+    if (kDebugMode) {
+      print('Error leaving room: $e');
+    }
     rethrow;
   }
 }

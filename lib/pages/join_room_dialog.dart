@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
@@ -161,8 +162,10 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 },
                 loading: () => const Center(child: CircularProgressIndicator()),
                 error: (error, stack) {
-                  print('Error fetching rooms: $error');
-                  print('Stack: $stack');
+                  if (kDebugMode) {
+                    print('Error fetching rooms: $error');
+                    print('Stack: $stack');
+                  }
                   return Padding(
                     padding: const EdgeInsets.all(16.0),
                     child: Column(

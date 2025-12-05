@@ -41,19 +41,31 @@ final dioProvider = Provider<Dio>((ref) {
     },
   ));
 
-  // Add logging interceptor
-  dio.interceptors.add(LogInterceptor(
-    requestBody: true,
-    responseBody: true,
-    requestHeader: true,
-    responseHeader: false,
-    error: true,
-    logPrint: (object) {
-      if (kDebugMode) {
-        print('🌐 API: $object');
-      }
-    },
-  ));
+  // Add logging interceptor (only in debug mode, sanitized)
+  if (kDebugMode) {
+    dio.interceptors.add(LogInterceptor(
+      requestBody: true,
+      responseBody: true,
+      requestHeader: false, // Don't log headers (may contain tokens)
+      responseHeader: false,
+      error: true,
+      logPrint: (object) {
+        // Sanitize sensitive data in logs
+        String sanitized = object.toString();
+        // Remove token previews
+        sanitized = sanitized.replaceAll(
+          RegExp(r'Token preview: [^\s]+'),
+          'Token preview: [REDACTED]',
+        );
+        // Remove verification codes
+        sanitized = sanitized.replaceAll(
+          RegExp(r'"code":\s*"\d{6}"'),
+          '"code": "[REDACTED]"',
+        );
+        print('🌐 API: $sanitized');
+      },
+    ));
+  }
 
   // Initialize cookie manager eagerly (non-blocking)
   final authManager = ref.read(authManagerProvider);

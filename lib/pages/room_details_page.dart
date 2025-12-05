@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
@@ -151,7 +152,9 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                         onBackgroundImageError: member.profileImageUrl.isNotEmpty &&
                                 member.profileImageUrl.startsWith('https://')
                             ? (exception, stackTrace) {
-                                print('Error loading profile image: $exception');
+                                if (kDebugMode) {
+                                  print('Error loading profile image: $exception');
+                                }
                               }
                             : null,
                         child: member.profileImageUrl.isEmpty ||

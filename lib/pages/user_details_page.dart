@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
@@ -90,8 +91,10 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                         .toString()
                                         .startsWith('https://')
                                 ? (exception, stackTrace) {
-                                    print(
-                                        'Error loading profile image: $exception');
+                                    if (kDebugMode) {
+                                      print(
+                                          'Error loading profile image: $exception');
+                                    }
                                   }
                                 : null,
                         child: _userData!['profileImageUrl'] == null ||

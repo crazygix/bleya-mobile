@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
 import '../models/room.dart';
@@ -45,21 +46,29 @@ class SocketService {
     );
 
     _socket!.onConnect((_) {
-      print('Socket connected successfully');
+      if (kDebugMode) {
+        print('Socket connected successfully');
+      }
     });
 
     _socket!.onDisconnect((_) {
-      print('Socket disconnected');
+      if (kDebugMode) {
+        print('Socket disconnected');
+      }
       _currentRoom = null;
     });
 
     _socket!.onError((error) async {
-      print('Socket error: $error');
+      if (kDebugMode) {
+        print('Socket error: $error');
+      }
       await _handleAuthErrorIfNeeded(error);
     });
 
     _socket!.onConnectError((error) async {
-      print('Socket connection error: $error');
+      if (kDebugMode) {
+        print('Socket connection error: $error');
+      }
       await _handleAuthErrorIfNeeded(error);
     });
   }
@@ -77,7 +86,9 @@ class SocketService {
   Future<void> _handleAuthErrorIfNeeded(dynamic error) async {
     final message = error?.toString() ?? '';
     if (message.contains('Authentication error')) {
-      print('Detected socket authentication error');
+      if (kDebugMode) {
+        print('Detected socket authentication error');
+      }
       final callback = onAuthError;
       if (callback != null) {
         await callback();
@@ -88,22 +99,28 @@ class SocketService {
   void joinRoom(Room room) {
     // If socket instance itself is null, we can't join; caller must ensure connect() was called
     if (_socket == null) {
-      print(
-          'Socket instance is null, cannot join room. Ensure connect(token) is called first.');
+      if (kDebugMode) {
+        print(
+            'Socket instance is null, cannot join room. Ensure connect(token) is called first.');
+      }
       return;
     }
 
     // If socket exists but is not connected, force a reconnect and wait for connect
     if (_socket!.connected != true) {
-      print(
-          'Socket not connected, forcing reconnect and waiting for connection...');
+      if (kDebugMode) {
+        print(
+            'Socket not connected, forcing reconnect and waiting for connection...');
+      }
 
       // Avoid stacking multiple connect handlers if joinRoom is called repeatedly
       _socket!
         ..off('connect')
         ..connect()
         ..once('connect', (_) {
-          print('Socket connected, joining room...');
+          if (kDebugMode) {
+            print('Socket connected, joining room...');
+          }
           _doJoinRoom(room);
         });
       return;
@@ -114,28 +131,38 @@ class SocketService {
 
   void _doJoinRoom(Room room) {
     if (_currentRoom?.id == room.id) {
-      print('[Room] Already in $room, skipping');
+      if (kDebugMode) {
+        print('[Room] Already in $room, skipping');
+      }
       return;
     }
 
     if (_currentRoom != null) {
-      print('[Room] Leaving $_currentRoom');
+      if (kDebugMode) {
+        print('[Room] Leaving $_currentRoom');
+      }
       _socket?.emit('leave_room');
     }
 
     _currentRoom = room;
     _socket?.emit('join_room', {'roomId': room.id});
-    print('[Room] Joining $room');
+    if (kDebugMode) {
+      print('[Room] Joining $room');
+    }
   }
 
   /// Called when room_joined event is received to confirm we're in the room
   void onRoomJoinedConfirmed(Room room) {
     if (_currentRoom?.id == room.id) {
       _currentRoom = room; // Update with server data
-      print('[Room] Joined $room');
+      if (kDebugMode) {
+        print('[Room] Joined $room');
+      }
     } else {
-      print(
-          '[Room] Warning: room_joined for ${room.id} but current is ${_currentRoom?.id}');
+      if (kDebugMode) {
+        print(
+            '[Room] Warning: room_joined for ${room.id} but current is ${_currentRoom?.id}');
+      }
       _currentRoom = room;
     }
   }
@@ -143,16 +170,22 @@ class SocketService {
   void leaveRoom([String? specificRoomId]) {
     if (specificRoomId != null) {
       if (_currentRoom?.id == specificRoomId) {
-        print('[Room] Leaving $_currentRoom');
+        if (kDebugMode) {
+          print('[Room] Leaving $_currentRoom');
+        }
         _socket?.emit('leave_room');
         _currentRoom = null;
       } else {
-        print(
-            '[Room] Not in room $specificRoomId (currently in: ${_currentRoom?.id}), skipping');
+        if (kDebugMode) {
+          print(
+              '[Room] Not in room $specificRoomId (currently in: ${_currentRoom?.id}), skipping');
+        }
       }
     } else {
       if (_currentRoom != null) {
-        print('[Room] Leaving $_currentRoom');
+        if (kDebugMode) {
+          print('[Room] Leaving $_currentRoom');
+        }
         _socket?.emit('leave_room');
         _currentRoom = null;
       }
@@ -161,11 +194,15 @@ class SocketService {
 
   void sendMessage(String text) {
     if (_socket?.connected != true) {
-      print('Socket not connected, cannot send message');
+      if (kDebugMode) {
+        print('Socket not connected, cannot send message');
+      }
       return;
     }
     if (_currentRoom == null) {
-      print('Not in a room, cannot send message');
+      if (kDebugMode) {
+        print('Not in a room, cannot send message');
+      }
       return;
     }
     _socket!.emit('send_message', {'text': text});
