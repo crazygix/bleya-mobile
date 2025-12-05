@@ -16,13 +16,6 @@ samples, guidance on mobile development, and a full API reference.
 
 **⚠️ IMPORTANT: Always use `--dart-define=FLUTTER_ENV=prod` for release builds**
 
-### Quick Build Script
-
-```bash
-chmod +x scripts/build-release.sh
-./scripts/build-release.sh
-```
-
 ### Manual Build Commands
 
 **Android:**
@@ -48,10 +41,7 @@ Without `--dart-define=FLUTTER_ENV=prod`:
 
 ## CI/CD
 
-GitHub Actions workflow (`.github/workflows/build.yml`) automatically:
-- Builds Android APK and App Bundle with `FLUTTER_ENV=prod`
-- Builds iOS with `FLUTTER_ENV=prod`
-- Uploads artifacts for distribution
+**Note:** Ensure your Railway CI/CD (or other CI/CD) includes `--dart-define=FLUTTER_ENV=prod` in build commands for production releases.
 
 ## Assets
 
