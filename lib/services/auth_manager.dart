@@ -63,6 +63,9 @@ class AuthManager {
       _refreshingFuture = refreshing;
 
       try {
+        // Ensure cookies are attached before calling refresh
+        await ensureCookieManagerInitialized(dio);
+
         final refreshResponse = await dio.post(
           '/auth/refresh',
           options: Options(

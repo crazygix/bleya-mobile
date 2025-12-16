@@ -87,8 +87,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     ref.watch(chatRoomControllerProvider(widget.room));
 
     final messages = ref.watch(roomMessagesProvider(widget.room.id));
-    final currentUserAsync = ref.watch(currentUserProvider);
-    final currentUserId = currentUserAsync.value?['id'] as String?;
+    final currentUser = ref.watch(currentUserProvider);
+    final currentUserId = currentUser?['id'] as String?;
 
     return Scaffold(
       appBar: AppBar(

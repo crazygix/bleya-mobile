@@ -8,6 +8,7 @@ import '../services/socket_service.dart';
 import '../services/user_service.dart';
 import '../constants/urls.dart';
 import '../utils/jwt_utils.dart';
+import '../utils/app_errors.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
 
@@ -205,14 +206,24 @@ final userServiceProvider = Provider<UserService>((ref) {
   return UserService(dio);
 });
 
-// Current user profile provider
-final currentUserProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
-  try {
-    final userService = ref.read(userServiceProvider);
-    return await userService.getProfile();
-  } catch (e) {
-    return null;
-  }
+// Current user info derived from JWT (no network call)
+final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
+  final token = ref.watch(tokenProvider);
+  if (token == null || token.isEmpty) return null;
+
+  final decoded = JwtUtils.decodeToken(token);
+  if (decoded == null) return null;
+
+  // Expect payload to include userId and phoneNumber
+  final userId = decoded['userId'] ?? decoded['sub'];
+  final phoneNumber = decoded['phoneNumber'];
+
+  if (userId == null) return null;
+
+  return {
+    'id': userId as String,
+    'phoneNumber': phoneNumber,
+  };
 });
 
 final socketServiceProvider = Provider<SocketService>((ref) {
@@ -222,6 +233,23 @@ final socketServiceProvider = Provider<SocketService>((ref) {
   // the same logout flow used for HTTP authentication failures.
   service.onAuthError = () async {
     final authManager = ref.read(authManagerProvider);
+    if (authManager.isLoggingOut) {
+      return;
+    }
+
+    try {
+      final dio = ref.read(dioProvider);
+      final newToken = await authManager.refreshToken(dio);
+
+      if (newToken != null && newToken.isNotEmpty) {
+        // Refresh succeeded; reconnect socket with the fresh token
+        service.connect(newToken);
+        return;
+      }
+    } catch (_) {
+      // Fall through to logout on any failure
+    }
+
     await authManager.logout();
   };
 
@@ -276,10 +304,14 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
       await userService.getProfile();
       return true;
     } catch (e) {
-      // If validation fails (including after any interceptor refresh attempts),
-      // ensure the user is logged out and treated as unauthenticated.
-      await authManager.logout();
-      return false;
+      // Only logout on explicit 401s; otherwise keep token and let app show offline/retry
+      final isUnauthorized = e is UnauthorizedError;
+      if (isUnauthorized) {
+        await authManager.logout();
+        return false;
+      }
+      // Non-401 (e.g., 5xx/network): keep token; treat as not fully validated yet
+      return true;
     }
   }
 

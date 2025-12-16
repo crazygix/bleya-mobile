@@ -33,8 +33,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(roomMembersProvider(widget.roomId));
-    final currentUserAsync = ref.watch(currentUserProvider);
-    final currentUserId = currentUserAsync.value?['id'] as String?;
+    final currentUser = ref.watch(currentUserProvider);
+    final currentUserId = currentUser?['id'] as String?;
 
     return Scaffold(
       appBar: AppBar(
@@ -52,7 +52,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                   context: context,
                   builder: (context) => AlertDialog(
                     title: const Text('Leave Room'),
-                    content: const Text('Are you sure you want to leave this room?'),
+                    content:
+                        const Text('Are you sure you want to leave this room?'),
                     actions: [
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(false),
@@ -60,7 +61,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                       ),
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text('Leave', style: TextStyle(color: Colors.red)),
+                        child: const Text('Leave',
+                            style: TextStyle(color: Colors.red)),
                       ),
                     ],
                   ),
@@ -78,7 +80,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                       if (e is AppError) {
                         errorMessage = e.getUserMessage();
                       } else {
-                        errorMessage = 'Failed to leave room. Please try again.';
+                        errorMessage =
+                            'Failed to leave room. Please try again.';
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(errorMessage)),
@@ -139,7 +142,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                     final displayName = member.username.isNotEmpty
                         ? member.username
                         : member.phoneNumber;
-                    final isCurrentUser = currentUserId != null && member.id == currentUserId;
+                    final isCurrentUser =
+                        currentUserId != null && member.id == currentUserId;
 
                     return ListTile(
                       leading: CircleAvatar(
@@ -149,11 +153,13 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                                 member.profileImageUrl.startsWith('https://')
                             ? NetworkImage(member.profileImageUrl)
                             : null,
-                        onBackgroundImageError: member.profileImageUrl.isNotEmpty &&
+                        onBackgroundImageError: member
+                                    .profileImageUrl.isNotEmpty &&
                                 member.profileImageUrl.startsWith('https://')
                             ? (exception, stackTrace) {
                                 if (kDebugMode) {
-                                  print('Error loading profile image: $exception');
+                                  print(
+                                      'Error loading profile image: $exception');
                                 }
                               }
                             : null,
@@ -212,7 +218,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                    const Icon(Icons.error_outline,
+                        size: 48, color: Colors.red),
                     const SizedBox(height: 16),
                     Text('Error loading members: $error'),
                     const SizedBox(height: 16),
@@ -232,4 +239,3 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
     );
   }
 }
-

@@ -7,6 +7,7 @@ class SocketService {
   io.Socket? _socket;
   Room? _currentRoom;
   String? _currentToken;
+  bool _isReconnecting = false;
 
   /// Optional callback invoked when an authentication error is detected
   /// on the socket connection.
@@ -15,18 +16,26 @@ class SocketService {
   io.Socket? get socket => _socket;
 
   void connect(String token) {
-    // If already connected with the same token, nothing to do
-    if (_socket?.connected == true && _currentToken == token) {
+    // Remember the room we were in (if any) so we can rejoin after reconnect
+    final Room? roomToRejoin = _currentRoom;
+
+    // If socket exists with the same token, don't create a new one
+    // (it's either connected or in the process of connecting)
+    if (_socket != null && _currentToken == token) {
       return;
     }
 
     // If we have an existing socket (possibly with a different token),
     // clean it up before establishing a new connection.
     if (_socket != null) {
+      // Mark that we're reconnecting so onDisconnect doesn't clear the room
+      _isReconnecting = true;
       _socket!.disconnect();
       _socket = null;
-      _currentRoom = null;
+      // Don't clear _currentRoom here - we'll restore it after reconnect
       _currentToken = null;
+    } else {
+      _isReconnecting = false;
     }
 
     // Extract base URL from environment config
@@ -47,7 +56,23 @@ class SocketService {
 
     _socket!.onConnect((_) {
       if (kDebugMode) {
-        print('Socket connected successfully');
+        print('Socket connected successfully with token');
+      }
+
+      // Clear reconnecting flag
+      _isReconnecting = false;
+
+      // If we had a room before reconnect, automatically rejoin it
+      if (roomToRejoin != null) {
+        if (kDebugMode) {
+          print('Rejoining room ${roomToRejoin.name} after reconnect...');
+        }
+        // Small delay to ensure socket is fully authenticated
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_socket?.connected == true) {
+            _doJoinRoom(roomToRejoin);
+          }
+        });
       }
     });
 
@@ -55,7 +80,10 @@ class SocketService {
       if (kDebugMode) {
         print('Socket disconnected');
       }
-      _currentRoom = null;
+      // Only clear current room if we're not in the middle of a reconnect
+      if (!_isReconnecting) {
+        _currentRoom = null;
+      }
     });
 
     _socket!.onError((error) async {
@@ -69,11 +97,16 @@ class SocketService {
       if (kDebugMode) {
         print('Socket connection error: $error');
       }
+      // Clear token if connection fails - might be invalid
+      if (error?.toString().contains('Authentication error') == true) {
+        _currentToken = null;
+      }
       await _handleAuthErrorIfNeeded(error);
     });
   }
 
   void disconnect() {
+    _isReconnecting = false; // Not reconnecting if explicitly disconnecting
     if (_currentRoom != null) {
       leaveRoom();
     }
@@ -96,37 +129,95 @@ class SocketService {
     }
   }
 
-  void joinRoom(Room room) {
-    // If socket instance itself is null, we can't join; caller must ensure connect() was called
+  void joinRoom(Room room, {String? token}) {
+    // Always use the provided token if available, otherwise use current token
+    final tokenToUse = token ?? _currentToken;
+
+    // If no token available, can't join
+    if (tokenToUse == null || tokenToUse.isEmpty) {
+      if (kDebugMode) {
+        print('No token available, cannot join room');
+      }
+      return;
+    }
+
+    // If socket is null, connect first
     if (_socket == null) {
       if (kDebugMode) {
-        print(
-            'Socket instance is null, cannot join room. Ensure connect(token) is called first.');
+        print('Socket is null, connecting with token...');
       }
-      return;
-    }
-
-    // If socket exists but is not connected, force a reconnect and wait for connect
-    if (_socket!.connected != true) {
-      if (kDebugMode) {
-        print(
-            'Socket not connected, forcing reconnect and waiting for connection...');
-      }
-
-      // Avoid stacking multiple connect handlers if joinRoom is called repeatedly
-      _socket!
-        ..off('connect')
-        ..connect()
-        ..once('connect', (_) {
-          if (kDebugMode) {
-            print('Socket connected, joining room...');
+      connect(tokenToUse);
+      // Wait for connection before joining room
+      _socket?.once('connect', (_) {
+        if (kDebugMode) {
+          print('Socket connected, joining room...');
+        }
+        // Small delay to ensure socket is fully authenticated
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_socket?.connected == true) {
+            _doJoinRoom(room);
           }
-          _doJoinRoom(room);
         });
+      });
       return;
     }
 
-    _doJoinRoom(room);
+    // If token changed, reconnect with new token
+    if (tokenToUse != _currentToken) {
+      if (kDebugMode) {
+        print('Token changed, reconnecting socket with new token...');
+      }
+      connect(tokenToUse);
+      // Wait for connection before joining room
+      _socket?.once('connect', (_) {
+        if (kDebugMode) {
+          print('Socket connected with new token, joining room...');
+        }
+        // Small delay to ensure socket is fully authenticated
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_socket?.connected == true) {
+            _doJoinRoom(room);
+          }
+        });
+      });
+      return;
+    }
+
+    // Socket exists and token matches
+    if (_socket!.connected == true) {
+      // Already connected and authenticated, join immediately
+      _doJoinRoom(room);
+    } else {
+      // Socket exists with correct token but not connected yet
+      // Wait for it to connect (it's likely in the process of connecting via autoConnect)
+      if (kDebugMode) {
+        print('Socket not connected yet, waiting for connection...');
+      }
+
+      // Track if we've already handled the join (to avoid double-join from race condition)
+      bool joinHandled = false;
+
+      void handleConnect() {
+        if (joinHandled) return;
+        joinHandled = true;
+        if (kDebugMode) {
+          print('Socket connected, joining room...');
+        }
+        Future.delayed(const Duration(milliseconds: 100), () {
+          if (_socket?.connected == true) {
+            _doJoinRoom(room);
+          }
+        });
+      }
+
+      // Set up one-time handler for connect event
+      _socket!.once('connect', (_) => handleConnect());
+
+      // Check again in case it connected between the if check and registering the handler
+      if (_socket!.connected == true) {
+        handleConnect();
+      }
+    }
   }
 
   void _doJoinRoom(Room room) {
