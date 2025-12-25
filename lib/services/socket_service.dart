@@ -22,6 +22,11 @@ class SocketService {
     // If socket exists with the same token, don't create a new one
     // (it's either connected or in the process of connecting)
     if (_socket != null && _currentToken == token) {
+      // If the socket exists but is currently disconnected, explicitly reconnect.
+      // Without this, callers may wait forever for a connect event that never happens.
+      if (_socket!.connected != true) {
+        _socket!.connect();
+      }
       return;
     }
 
@@ -193,6 +198,9 @@ class SocketService {
       if (kDebugMode) {
         print('Socket not connected yet, waiting for connection...');
       }
+
+      // Ensure a connection attempt is in progress.
+      _socket!.connect();
 
       // Track if we've already handled the join (to avoid double-join from race condition)
       bool joinHandled = false;
