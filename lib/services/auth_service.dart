@@ -9,6 +9,7 @@ class _ApiUrls {
   static const String getMyInfo = '/auth/me';
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
+  static const String setUsername = '/auth/set-username';
 }
 
 class AuthService {
@@ -35,7 +36,7 @@ class AuthService {
     }
   }
 
-  Future<String> verifyCode(
+  Future<Map<String, dynamic>> verifyCode(
       {required String phone, required String code}) async {
     try {
       final response = await _dio.post(
@@ -46,9 +47,24 @@ class AuthService {
         },
       );
       final String token = response.data['token'];
+      final bool requiresUsername = response.data['requiresUsername'] ?? false;
       // Persist token securely for subsequent sessions
       await _secureStorage.write(key: 'auth_token', value: token);
-      return token;
+      return {
+        'token': token,
+        'requiresUsername': requiresUsername,
+      };
+    } on DioException catch (e) {
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<void> setUsername({required String username}) async {
+    try {
+      await _dio.post(
+        _ApiUrls.setUsername,
+        data: {'username': username},
+      );
     } on DioException catch (e) {
       throw _handleDioError(e);
     }

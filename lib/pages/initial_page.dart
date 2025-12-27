@@ -1,7 +1,9 @@
 import 'package:bleya/pages/authorisation_page.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import 'username_page.dart';
 
 class InitialPage extends ConsumerStatefulWidget {
   @override
@@ -24,7 +26,31 @@ class _InitialPageState extends ConsumerState<InitialPage> {
     if (!mounted) return;
     
     if (isAuthenticated) {
-      Navigator.of(context).pushReplacementNamed('/home');
+      // Check if user has username
+      try {
+        final userService = ref.read(userServiceProvider);
+        final profile = await userService.getProfile();
+        final username = profile['username'] as String?;
+        final hasUsername = username != null && username.trim().isNotEmpty;
+        
+        if (!mounted) return;
+        
+        if (!hasUsername) {
+          // Navigate to username page if username is missing
+          Navigator.of(context).pushReplacement(
+            CupertinoPageRoute(builder: (context) => UsernamePage()),
+          );
+        } else {
+          // Navigate to home if username is set
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      } catch (e) {
+        // If profile fetch fails, still try to navigate to home
+        // The error will be handled by the interceptor
+        if (mounted) {
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
+      }
     }
   }
 

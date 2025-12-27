@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import 'username_page.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
   final String phoneNumber;
@@ -34,15 +35,27 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
     try {
       setState(() => _errorMessage = null);
       final authService = ref.read(authServiceProvider);
-      final token = await authService.verifyCode(
+      final result = await authService.verifyCode(
         phone: widget.phoneNumber,
         code: _codeController.text,
       );
       // Update token provider state so interceptor starts injecting Authorization
+      final token = result['token'] as String;
+      final requiresUsername = result['requiresUsername'] as bool? ?? false;
       ref.read(tokenProvider.notifier).state = token;
 
       if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
+        if (requiresUsername) {
+          // Navigate to username page if username is required
+          Navigator.of(context).pushReplacement(
+            CupertinoPageRoute(
+              builder: (context) => UsernamePage(),
+            ),
+          );
+        } else {
+          // Navigate to home if username is already set
+          Navigator.of(context).pushReplacementNamed('/home');
+        }
       }
     } catch (e) {
       if (e is AppError) {
