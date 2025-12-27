@@ -12,6 +12,12 @@ import '../utils/app_errors.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
 
+/// Path used by PersistCookieJar to store cookies on disk.
+///
+/// Overridden in `main.dart` after we resolve the application support directory,
+/// to ensure the CookieManager is attached before the first network request.
+final cookieStoragePathProvider = Provider<String?>((ref) => null);
+
 // Initialize token from secure storage on app startup
 final tokenInitializerProvider = FutureProvider<void>((ref) async {
   final storage = ref.read(secureStorageProvider);
@@ -229,12 +235,12 @@ final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
 final socketServiceProvider = Provider<SocketService>((ref) {
   final service = SocketService();
 
-  // When the socket experiences an authentication error, route it through
-  // the same logout flow used for HTTP authentication failures.
-  service.onAuthError = () async {
+  // When the socket experiences an authentication error, refresh the token
+  // and let SocketService reconnect/retry joins with the new token.
+  service.refreshToken = () async {
     final authManager = ref.read(authManagerProvider);
     if (authManager.isLoggingOut) {
-      return;
+      return null;
     }
 
     try {
@@ -242,30 +248,30 @@ final socketServiceProvider = Provider<SocketService>((ref) {
       final newToken = await authManager.refreshToken(dio);
 
       if (newToken != null && newToken.isNotEmpty) {
-        // Refresh succeeded; reconnect socket with the fresh token
-        service.connect(newToken);
-        return;
+        // AuthManager already persists + updates tokenProvider; return it for socket reconnect.
+        return newToken;
       }
     } catch (_) {
       // Fall through to logout on any failure
     }
 
     await authManager.logout();
+    return null;
   };
 
-  // Connect socket when token is available
+  // Keep socket's token in sync; SocketService maintains a single socket instance.
   ref.listen(tokenProvider, (previous, next) {
     if (next != null && next.isNotEmpty) {
-      service.connect(next);
+      service.setToken(next);
     } else {
-      service.disconnect();
+      service.setToken(null);
     }
   });
 
-  // Initial connection if token exists
+  // Initial token sync if token exists
   final token = ref.read(tokenProvider);
   if (token != null && token.isNotEmpty) {
-    service.connect(token);
+    service.setToken(token);
   }
 
   // Cleanup on dispose

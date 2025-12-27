@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
@@ -8,74 +9,60 @@ class SocketService {
   Room? _currentRoom;
   String? _currentToken;
   bool _isReconnecting = false;
+  bool _authRefreshInFlight = false;
+  Room? _desiredRoom;
+
+  /// Single-flight connection attempt to prevent overlapping connect/reconnect calls.
+  Future<void>? _connecting;
 
   /// Optional callback invoked when an authentication error is detected
   /// on the socket connection.
-  Future<void> Function()? onAuthError;
+  ///
+  /// Should refresh the token (and typically update token provider) and return
+  /// the fresh access token, or null if refresh failed.
+  Future<String?> Function()? refreshToken;
 
   io.Socket? get socket => _socket;
 
-  void connect(String token) {
-    // Remember the room we were in (if any) so we can rejoin after reconnect
-    final Room? roomToRejoin = _currentRoom;
-
-    // If socket exists with the same token, don't create a new one
-    // (it's either connected or in the process of connecting)
-    if (_socket != null && _currentToken == token) {
-      // If the socket exists but is currently disconnected, explicitly reconnect.
-      // Without this, callers may wait forever for a connect event that never happens.
-      if (_socket!.connected != true) {
-        _socket!.connect();
-      }
+  void setToken(String? token) {
+    _currentToken = (token != null && token.isNotEmpty) ? token : null;
+    // If token is cleared, disconnect but keep the socket instance (single socket).
+    if (_currentToken == null) {
+      _isReconnecting = false;
+      _socket?.disconnect();
+      _currentRoom = null;
+      _desiredRoom = null;
       return;
     }
+    // Ensure we have a socket instance ready; don't auto-join here.
+    _ensureSocketInitialized();
+  }
 
-    // If we have an existing socket (possibly with a different token),
-    // clean it up before establishing a new connection.
-    if (_socket != null) {
-      // Mark that we're reconnecting so onDisconnect doesn't clear the room
-      _isReconnecting = true;
-      _socket!.disconnect();
-      _socket = null;
-      // Don't clear _currentRoom here - we'll restore it after reconnect
-      _currentToken = null;
-    } else {
-      _isReconnecting = false;
-    }
+  void _ensureSocketInitialized() {
+    if (_socket != null) return;
 
-    // Extract base URL from environment config
-    final baseUrl = EnvironmentConfig.baseUrl.replaceAll('/api', '');
-    final serverUrl = baseUrl;
-
-    _currentToken = token;
+    final serverUrl = EnvironmentConfig.baseUrl.replaceAll('/api', '');
 
     _socket = io.io(
       serverUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
-          .setAuth({'token': token})
-          .setExtraHeaders({'Authorization': 'Bearer $token'})
-          .enableAutoConnect()
+          // We'll update auth/headers right before connect.
+          .disableAutoConnect()
           .build(),
     );
 
     _socket!.onConnect((_) {
       if (kDebugMode) {
-        print('Socket connected successfully with token');
+        print('Socket connected');
       }
-
-      // Clear reconnecting flag
       _isReconnecting = false;
-
-      // If we had a room before reconnect, automatically rejoin it
-      if (roomToRejoin != null) {
-        if (kDebugMode) {
-          print('Rejoining room ${roomToRejoin.name} after reconnect...');
-        }
-        // Small delay to ensure socket is fully authenticated
+      // If a room is desired (e.g., screen entered), join it after connect.
+      final desired = _desiredRoom;
+      if (desired != null) {
         Future.delayed(const Duration(milliseconds: 100), () {
           if (_socket?.connected == true) {
-            _doJoinRoom(roomToRejoin);
+            _doJoinRoom(desired);
           }
         });
       }
@@ -85,7 +72,6 @@ class SocketService {
       if (kDebugMode) {
         print('Socket disconnected');
       }
-      // Only clear current room if we're not in the middle of a reconnect
       if (!_isReconnecting) {
         _currentRoom = null;
       }
@@ -95,18 +81,14 @@ class SocketService {
       if (kDebugMode) {
         print('Socket error: $error');
       }
-      await _handleAuthErrorIfNeeded(error);
+      await _handleAuthFailureIfNeeded(error);
     });
 
     _socket!.onConnectError((error) async {
       if (kDebugMode) {
         print('Socket connection error: $error');
       }
-      // Clear token if connection fails - might be invalid
-      if (error?.toString().contains('Authentication error') == true) {
-        _currentToken = null;
-      }
-      await _handleAuthErrorIfNeeded(error);
+      await _handleAuthFailureIfNeeded(error);
     });
   }
 
@@ -116,116 +98,133 @@ class SocketService {
       leaveRoom();
     }
     _socket?.disconnect();
-    _socket = null;
     _currentRoom = null;
+    _desiredRoom = null;
     _currentToken = null;
   }
 
-  Future<void> _handleAuthErrorIfNeeded(dynamic error) async {
+  Future<void> _handleAuthFailureIfNeeded(dynamic error) async {
     final message = error?.toString() ?? '';
     if (message.contains('Authentication error')) {
       if (kDebugMode) {
         print('Detected socket authentication error');
       }
-      final callback = onAuthError;
-      if (callback != null) {
-        await callback();
+      // Avoid re-entrant refresh loops.
+      if (_authRefreshInFlight) return;
+      final refresher = refreshToken;
+      if (refresher == null) return;
+
+      _authRefreshInFlight = true;
+      try {
+        final newToken = await refresher();
+        if (newToken != null && newToken.isNotEmpty) {
+          // Update local token and reconnect with fresh credentials.
+          setToken(newToken);
+          await _ensureConnected();
+        }
+      } finally {
+        _authRefreshInFlight = false;
       }
     }
   }
 
-  void joinRoom(Room room, {String? token}) {
-    // Always use the provided token if available, otherwise use current token
-    final tokenToUse = token ?? _currentToken;
+  Future<void> joinRoom(Room room) async {
+    _desiredRoom = room;
 
-    // If no token available, can't join
-    if (tokenToUse == null || tokenToUse.isEmpty) {
+    if (_currentToken == null || _currentToken!.isEmpty) {
       if (kDebugMode) {
         print('No token available, cannot join room');
       }
       return;
     }
 
-    // If socket is null, connect first
-    if (_socket == null) {
-      if (kDebugMode) {
-        print('Socket is null, connecting with token...');
-      }
-      connect(tokenToUse);
-      // Wait for connection before joining room
-      _socket?.once('connect', (_) {
-        if (kDebugMode) {
-          print('Socket connected, joining room...');
+    _ensureSocketInitialized();
+    await _ensureConnected();
+
+    // If we are connected, attempt join.
+    _doJoinRoom(room);
+  }
+
+  Future<void> _ensureConnected() {
+    // Single-flight: multiple joinRoom calls should share one connect attempt.
+    final existing = _connecting;
+    if (existing != null) return existing;
+
+    final completer = Completer<void>();
+    _connecting = completer.future;
+
+    () async {
+      try {
+        if (_socket == null) {
+          _ensureSocketInitialized();
         }
-        // Small delay to ensure socket is fully authenticated
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_socket?.connected == true) {
-            _doJoinRoom(room);
-          }
-        });
-      });
-      return;
-    }
-
-    // If token changed, reconnect with new token
-    if (tokenToUse != _currentToken) {
-      if (kDebugMode) {
-        print('Token changed, reconnecting socket with new token...');
-      }
-      connect(tokenToUse);
-      // Wait for connection before joining room
-      _socket?.once('connect', (_) {
-        if (kDebugMode) {
-          print('Socket connected with new token, joining room...');
+        if (_socket == null) {
+          throw Exception('Socket not initialized');
         }
-        // Small delay to ensure socket is fully authenticated
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_socket?.connected == true) {
-            _doJoinRoom(room);
-          }
-        });
-      });
-      return;
-    }
-
-    // Socket exists and token matches
-    if (_socket!.connected == true) {
-      // Already connected and authenticated, join immediately
-      _doJoinRoom(room);
-    } else {
-      // Socket exists with correct token but not connected yet
-      // Wait for it to connect (it's likely in the process of connecting via autoConnect)
-      if (kDebugMode) {
-        print('Socket not connected yet, waiting for connection...');
-      }
-
-      // Ensure a connection attempt is in progress.
-      _socket!.connect();
-
-      // Track if we've already handled the join (to avoid double-join from race condition)
-      bool joinHandled = false;
-
-      void handleConnect() {
-        if (joinHandled) return;
-        joinHandled = true;
-        if (kDebugMode) {
-          print('Socket connected, joining room...');
+        if (_socket!.connected == true) {
+          completer.complete();
+          return;
         }
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_socket?.connected == true) {
-            _doJoinRoom(room);
+        // Update auth/headers right before connect so handshake uses latest token.
+        final token = _currentToken;
+        if (token == null || token.isEmpty) {
+          throw Exception('Missing token');
+        }
+
+        try {
+          // socket_io_client allows updating option maps dynamically.
+          // Ensure we keep a Map for auth and update token in-place.
+          final ioManager = _socket!.io;
+          final Map<String, dynamic> opts =
+              Map<String, dynamic>.from(ioManager.options ?? const <String, dynamic>{});
+
+          final existingAuth = opts['auth'];
+          final Map<String, dynamic> authMap = existingAuth is Map
+              ? Map<String, dynamic>.from(existingAuth)
+              : <String, dynamic>{};
+          authMap['token'] = token;
+          opts['auth'] = authMap;
+          opts['extraHeaders'] = <String, dynamic>{
+            'Authorization': 'Bearer $token',
+          };
+          // Assign back in case the manager stores a different map instance.
+          ioManager.options = opts;
+        } catch (_) {
+          // Best-effort; proceed to connect.
+        }
+
+        // Connect and await connect or connect_error.
+        _isReconnecting = true;
+
+        late dynamic connectErrorHandler;
+        late dynamic connectHandler;
+
+        connectHandler = (_) {
+          _socket?.off('connect_error', connectErrorHandler);
+          completer.complete();
+        };
+        connectErrorHandler = (err) async {
+          _socket?.off('connect', connectHandler);
+          // If auth error, try refresh once then retry connect.
+          final msg = err?.toString() ?? '';
+          if (msg.contains('Authentication error')) {
+            await _handleAuthFailureIfNeeded(err);
           }
-        });
-      }
+          completer.completeError(err ?? Exception('connect_error'));
+        };
 
-      // Set up one-time handler for connect event
-      _socket!.once('connect', (_) => handleConnect());
-
-      // Check again in case it connected between the if check and registering the handler
-      if (_socket!.connected == true) {
-        handleConnect();
+        _socket!.once('connect', connectHandler);
+        _socket!.once('connect_error', connectErrorHandler);
+        _socket!.connect();
+      } catch (e) {
+        completer.completeError(e);
+      } finally {
+        _connecting = null;
+        _isReconnecting = false;
       }
-    }
+    }();
+
+    return completer.future;
   }
 
   void _doJoinRoom(Room room) {

@@ -1,9 +1,9 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../utils/navigation.dart';
@@ -36,9 +36,15 @@ class AuthManager {
 
     _cookieManagerInitCompleter = Completer<void>();
     try {
-      final dir = await getApplicationSupportDirectory();
-      _cookieJar =
-          PersistCookieJar(storage: FileStorage('${dir.path}/cookies'));
+      final storagePath = _ref.read(cookieStoragePathProvider);
+      // Fallback for safety (should be overridden in main.dart)
+      final basePath = (storagePath != null && storagePath.isNotEmpty)
+          ? storagePath
+          : '${Directory.systemTemp.path}/bleya';
+
+      _cookieJar = PersistCookieJar(
+        storage: FileStorage('$basePath/cookies'),
+      );
       _cookieManager = CookieManager(_cookieJar!);
       dio.interceptors.add(_cookieManager!);
       _cookieManagerInitCompleter!.complete();

@@ -347,13 +347,9 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
   }
 
   void _joinRoom() {
-    // Get current token to ensure socket uses latest token
-    final token = ref.read(tokenProvider);
-    if (token != null && token.isNotEmpty) {
-      socketService.joinRoom(room, token: token);
-    } else {
-      socketService.joinRoom(room);
-    }
+    // SocketService already tracks the latest token via socketServiceProvider.
+    // Joining should always use that latest token.
+    socketService.joinRoom(room);
   }
 
   void sendMessage(String text) {

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
 import 'pages/initial_page.dart';
 import 'pages/home_page.dart';
 import 'config/environment.dart';
@@ -20,7 +21,15 @@ void main() async {
 
   EnvironmentConfig.setEnvironment(environment);
 
+  // Resolve cookie storage directory BEFORE any Dio requests can run, so we never
+  // miss the Set-Cookie(refreshToken) coming from /auth/verify-code.
+  final supportDir = await getApplicationSupportDirectory();
+  final cookieStoragePath = '${supportDir.path}/bleya';
+
   runApp(ProviderScope(
+    overrides: [
+      cookieStoragePathProvider.overrideWithValue(cookieStoragePath),
+    ],
     child: MyApp(),
   ));
 }
