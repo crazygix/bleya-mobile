@@ -72,9 +72,11 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                   try {
                     await leaveRoom(ref, widget.roomId);
                     if (context.mounted) {
-                      // Pop to home page, not to first route (which is InitialPage)
-                      Navigator.of(context).popUntil(
-                        (route) => route.settings.name == '/home' || route.isFirst,
+                      // Navigate to home and remove all routes except the initial route
+                      // This is more reliable than popUntil which may not find the route by name
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        '/home',
+                        ModalRoute.withName('/'),
                       );
                     }
                   } catch (e) {
