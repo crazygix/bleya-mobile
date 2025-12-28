@@ -72,7 +72,10 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                   try {
                     await leaveRoom(ref, widget.roomId);
                     if (context.mounted) {
-                      Navigator.of(context).popUntil((route) => route.isFirst);
+                      // Pop to home page, not to first route (which is InitialPage)
+                      Navigator.of(context).popUntil(
+                        (route) => route.settings.name == '/home' || route.isFirst,
+                      );
                     }
                   } catch (e) {
                     if (context.mounted) {
