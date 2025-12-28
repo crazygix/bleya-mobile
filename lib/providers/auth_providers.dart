@@ -130,19 +130,17 @@ final dioProvider = Provider<Dio>((ref) {
           return handler.next(error);
         }
 
-        // Skip refresh logic for refresh calls themselves
+        // Skip refresh logic for refresh and logout calls
         final reqExtra = error.requestOptions.extra;
-        if (reqExtra['refresh'] == true) {
-          // Refresh failed - logout user and navigate to auth screen
-          await authManager.logout();
+        if (reqExtra['refresh'] == true || reqExtra['logout'] == true) {
+          // Refresh/logout failed - don't trigger another logout
           return handler.next(error);
         }
 
-        // Check if token exists - if not, logout immediately
+        // Check if token exists - if not, just return error (already logged out)
         final currentToken = ref.read(tokenProvider);
         if (currentToken == null || currentToken.isEmpty) {
-          // No token at all - logout immediately
-          await authManager.logout();
+          // No token - already logged out, don't call logout again
           return handler.next(error);
         }
 

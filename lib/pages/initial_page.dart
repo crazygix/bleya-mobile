@@ -26,6 +26,13 @@ class _InitialPageState extends ConsumerState<InitialPage> {
     if (!mounted) return;
     
     if (isAuthenticated) {
+      // Double-check we have a token before making API calls
+      final token = ref.read(tokenProvider);
+      if (token == null || token.isEmpty) {
+        // Token was cleared during bootstrap, don't make API calls
+        return;
+      }
+
       // Check if user has username
       try {
         final userService = ref.read(userServiceProvider);

@@ -1,4 +1,3 @@
-import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dio/dio.dart';
@@ -138,28 +137,10 @@ final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
     final List<dynamic> roomsJson = response.data;
     final rooms = roomsJson.map((json) => Room.fromJson(json)).toList();
 
-    // Save to secure storage for offline access
-    final storage = ref.read(secureStorageProvider);
-    final roomsJsonString = jsonEncode(roomsJson);
-    await storage.write(key: 'joined_rooms', value: roomsJsonString);
-
     return rooms;
   } catch (e) {
     if (kDebugMode) {
       print('Error fetching joined rooms: $e');
-    }
-    // Try to load from secure storage as fallback
-    try {
-      final storage = ref.read(secureStorageProvider);
-      final roomsJsonString = await storage.read(key: 'joined_rooms');
-      if (roomsJsonString != null) {
-        final List<dynamic> roomsJson = jsonDecode(roomsJsonString);
-        return roomsJson.map((json) => Room.fromJson(json)).toList();
-      }
-    } catch (e2) {
-      if (kDebugMode) {
-        print('Error loading joined rooms from storage: $e2');
-      }
     }
     return [];
   }
@@ -169,8 +150,6 @@ final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
 final joinedRoomsProvider =
     StateNotifierProvider<JoinedRoomsNotifier, List<Room>>((ref) {
   final notifier = JoinedRoomsNotifier(ref);
-  // Initialize from storage first for immediate display
-  notifier.loadFromStorage();
   // Sync with backend - check current value and listen for changes
   final currentValue = ref.read(joinedRoomsFutureProvider);
   currentValue.whenData((rooms) {
@@ -190,26 +169,11 @@ class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
 
   JoinedRoomsNotifier(this.ref) : super([]);
 
-  Future<void> loadFromStorage() async {
-    try {
-      final storage = ref.read(secureStorageProvider);
-      final roomsJsonString = await storage.read(key: 'joined_rooms');
-      if (roomsJsonString != null) {
-        final List<dynamic> roomsJson = jsonDecode(roomsJsonString);
-        state = roomsJson.map((json) => Room.fromJson(json)).toList();
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error loading joined rooms from storage: $e');
-      }
-    }
-  }
-
   void setRooms(List<Room> rooms) {
     state = rooms;
   }
 
-  Future<void> addRoom(Room room) async {
+  void addRoom(Room room) {
     if (state.any((r) => r.id == room.id)) {
       return; // Already joined
     }
@@ -219,35 +183,13 @@ class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
     }
 
     state = [...state, room];
-
-    // Save to secure storage
-    try {
-      final storage = ref.read(secureStorageProvider);
-      final roomsJson = state.map((r) => {'id': r.id, 'name': r.name}).toList();
-      await storage.write(key: 'joined_rooms', value: jsonEncode(roomsJson));
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error saving joined rooms to storage: $e');
-      }
-    }
   }
 
-  Future<void> removeRoom(String roomId) async {
+  void removeRoom(String roomId) {
     state = state.where((r) => r.id != roomId).toList();
-
-    // Save to secure storage
-    try {
-      final storage = ref.read(secureStorageProvider);
-      final roomsJson = state.map((r) => {'id': r.id, 'name': r.name}).toList();
-      await storage.write(key: 'joined_rooms', value: jsonEncode(roomsJson));
-    } catch (e) {
-      if (kDebugMode) {
-        print('Error saving joined rooms to storage: $e');
-      }
-    }
   }
 
-  Future<void> refresh() async {
+  void refresh() {
     ref.invalidate(joinedRoomsFutureProvider);
   }
 }
@@ -446,10 +388,10 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
 
     // Remove from local state
     final joinedRoomsNotifier = ref.read(joinedRoomsProvider.notifier);
-    await joinedRoomsNotifier.removeRoom(roomId);
+    joinedRoomsNotifier.removeRoom(roomId);
 
     // Refresh joined rooms
-    await joinedRoomsNotifier.refresh();
+    joinedRoomsNotifier.refresh();
   } catch (e) {
     if (kDebugMode) {
       print('Error leaving room: $e');

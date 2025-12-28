@@ -8,6 +8,7 @@ import 'pages/home_page.dart';
 import 'pages/username_page.dart';
 import 'config/environment.dart';
 import 'providers/auth_providers.dart';
+import 'providers/connectivity_provider.dart';
 import 'utils/navigation.dart';
 
 void main() async {
@@ -51,6 +52,9 @@ class MyApp extends ConsumerWidget {
         scaffoldBackgroundColor: CupertinoColors.systemBackground,
       ),
       debugShowCheckedModeBanner: false, // Disable default banner
+      builder: (context, child) {
+        return ConnectivityBanner(child: child ?? SizedBox.shrink());
+      },
       routes: {
         '/': (context) => InitialPage(),
         '/home': (context) => HomePage(),
@@ -89,5 +93,38 @@ class MyApp extends ConsumerWidget {
     }
 
     return materialApp;
+  }
+}
+
+/// Widget that shows a banner when there's no internet connection
+class ConnectivityBanner extends ConsumerWidget {
+  final Widget child;
+
+  const ConnectivityBanner({required this.child});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isOnline = ref.watch(isOnlineProvider);
+
+    return Column(
+      children: [
+        if (!isOnline)
+          Container(
+            color: Colors.red,
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 8),
+            child: Text(
+              'No internet connection',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        Expanded(child: child),
+      ],
+    );
   }
 }

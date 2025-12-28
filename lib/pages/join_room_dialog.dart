@@ -40,10 +40,10 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
       // Update local state
       final notifier = ref.read(joinedRoomsProvider.notifier);
-      await notifier.addRoom(room);
+      notifier.addRoom(room);
 
       // Refresh joined rooms from backend
-      await notifier.refresh();
+      notifier.refresh();
 
       if (mounted) {
         Navigator.pop(context);

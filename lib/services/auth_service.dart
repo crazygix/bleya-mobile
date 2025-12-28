@@ -99,7 +99,12 @@ class AuthService {
 
   Future<void> logout() async {
     try {
-      await _dio.post(_ApiUrls.logout);
+      await _dio.post(
+        _ApiUrls.logout,
+        options: Options(
+          extra: {'logout': true}, // Skip interceptor
+        ),
+      );
     } catch (_) {}
     await _secureStorage.delete(key: 'auth_token');
   }

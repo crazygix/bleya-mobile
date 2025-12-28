@@ -60,8 +60,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
         if (e is AppError) {
           setState(() => _errorMessage = e.getUserMessage());
         } else {
-          setState(() =>
-              _errorMessage = 'An unexpected error occurred. Please try again.');
+          setState(() => _errorMessage =
+              'An unexpected error occurred. Please try again.');
         }
       }
     } finally {
@@ -75,6 +75,19 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
       navigationBar: CupertinoNavigationBar(
+        leading: CupertinoButton(
+          padding: EdgeInsets.zero,
+          onPressed: () async {
+            // Logout and go back to initial/auth page
+            final authService = ref.read(authServiceProvider);
+            final navigator = Navigator.of(context);
+            await authService.logout();
+            if (mounted) {
+              navigator.pushNamedAndRemoveUntil('/', (route) => false);
+            }
+          },
+          child: Icon(CupertinoIcons.arrow_left),
+        ),
         middle: Text('Choose Username'),
       ),
       child: SafeArea(
@@ -146,4 +159,3 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     );
   }
 }
-

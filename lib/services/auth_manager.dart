@@ -105,23 +105,27 @@ class AuthManager {
     _isLoggingOut = true;
 
     try {
-      // Clear token
-      _ref.read(tokenProvider.notifier).state = null;
+      // Disconnect socket first (before token clear to prevent reconnect attempts)
+      final socketService = _ref.read(socketServiceProvider);
+      socketService.disconnect();
 
-      // Clear secure storage
+      // Clear token and storage FIRST (before any navigation)
+      _ref.read(tokenProvider.notifier).state = null;
       final storage = _ref.read(secureStorageProvider);
       await storage.delete(key: 'auth_token');
 
-      // Clear cookies by calling logout endpoint
+      // Invalidate bootstrapProvider to prevent it from using cached authenticated state
+      _ref.invalidate(bootstrapProvider);
+
+      // Call logout endpoint to clear server-side refresh token
       try {
         final authService = _ref.read(authServiceProvider);
         await authService.logout();
       } catch (e) {
         // If logout endpoint fails, still continue with local cleanup
-        // Error is logged but doesn't block logout
       }
 
-      // Clear cookie jar to ensure cookies are removed
+      // Clear cookie jar
       if (_cookieJar != null) {
         try {
           await _cookieJar!.deleteAll();
@@ -130,11 +134,7 @@ class AuthManager {
         }
       }
 
-      // Disconnect socket
-      final socketService = _ref.read(socketServiceProvider);
-      socketService.disconnect();
-
-      // Navigate to authorization screen
+      // Navigate to authorization screen LAST (after all cleanup)
       navigatorKey.currentState?.pushNamedAndRemoveUntil('/', (route) => false);
     } finally {
       _isLoggingOut = false;
