@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../providers/chat_providers.dart';
 import '../utils/app_errors.dart';
+import 'chat_room_page.dart';
 
 class UserDetailsPage extends ConsumerStatefulWidget {
   final String userId;
@@ -18,6 +20,7 @@ class UserDetailsPage extends ConsumerStatefulWidget {
 
 class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
   bool _isLoading = true;
+  bool _isCreatingChat = false;
   Map<String, dynamic>? _userData;
 
   @override
@@ -52,8 +55,45 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     }
   }
 
+  Future<void> _startChat() async {
+    try {
+      setState(() => _isCreatingChat = true);
+
+      // Create or get direct message room
+      final room = await createDirectMessage(ref, widget.userId);
+
+      if (mounted) {
+        setState(() => _isCreatingChat = false);
+
+        // Navigate to chat room
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => ChatRoomPage(room: room),
+          ),
+        );
+      }
+    } catch (e) {
+      setState(() => _isCreatingChat = false);
+      if (mounted) {
+        String errorMessage;
+        if (e is AppError) {
+          errorMessage = e.getUserMessage();
+        } else {
+          errorMessage = 'Failed to start chat. Please try again.';
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(errorMessage)),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final currentUser = ref.watch(currentUserProvider);
+    final currentUserId = currentUser?['id'] as String?;
+    final isOwnProfile = currentUserId == widget.userId;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('User Details'),
@@ -119,6 +159,31 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                   fontWeight: FontWeight.bold,
                                 ),
                       ),
+                      const SizedBox(height: 24),
+                      // Chat Button (only show for other users)
+                      if (!isOwnProfile)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _isCreatingChat ? null : _startChat,
+                            icon: _isCreatingChat
+                                ? const SizedBox(
+                                    width: 20,
+                                    height: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.chat_bubble),
+                            label: Text(_isCreatingChat ? 'Opening chat...' : 'Chat'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              backgroundColor: Colors.blue[600],
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 32),
                       // Bio Section
                       if (_userData!['bio'] != null &&

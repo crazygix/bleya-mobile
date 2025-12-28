@@ -4,6 +4,8 @@ import '../providers/chat_providers.dart';
 import 'chat_room_page.dart';
 
 class ChatsPage extends ConsumerWidget {
+  const ChatsPage({super.key});
+
   Future<void> _refreshRooms(WidgetRef ref) async {
     ref.invalidate(joinedRoomsFutureProvider);
     await ref.read(joinedRoomsFutureProvider.future);
@@ -11,12 +13,80 @@ class ChatsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Initialize joined rooms from backend on first load
-    ref.watch(joinedRoomsFutureProvider);
-    final joinedRooms = ref.watch(joinedRoomsProvider);
+    final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
 
-    if (joinedRooms.isEmpty) {
-      return RefreshIndicator(
+    return joinedRoomsAsync.when(
+      data: (joinedRooms) {
+        if (joinedRooms.isEmpty) {
+          return RefreshIndicator(
+            onRefresh: () => _refreshRooms(ref),
+            child: ListView(
+              children: [
+                SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+                Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.chat_bubble_outline,
+                          size: 64, color: Colors.grey),
+                      const SizedBox(height: 16),
+                      Text(
+                        'No rooms joined yet',
+                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Tap the + button to join a room',
+                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
+        return RefreshIndicator(
+          onRefresh: () => _refreshRooms(ref),
+          child: ListView.builder(
+            itemCount: joinedRooms.length,
+            itemBuilder: (context, index) {
+              final room = joinedRooms[index];
+              final isPrivate = room.isPrivate;
+
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor:
+                      isPrivate ? Colors.purple[100] : Colors.blue[100],
+                  child: Icon(
+                    isPrivate ? Icons.person : Icons.group,
+                    color: isPrivate ? Colors.purple[700] : Colors.blue[700],
+                  ),
+                ),
+                title: Text(room.name),
+                subtitle: Text(
+                  isPrivate ? 'Direct message' : 'Group chat',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => ChatRoomPage(room: room),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        );
+      },
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (error, stack) => RefreshIndicator(
         onRefresh: () => _refreshRooms(ref),
         child: ListView(
           children: [
@@ -25,15 +95,15 @@ class ChatsPage extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey),
+                  Icon(Icons.error_outline, size: 64, color: Colors.red),
                   const SizedBox(height: 16),
                   Text(
-                    'No rooms joined yet',
+                    'Error loading rooms',
                     style: TextStyle(fontSize: 18, color: Colors.grey),
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Tap the + button to join a room',
+                    'Pull down to retry',
                     style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                   ),
                 ],
@@ -41,30 +111,6 @@ class ChatsPage extends ConsumerWidget {
             ),
           ],
         ),
-      );
-    }
-
-    return RefreshIndicator(
-      onRefresh: () => _refreshRooms(ref),
-      child: ListView.builder(
-        itemCount: joinedRooms.length,
-        itemBuilder: (context, index) {
-          final room = joinedRooms[index];
-          return ListTile(
-            leading: CircleAvatar(
-              child: Text(room.name[0].toUpperCase()),
-            ),
-            title: Text(room.name),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ChatRoomPage(room: room),
-                ),
-              );
-            },
-          );
-        },
       ),
     );
   }

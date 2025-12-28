@@ -112,8 +112,9 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
   }
 });
 
-// Provider to fetch joined rooms from backend
-final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
+// Provider to fetch joined rooms from backend (single source of truth)
+final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
+    FutureProvider.autoDispose<List<Room>>((ref) async {
   try {
     final dio = ref.read(dioProvider);
     final token = ref.read(tokenProvider);
@@ -145,54 +146,6 @@ final joinedRoomsFutureProvider = FutureProvider<List<Room>>((ref) async {
     return [];
   }
 });
-
-// Provider to track joined rooms (synced with backend)
-final joinedRoomsProvider =
-    StateNotifierProvider<JoinedRoomsNotifier, List<Room>>((ref) {
-  final notifier = JoinedRoomsNotifier(ref);
-  // Sync with backend - check current value and listen for changes
-  final currentValue = ref.read(joinedRoomsFutureProvider);
-  currentValue.whenData((rooms) {
-    notifier.setRooms(rooms);
-  });
-  ref.listen(joinedRoomsFutureProvider, (previous, next) {
-    next.whenData((rooms) {
-      notifier.setRooms(rooms);
-    });
-  });
-  return notifier;
-});
-
-// Notifier for managing joined rooms
-class JoinedRoomsNotifier extends StateNotifier<List<Room>> {
-  final Ref ref;
-
-  JoinedRoomsNotifier(this.ref) : super([]);
-
-  void setRooms(List<Room> rooms) {
-    state = rooms;
-  }
-
-  void addRoom(Room room) {
-    if (state.any((r) => r.id == room.id)) {
-      return; // Already joined
-    }
-
-    if (state.length >= 5) {
-      throw Exception('You can only join up to 5 rooms at a time');
-    }
-
-    state = [...state, room];
-  }
-
-  void removeRoom(String roomId) {
-    state = state.where((r) => r.id != roomId).toList();
-  }
-
-  void refresh() {
-    ref.invalidate(joinedRoomsFutureProvider);
-  }
-}
 
 // Provider for current room messages
 final roomMessagesProvider =
@@ -386,15 +339,38 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
       ),
     );
 
-    // Remove from local state
-    final joinedRoomsNotifier = ref.read(joinedRoomsProvider.notifier);
-    joinedRoomsNotifier.removeRoom(roomId);
-
-    // Refresh joined rooms
-    joinedRoomsNotifier.refresh();
+    // Refresh joined rooms from backend
+    ref.invalidate(joinedRoomsFutureProvider);
   } catch (e) {
     if (kDebugMode) {
       print('Error leaving room: $e');
+    }
+    rethrow;
+  }
+}
+
+// Function to create or get direct message room with a user
+Future<Room> createDirectMessage(WidgetRef ref, String otherUserId) async {
+  try {
+    final dio = ref.read(dioProvider);
+    final response = await dio.post(
+      '/rooms/direct/$otherUserId',
+      options: Options(
+        receiveTimeout: const Duration(seconds: 10),
+        sendTimeout: const Duration(seconds: 10),
+      ),
+    );
+
+    final roomData = response.data['room'] as Map<String, dynamic>;
+    final room = Room.fromJson(roomData);
+
+    // Refresh joined rooms from backend
+    ref.invalidate(joinedRoomsFutureProvider);
+
+    return room;
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error creating direct message: $e');
     }
     rethrow;
   }

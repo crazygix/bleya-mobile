@@ -38,12 +38,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
         ),
       );
 
-      // Update local state
-      final notifier = ref.read(joinedRoomsProvider.notifier);
-      notifier.addRoom(room);
-
       // Refresh joined rooms from backend
-      notifier.refresh();
+      ref.invalidate(joinedRoomsFutureProvider);
 
       if (mounted) {
         Navigator.pop(context);
@@ -80,7 +76,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   @override
   Widget build(BuildContext context) {
     final roomsAsync = ref.watch(availableRoomsProvider);
-    final joinedRooms = ref.watch(joinedRoomsProvider);
+    final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
 
     return Dialog(
       child: Container(
@@ -105,99 +101,108 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
             ),
             const SizedBox(height: 16),
             Flexible(
-              child: roomsAsync.when(
-                data: (rooms) {
-                  if (rooms.isEmpty) {
-                    return const Center(child: Text('No rooms available'));
-                  }
+              child: joinedRoomsAsync.when(
+                data: (joinedRooms) => roomsAsync.when(
+                  data: (rooms) {
+                    if (rooms.isEmpty) {
+                      return const Center(child: Text('No rooms available'));
+                    }
 
-                  // Filter out already joined rooms
-                  final availableRooms = rooms
-                      .where(
-                          (room) => !joinedRooms.any((jr) => jr.id == room.id))
-                      .toList();
+                    // Filter out already joined rooms
+                    final availableRooms = rooms
+                        .where((room) =>
+                            !joinedRooms.any((jr) => jr.id == room.id))
+                        .toList();
 
-                  if (availableRooms.isEmpty) {
-                    return Center(
+                    if (availableRooms.isEmpty) {
+                      final publicRoomCount =
+                          joinedRooms.where((r) => r.type == 'public').length;
+                      return Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text('You have joined all available rooms'),
+                            if (publicRoomCount >= 5)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8.0),
+                                child: Text(
+                                  'You have reached the limit of 5 group chats',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: availableRooms.length,
+                      itemBuilder: (context, index) {
+                        final room = availableRooms[index];
+                        final isJoiningThis = _isJoining;
+                        return ListTile(
+                          leading: CircleAvatar(
+                            child: Text(room.name[0].toUpperCase()),
+                          ),
+                          title: Text(room.name),
+                          trailing: isJoiningThis
+                              ? const SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CircularProgressIndicator(
+                                      strokeWidth: 2),
+                                )
+                              : null,
+                          onTap: isJoiningThis ? null : () => _joinRoom(room),
+                        );
+                      },
+                    );
+                  },
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (error, stack) {
+                    if (kDebugMode) {
+                      print('Error fetching rooms: $error');
+                      print('Stack: $stack');
+                    }
+                    return Padding(
+                      padding: const EdgeInsets.all(16.0),
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('You have joined all available rooms'),
-                          if (joinedRooms.length >= 5)
-                            Padding(
-                              padding: const EdgeInsets.only(top: 8.0),
-                              child: Text(
-                                'You have reached the limit of 5 rooms',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.grey[600],
-                                ),
-                              ),
-                            ),
+                          Icon(Icons.error_outline,
+                              color: Colors.red, size: 48),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Error loading rooms',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            error.toString(),
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 16),
+                          ElevatedButton(
+                            onPressed: () {
+                              ref.invalidate(availableRoomsProvider);
+                            },
+                            child: Text('Retry'),
+                          ),
                         ],
                       ),
                     );
-                  }
-
-                  return ListView.builder(
-                    shrinkWrap: true,
-                    itemCount: availableRooms.length,
-                    itemBuilder: (context, index) {
-                      final room = availableRooms[index];
-                      final isJoiningThis = _isJoining;
-                      return ListTile(
-                        leading: CircleAvatar(
-                          child: Text(room.name[0].toUpperCase()),
-                        ),
-                        title: Text(room.name),
-                        trailing: isJoiningThis
-                            ? const SizedBox(
-                                width: 20,
-                                height: 20,
-                                child:
-                                    CircularProgressIndicator(strokeWidth: 2),
-                              )
-                            : null,
-                        onTap: isJoiningThis ? null : () => _joinRoom(room),
-                      );
-                    },
-                  );
-                },
+                  },
+                ),
                 loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) {
-                  if (kDebugMode) {
-                    print('Error fetching rooms: $error');
-                    print('Stack: $stack');
-                  }
-                  return Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.error_outline, color: Colors.red, size: 48),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Error loading rooms',
-                          style: TextStyle(
-                              fontSize: 16, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          error.toString(),
-                          style: TextStyle(fontSize: 12, color: Colors.grey),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton(
-                          onPressed: () {
-                            ref.invalidate(availableRoomsProvider);
-                          },
-                          child: Text('Retry'),
-                        ),
-                      ],
-                    ),
-                  );
-                },
+                error: (error, stack) =>
+                    const Center(child: Text('Error loading joined rooms')),
               ),
             ),
           ],

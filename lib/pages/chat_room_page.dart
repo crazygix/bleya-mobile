@@ -94,19 +94,34 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       appBar: AppBar(
         title: Text(widget.room.name),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            onPressed: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (context) => RoomDetailsPage(
-                    roomId: widget.room.id,
-                    roomName: widget.room.name,
+          if (widget.room.isPrivate && widget.room.otherUserId != null)
+            IconButton(
+              icon: const Icon(Icons.person),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => UserDetailsPage(
+                      userId: widget.room.otherUserId!,
+                    ),
                   ),
-                ),
-              );
-            },
-          ),
+                );
+              },
+              tooltip: 'View profile',
+            )
+          else
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    builder: (context) => RoomDetailsPage(
+                      roomId: widget.room.id,
+                      roomName: widget.room.name,
+                    ),
+                  ),
+                );
+              },
+            ),
         ],
       ),
       body: Column(
