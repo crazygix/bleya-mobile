@@ -106,24 +106,29 @@ class ConnectivityBanner extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final isOnline = ref.watch(isOnlineProvider);
 
-    return Column(
+    return Stack(
       children: [
+        child,
         if (!isOnline)
-          Container(
-            color: Colors.red,
-            width: double.infinity,
-            padding: EdgeInsets.symmetric(vertical: 8),
-            child: Text(
-              'No internet connection',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: Container(
+              color: Colors.red,
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                'No internet connection',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
-        Expanded(child: child),
       ],
     );
   }

@@ -5,7 +5,8 @@ import 'chat_room_page.dart';
 
 class ChatsPage extends ConsumerWidget {
   Future<void> _refreshRooms(WidgetRef ref) async {
-    ref.read(joinedRoomsProvider.notifier).refresh();
+    ref.invalidate(joinedRoomsFutureProvider);
+    await ref.read(joinedRoomsFutureProvider.future);
   }
 
   @override

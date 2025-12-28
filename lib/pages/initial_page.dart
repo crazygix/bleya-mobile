@@ -22,14 +22,19 @@ class _InitialPageState extends ConsumerState<InitialPage> {
   Future<void> _checkAuthAndNavigate() async {
     final bootstrap = ref.read(bootstrapProvider.future);
     final isAuthenticated = await bootstrap;
-    
+
     if (!mounted) return;
-    
+
     if (isAuthenticated) {
       // Double-check we have a token before making API calls
       final token = ref.read(tokenProvider);
       if (token == null || token.isEmpty) {
-        // Token was cleared during bootstrap, don't make API calls
+        // Token was cleared during bootstrap, navigate to login
+        if (mounted) {
+          Navigator.of(context).pushReplacement(
+            CupertinoPageRoute(builder: (context) => AuthorisationPage()),
+          );
+        }
         return;
       }
 
@@ -39,9 +44,9 @@ class _InitialPageState extends ConsumerState<InitialPage> {
         final profile = await userService.getProfile();
         final username = profile['username'] as String?;
         final hasUsername = username != null && username.trim().isNotEmpty;
-        
+
         if (!mounted) return;
-        
+
         if (!hasUsername) {
           // Navigate to username page if username is missing
           Navigator.of(context).pushReplacement(
@@ -64,14 +69,14 @@ class _InitialPageState extends ConsumerState<InitialPage> {
   @override
   Widget build(BuildContext context) {
     final bootstrapAsync = ref.watch(bootstrapProvider);
-    
+
     return bootstrapAsync.when(
       data: (isAuthenticated) {
         // If authenticated, show loading while navigating (navigation happens in _checkAuthAndNavigate)
         // If not authenticated, show authorization page
-        return isAuthenticated 
-          ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-          : AuthorisationPage();
+        return isAuthenticated
+            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            : AuthorisationPage();
       },
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),

@@ -52,7 +52,6 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
         );
       }
     } catch (e) {
-      setState(() => _isJoining = false);
       if (mounted) {
         String errorMessage;
         if (e is AppError) {
@@ -70,6 +69,10 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isJoining = false);
       }
     }
   }

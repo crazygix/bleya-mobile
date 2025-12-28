@@ -79,12 +79,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
           padding: EdgeInsets.zero,
           onPressed: () async {
             // Logout and go back to initial/auth page
-            final authService = ref.read(authServiceProvider);
-            final navigator = Navigator.of(context);
-            await authService.logout();
-            if (mounted) {
-              navigator.pushNamedAndRemoveUntil('/', (route) => false);
-            }
+            final authManager = ref.read(authManagerProvider);
+            await authManager.logout();
           },
           child: Icon(CupertinoIcons.arrow_left),
         ),
