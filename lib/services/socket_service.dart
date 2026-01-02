@@ -290,7 +290,7 @@ class SocketService {
     }
   }
 
-  void sendMessage(String text) {
+  void sendMessage(String text, {String? parentMessageId}) {
     if (_socket?.connected != true) {
       if (kDebugMode) {
         print('Socket not connected, cannot send message');
@@ -303,7 +303,11 @@ class SocketService {
       }
       return;
     }
-    _socket!.emit('send_message', {'text': text});
+    final data = {'text': text};
+    if (parentMessageId != null) {
+      data['parentMessageId'] = parentMessageId;
+    }
+    _socket!.emit('send_message', data);
   }
 
   // Store registered handlers so we can remove specific ones

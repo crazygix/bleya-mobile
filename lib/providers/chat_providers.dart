@@ -14,6 +14,8 @@ class Message {
   final String username;
   final String text;
   final DateTime createdAt;
+  final String? parentMessageId;
+  final int replyCount;
 
   Message({
     required this.id,
@@ -22,6 +24,8 @@ class Message {
     required this.username,
     required this.text,
     required this.createdAt,
+    this.parentMessageId,
+    this.replyCount = 0,
   });
 
   factory Message.fromJson(Map<String, dynamic> json) {
@@ -40,6 +44,8 @@ class Message {
       username: json['username'] as String? ?? '',
       text: json['text'] as String,
       createdAt: createdAt,
+      parentMessageId: json['parentMessageId'] as String?,
+      replyCount: json['replyCount'] as int? ?? 0,
     );
   }
 }
@@ -151,6 +157,78 @@ final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
 final roomMessagesProvider =
     StateProvider.family<List<Message>, String>((ref, roomId) => []);
 
+// ThreadController manages thread state and real-time updates
+class ThreadController extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
+  final Ref ref;
+  final String messageId;
+  final SocketService socketService;
+  bool _isInitialized = false;
+  dynamic _socketHandler;
+
+  ThreadController(this.ref, this.messageId, this.socketService)
+      : super(const AsyncValue.loading()) {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    try {
+      final dio = ref.read(dioProvider);
+      final response = await dio.get('/messages/$messageId/thread');
+      final data = response.data as Map<String, dynamic>;
+      final parentMessage = Message.fromJson(data['parentMessage']);
+      final initialReplies = (data['replies'] as List)
+          .map((json) => Message.fromJson(json))
+          .toList();
+
+      state = AsyncValue.data({
+        'parentMessage': parentMessage,
+        'replies': initialReplies,
+      });
+
+      // Listen to socket events for new replies
+      _socketHandler = socketService.addListener('new_message', (data) {
+        final message = Message.fromJson(data);
+        // If this is a reply to our thread's parent message
+        if (message.parentMessageId == messageId) {
+          final currentState = state.value;
+          if (currentState != null) {
+            final currentReplies = currentState['replies'] as List<Message>;
+            // Check if reply already exists (avoid duplicates)
+            if (!currentReplies.any((m) => m.id == message.id)) {
+              state = AsyncValue.data({
+                'parentMessage': currentState['parentMessage'],
+                'replies': [...currentReplies, message],
+              });
+            }
+          }
+        }
+      });
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  @override
+  void dispose() {
+    if (_socketHandler != null) {
+      socketService.removeListener('new_message', _socketHandler);
+    }
+    super.dispose();
+  }
+}
+
+// Provider for thread messages with real-time updates
+final threadMessagesProvider = StateNotifierProvider.autoDispose
+    .family<ThreadController, AsyncValue<Map<String, dynamic>>, String>(
+  (ref, messageId) {
+    final socketService = ref.read(socketServiceProvider);
+    return ThreadController(ref, messageId, socketService);
+  },
+);
+
 // ChatRoomController manages socket listeners and room operations
 class ChatRoomController extends StateNotifier<AsyncValue<void>> {
   final Ref ref;
@@ -209,13 +287,37 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       if (_disposed) return;
 
       final message = Message.fromJson(data);
-      // Only add message if it's for this room
+      // Only process if it's for this room
       if (message.roomId == roomId) {
         final currentMessages = ref.read(roomMessagesProvider(roomId));
-        ref.read(roomMessagesProvider(roomId).notifier).state = [
-          ...currentMessages,
-          message,
-        ];
+        
+        // If this is a thread reply, update the parent message's replyCount
+        if (message.parentMessageId != null) {
+          final updatedMessages = currentMessages.map((msg) {
+            if (msg.id == message.parentMessageId) {
+              // Return updated message with incremented replyCount
+              return Message(
+                id: msg.id,
+                roomId: msg.roomId,
+                userId: msg.userId,
+                username: msg.username,
+                text: msg.text,
+                createdAt: msg.createdAt,
+                parentMessageId: msg.parentMessageId,
+                replyCount: msg.replyCount + 1,
+              );
+            }
+            return msg;
+          }).toList();
+          
+          ref.read(roomMessagesProvider(roomId).notifier).state = updatedMessages;
+        } else {
+          // Regular top-level message - add it to the list
+          ref.read(roomMessagesProvider(roomId).notifier).state = [
+            ...currentMessages,
+            message,
+          ];
+        }
       }
     });
 
@@ -247,7 +349,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
     socketService.joinRoom(room);
   }
 
-  void sendMessage(String text) {
+  void sendMessage(String text, {String? parentMessageId}) {
     if (text.trim().isEmpty) return;
 
     final socket = socketService.socket;
@@ -258,7 +360,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       return;
     }
 
-    socketService.sendMessage(text);
+    socketService.sendMessage(text, parentMessageId: parentMessageId);
   }
 
   /// Ensure we're in the room - call this when the page becomes visible again

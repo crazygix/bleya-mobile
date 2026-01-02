@@ -5,6 +5,7 @@ import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
 import 'user_details_page.dart';
 import 'room_details_page.dart';
+import 'thread_view_page.dart';
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final Room room;
@@ -144,55 +145,107 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                           alignment: isCurrentUser
                               ? Alignment.centerRight
                               : Alignment.centerLeft,
-                          child: Container(
-                            constraints: BoxConstraints(
-                              maxWidth:
-                                  MediaQuery.of(context).size.width * 0.75,
-                            ),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: isCurrentUser
-                                  ? Colors.blue[600]
-                                  : Colors.grey[200],
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                if (!isCurrentUser &&
-                                    message.username.isNotEmpty)
-                                  GestureDetector(
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => UserDetailsPage(
-                                            userId: message.userId,
-                                          ),
-                                        ),
-                                      );
-                                    },
-                                    child: Text(
-                                      message.username,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.blue[700],
-                                        fontWeight: FontWeight.bold,
-                                        decoration: TextDecoration.underline,
-                                      ),
-                                    ),
-                                  ),
-                                if (!isCurrentUser &&
-                                    message.username.isNotEmpty)
-                                  const SizedBox(height: 4),
-                                Text(
-                                  message.text,
-                                  style: TextStyle(
-                                    color: isCurrentUser
-                                        ? Colors.white
-                                        : Colors.black87,
+                          child: GestureDetector(
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => ThreadViewPage(
+                                    parentMessage: message,
+                                    room: widget.room,
                                   ),
                                 ),
-                              ],
+                              );
+                            },
+                            child: Container(
+                              constraints: BoxConstraints(
+                                maxWidth:
+                                    MediaQuery.of(context).size.width * 0.75,
+                              ),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isCurrentUser
+                                    ? Colors.blue[600]
+                                    : Colors.grey[200],
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (!isCurrentUser &&
+                                      message.username.isNotEmpty)
+                                    GestureDetector(
+                                      onTap: () {
+                                        Navigator.of(context).push(
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                UserDetailsPage(
+                                              userId: message.userId,
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                      behavior: HitTestBehavior.opaque,
+                                      child: Text(
+                                        message.username,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          color: Colors.blue[700],
+                                          fontWeight: FontWeight.bold,
+                                          decoration: TextDecoration.underline,
+                                        ),
+                                      ),
+                                    ),
+                                  if (!isCurrentUser &&
+                                      message.username.isNotEmpty)
+                                    const SizedBox(height: 4),
+                                  Text(
+                                    message.text,
+                                    style: TextStyle(
+                                      color: isCurrentUser
+                                          ? Colors.white
+                                          : Colors.black87,
+                                    ),
+                                  ),
+                                  if (message.replyCount > 0) ...[
+                                    const SizedBox(height: 8),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: isCurrentUser
+                                            ? Colors.blue[700]
+                                            : Colors.grey[300],
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(
+                                            Icons.chat_bubble_outline,
+                                            size: 14,
+                                            color: isCurrentUser
+                                                ? Colors.white
+                                                : Colors.black54,
+                                          ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            '${message.replyCount} ${message.replyCount == 1 ? 'reply' : 'replies'}',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: isCurrentUser
+                                                  ? Colors.white
+                                                  : Colors.black54,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                             ),
                           ),
                         ),
