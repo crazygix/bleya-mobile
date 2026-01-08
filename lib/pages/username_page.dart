@@ -1,7 +1,10 @@
 import 'dart:io';
+import 'dart:ui';
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 
@@ -14,18 +17,57 @@ class UsernamePage extends ConsumerStatefulWidget {
 
 class UsernamePageState extends ConsumerState<UsernamePage> {
   final TextEditingController _usernameController = TextEditingController();
+  final FocusNode _usernameFocusNode = FocusNode();
   String? _errorMessage;
   bool _isLoading = false;
+  bool _isChecking = false;
+  bool _isValid = false;
+  bool _isTouched = false;
   File? _selectedImage;
 
   @override
+  void initState() {
+    super.initState();
+    _usernameController.addListener(_validateUsername);
+  }
+
+  @override
   void dispose() {
+    _usernameController.removeListener(_validateUsername);
     _usernameController.dispose();
+    _usernameFocusNode.dispose();
     super.dispose();
   }
 
-  bool _validateUsername(String username) {
-    // Client-side validation: 3-30 characters, lowercase letters, numbers, and underscores only
+  void _validateUsername() {
+    final username = _usernameController.text.trim().toLowerCase();
+    if (username.length < 3) {
+      if (mounted) {
+        setState(() {
+          _isValid = false;
+          _isChecking = false;
+        });
+      }
+      return;
+    }
+
+    if (mounted) {
+      setState(() => _isChecking = true);
+    }
+    Future.delayed(Duration(milliseconds: 500), () {
+      if (mounted) {
+        final isValid = RegExp(r'^[a-z0-9_]+$').hasMatch(username) &&
+            username.length >= 3 &&
+            username.length <= 30;
+        setState(() {
+          _isValid = isValid;
+          _isChecking = false;
+        });
+      }
+    });
+  }
+
+  bool _validateUsernameFormat(String username) {
     if (username.length < 3 || username.length > 30) {
       return false;
     }
@@ -56,13 +98,6 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     }
   }
 
-  String? _getImageUrl() {
-    if (_selectedImage != null) {
-      return _selectedImage!.path;
-    }
-    return null;
-  }
-
   Future<void> _setUsername() async {
     final username = _usernameController.text.trim().toLowerCase();
 
@@ -71,7 +106,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
       return;
     }
 
-    if (!_validateUsername(username)) {
+    if (!_validateUsernameFormat(username)) {
       setState(() => _errorMessage =
           'Username must be 3-30 characters and contain only lowercase letters, numbers, and underscores');
       return;
@@ -112,142 +147,425 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     }
   }
 
+  String _getAvatarText() {
+    final username = _usernameController.text.trim().toLowerCase();
+    if (username.isNotEmpty) {
+      return username[0].toUpperCase();
+    }
+    return '?';
+  }
+
   @override
   Widget build(BuildContext context) {
-    return CupertinoPageScaffold(
-      navigationBar: CupertinoNavigationBar(
-        leading: CupertinoButton(
-          padding: EdgeInsets.zero,
-          onPressed: () async {
-            // Logout and go back to initial/auth page
-            final authManager = ref.read(authManagerProvider);
-            await authManager.logout();
-          },
-          child: Icon(CupertinoIcons.arrow_left),
-        ),
-        middle: Text('Choose Username'),
-      ),
-      child: SafeArea(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+    final username = _usernameController.text.trim().toLowerCase();
+    final showError = !_isValid && _isTouched && username.isNotEmpty;
+
+    return Scaffold(
+      backgroundColor: BleyaTheme.background,
+      body: SafeArea(
+        child: Stack(
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              child: Text(
-                'Please choose a username to continue',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-            ),
-            SizedBox(height: 30),
-            // Profile Picture
-            Center(
-              child: CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: _isLoading ? null : _pickImage,
-                child: Stack(
-                  children: [
-                    Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: CupertinoColors.systemGrey5,
-                        border: Border.all(
-                          color: CupertinoColors.systemGrey,
-                          width: 2,
-                        ),
-                      ),
-                      child: _getImageUrl() != null
-                          ? ClipOval(
-                              child: Image.file(
-                                _selectedImage!,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) {
-                                  return Icon(
-                                    CupertinoIcons.person_fill,
-                                    size: 60,
-                                    color: CupertinoColors.systemGrey,
-                                  );
-                                },
-                              ),
-                            )
-                          : Icon(
-                              CupertinoIcons.person_fill,
-                              size: 60,
-                              color: CupertinoColors.systemGrey,
-                            ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      right: 0,
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: CupertinoColors.activeBlue,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          CupertinoIcons.camera_fill,
-                          color: CupertinoColors.white,
-                          size: 20,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            SizedBox(height: 30),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20),
+            // Liquid Glass Background
+            Positioned(
+              top: -80,
+              right: -60,
               child: Container(
+                width: 500,
+                height: 500,
                 decoration: BoxDecoration(
-                  border: Border.all(color: CupertinoColors.systemGrey),
-                  borderRadius: BorderRadius.circular(5),
+                  shape: BoxShape.circle,
+                  color: BleyaTheme.primary.withValues(alpha: 0.06),
                 ),
-                child: CupertinoTextField(
-                  controller: _usernameController,
-                  placeholder: 'Enter username',
-                  keyboardType: TextInputType.text,
-                  textCapitalization: TextCapitalization.none,
-                  autocorrect: false,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  enabled: !_isLoading,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
+                  child: Container(color: Colors.transparent),
                 ),
               ),
             ),
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-              child: Text(
-                '3-30 characters, lowercase letters, numbers, and underscores only',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: CupertinoColors.secondaryLabel,
+            Positioned(
+              bottom: -40,
+              left: -60,
+              child: Container(
+                width: 400,
+                height: 400,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: BleyaTheme.secondary.withValues(alpha: 0.05),
                 ),
-                textAlign: TextAlign.center,
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
+                  child: Container(color: Colors.transparent),
+                ),
               ),
             ),
-            if (_errorMessage != null)
-              Padding(
-                padding: EdgeInsets.all(20),
-                child: Text(
-                  _errorMessage!,
-                  style: TextStyle(color: CupertinoColors.systemRed),
-                  textAlign: TextAlign.center,
+
+            // Main Content
+            Column(
+              children: [
+                // Header with back button
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, top: 48, bottom: 16),
+                  child: Row(
+                    children: [
+                      CupertinoButton(
+                        padding: EdgeInsets.zero,
+                        onPressed: () async {
+                          final authManager = ref.read(authManagerProvider);
+                          await authManager.logout();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            color: Colors.transparent,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Icon(
+                            CupertinoIcons.chevron_left,
+                            color: BleyaTheme.mutedForeground,
+                            size: 28,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            SizedBox(height: 20),
-            CupertinoButton.filled(
-              onPressed: _isLoading ? null : _setUsername,
-              child: _isLoading
-                  ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CupertinoActivityIndicator(),
-                    )
-                  : Text('Continue'),
+
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const SizedBox(height: 16),
+                        Text(
+                          'Claim your handle',
+                          style: BleyaTheme.headingMedium.copyWith(
+                            fontSize: 34,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          "This is how you'll appear to other travelers.",
+                          style: BleyaTheme.bodyLarge,
+                        ),
+                        const SizedBox(height: 48),
+
+                        // Username Input
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Username',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: BleyaTheme.foreground,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Container(
+                              decoration: BoxDecoration(
+                                color: BleyaTheme.glassSurface
+                                    .withValues(alpha: 0.8),
+                                borderRadius: BorderRadius.circular(
+                                    BleyaTheme.radiusLarge),
+                                border: Border.all(
+                                  color: _errorMessage != null || showError
+                                      ? Colors.red.shade400
+                                      : BleyaTheme.border,
+                                  width: 1,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.04),
+                                    blurRadius: 8,
+                                    offset: Offset(0, 2),
+                                  ),
+                                ],
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(
+                                    BleyaTheme.radiusLarge),
+                                child: BackdropFilter(
+                                  filter:
+                                      ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+                                  child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.center,
+                                    children: [
+                                      Expanded(
+                                        child: CupertinoTextField(
+                                          controller: _usernameController,
+                                          focusNode: _usernameFocusNode,
+                                          placeholder: '@username',
+                                          keyboardType: TextInputType.text,
+                                          textCapitalization:
+                                              TextCapitalization.none,
+                                          autocorrect: false,
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: BleyaTheme.foreground,
+                                          ),
+                                          placeholderStyle: TextStyle(
+                                            color: BleyaTheme
+                                                .mutedForeground
+                                                .withValues(alpha: 0.6),
+                                          ),
+                                          decoration: BoxDecoration(
+                                              color: Colors.transparent),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 16,
+                                            vertical: 18,
+                                          ),
+                                          onChanged: (_) {
+                                            setState(() => _isTouched = true);
+                                          },
+                                        ),
+                                      ),
+                                      if (_isChecking)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 16),
+                                          child: SizedBox(
+                                            width: 16,
+                                            height: 16,
+                                            child: CupertinoActivityIndicator(
+                                              radius: 8,
+                                            ),
+                                          ),
+                                        )
+                                      else if (_isValid)
+                                        Padding(
+                                          padding:
+                                              const EdgeInsets.only(right: 16),
+                                          child: Icon(
+                                            CupertinoIcons.check_mark_circled,
+                                            color: BleyaTheme.success,
+                                            size: 20,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            SizedBox(
+                              height: 20,
+                              child: showError
+                                  ? Text(
+                                      username.length < 3
+                                          ? 'At least 3 characters. Only letters, numbers, and underscores.'
+                                          : 'Only letters, numbers, and underscores.',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        color: BleyaTheme.mutedForeground,
+                                      ),
+                                    )
+                                  : _isValid
+                                      ? Text(
+                                          '@$username is available!',
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w500,
+                                            color: BleyaTheme.success,
+                                          ),
+                                        )
+                                      : SizedBox.shrink(),
+                            ),
+                          ],
+                        ),
+
+                        const SizedBox(height: 48),
+
+                        // Avatar Hero Preview
+                        Center(
+                          child: Column(
+                            children: [
+                              GestureDetector(
+                                onTap: _isLoading ? null : _pickImage,
+                                child: Stack(
+                                  children: [
+                                    Container(
+                                      width: 128,
+                                      height: 128,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        gradient: username.isNotEmpty
+                                            ? BleyaTheme.skywashGradient
+                                            : null,
+                                        color: username.isEmpty
+                                            ? BleyaTheme.border
+                                            : null,
+                                        boxShadow: username.isNotEmpty
+                                            ? [
+                                                BoxShadow(
+                                                  color: BleyaTheme.primary
+                                                      .withValues(alpha: 0.25),
+                                                  blurRadius: 32,
+                                                  offset: Offset(0, 8),
+                                                ),
+                                              ]
+                                            : null,
+                                      ),
+                                      child: _selectedImage != null
+                                          ? ClipOval(
+                                              child: Image.file(
+                                                _selectedImage!,
+                                                fit: BoxFit.cover,
+                                                errorBuilder: (context, error,
+                                                    stackTrace) {
+                                                  return Center(
+                                                    child: Text(
+                                                      _getAvatarText(),
+                                                      style: TextStyle(
+                                                        fontSize: 48,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: Colors.white,
+                                                      ),
+                                                    ),
+                                                  );
+                                                },
+                                              ),
+                                            )
+                                          : Center(
+                                              child: Text(
+                                                _getAvatarText(),
+                                                style: TextStyle(
+                                                  fontSize: 48,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: username.isNotEmpty
+                                                      ? Colors.white
+                                                      : BleyaTheme
+                                                          .mutedForeground,
+                                                ),
+                                              ),
+                                            ),
+                                    ),
+                                    Positioned(
+                                      bottom: 0,
+                                      right: 0,
+                                      child: Container(
+                                        padding: const EdgeInsets.all(10),
+                                        decoration: BoxDecoration(
+                                          color: Colors.white,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color:
+                                                  Colors.black.withValues(alpha: 0.1),
+                                              blurRadius: 8,
+                                              offset: Offset(0, 2),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Icon(
+                                          CupertinoIcons.camera_fill,
+                                          color: BleyaTheme.mutedForeground,
+                                          size: 20,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              Text(
+                                '@${username.isNotEmpty ? username : "username"}',
+                                style: TextStyle(
+                                  fontSize: 24,
+                                  fontWeight: FontWeight.w600,
+                                  color: username.isNotEmpty
+                                      ? BleyaTheme.foreground
+                                      : BleyaTheme.border,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Your digital identity',
+                                style: BleyaTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        if (_errorMessage != null) ...[
+                          const SizedBox(height: 24),
+                          Text(
+                            _errorMessage!,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Colors.red.shade500,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Footer Button
+                Container(
+                  padding: const EdgeInsets.all(24),
+                  decoration: BoxDecoration(
+                    color: BleyaTheme.background.withValues(alpha: 0.8),
+                    border: Border(
+                      top: BorderSide(
+                        color: BleyaTheme.border.withValues(alpha: 0.5),
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: 56,
+                    child: CupertinoButton(
+                      padding: EdgeInsets.zero,
+                      color: Colors.transparent,
+                      onPressed: _isLoading || !_isValid ? null : _setUsername,
+                      disabledColor: Colors.transparent,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: _isLoading || !_isValid
+                              ? null
+                              : BleyaTheme.skywashGradient,
+                          color: _isLoading || !_isValid
+                              ? BleyaTheme.mutedForeground.withValues(alpha: 0.3)
+                              : null,
+                          borderRadius:
+                              BorderRadius.circular(BleyaTheme.radiusLarge),
+                          boxShadow: _isLoading || !_isValid
+                              ? null
+                              : BleyaTheme.primaryShadow,
+                        ),
+                        child: Center(
+                          child: _isLoading
+                              ? SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CupertinoActivityIndicator(
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : Text(
+                                  'Start Exploring',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

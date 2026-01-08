@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import 'username_page.dart';
+import 'intro_page.dart';
 
 class InitialPage extends ConsumerStatefulWidget {
   @override
@@ -73,15 +74,15 @@ class _InitialPageState extends ConsumerState<InitialPage> {
     return bootstrapAsync.when(
       data: (isAuthenticated) {
         // If authenticated, show loading while navigating (navigation happens in _checkAuthAndNavigate)
-        // If not authenticated, show authorization page
+        // If not authenticated, show intro page
         return isAuthenticated
             ? const Scaffold(body: Center(child: CircularProgressIndicator()))
-            : AuthorisationPage();
+            : IntroPage();
       },
       loading: () => const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       ),
-      error: (_, __) => AuthorisationPage(),
+      error: (_, __) => IntroPage(),
     );
   }
 }
