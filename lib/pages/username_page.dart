@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 
@@ -14,6 +16,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   final TextEditingController _usernameController = TextEditingController();
   String? _errorMessage;
   bool _isLoading = false;
+  File? _selectedImage;
 
   @override
   void dispose() {
@@ -27,6 +30,37 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
       return false;
     }
     return RegExp(r'^[a-z0-9_]+$').hasMatch(username);
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 1024,
+        maxHeight: 1024,
+        imageQuality: 85,
+      );
+
+      if (image != null) {
+        setState(() {
+          _selectedImage = File(image.path);
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _errorMessage = 'Failed to pick image. Please try again.';
+        });
+      }
+    }
+  }
+
+  String? _getImageUrl() {
+    if (_selectedImage != null) {
+      return _selectedImage!.path;
+    }
+    return null;
   }
 
   Future<void> _setUsername() async {
@@ -50,6 +84,13 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
       });
 
       final authService = ref.read(authServiceProvider);
+      final userService = ref.read(userServiceProvider);
+
+      // Upload image first if selected
+      if (_selectedImage != null) {
+        await userService.uploadProfileImage(_selectedImage!);
+      }
+
       await authService.setUsername(username: username);
 
       if (mounted) {
@@ -98,7 +139,66 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                 style: TextStyle(fontSize: 16),
               ),
             ),
-            SizedBox(height: 20),
+            SizedBox(height: 30),
+            // Profile Picture
+            Center(
+              child: CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: _isLoading ? null : _pickImage,
+                child: Stack(
+                  children: [
+                    Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: CupertinoColors.systemGrey5,
+                        border: Border.all(
+                          color: CupertinoColors.systemGrey,
+                          width: 2,
+                        ),
+                      ),
+                      child: _getImageUrl() != null
+                          ? ClipOval(
+                              child: Image.file(
+                                _selectedImage!,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) {
+                                  return Icon(
+                                    CupertinoIcons.person_fill,
+                                    size: 60,
+                                    color: CupertinoColors.systemGrey,
+                                  );
+                                },
+                              ),
+                            )
+                          : Icon(
+                              CupertinoIcons.person_fill,
+                              size: 60,
+                              color: CupertinoColors.systemGrey,
+                            ),
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: CupertinoColors.activeBlue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          CupertinoIcons.camera_fill,
+                          color: CupertinoColors.white,
+                          size: 20,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            SizedBox(height: 30),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: 20),
               child: Container(
