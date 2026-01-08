@@ -82,13 +82,68 @@ class BleyaTheme {
     colors: [primary, secondary],
   );
 
-  // Typography
-  static const String fontHeading =
-      'Outfit'; // Will need to be added to pubspec.yaml
-  static const String fontBody =
-      'DM Sans'; // Will need to be added to pubspec.yaml
+  // ========================================
+  // Iconography - Hybrid Icon Strategy
+  // ========================================
+  //
+  // This design system uses a hybrid approach balancing HIG compliance with brand needs:
+  //
+  // SYSTEM ACTIONS (CupertinoIcons - SF Symbols - HIG Compliant):
+  //   - Navigation icons (back, forward, close, etc.)
+  //   - Common actions (settings, share, search, etc.)
+  //   - System buttons and controls
+  //   - Standard UI elements
+  //   Usage: CupertinoIcons.icon_name
+  //
+  // BRAND-SPECIFIC FEATURES (Custom Icons - When Needed):
+  //   - Unique brand features that don't have SF Symbol equivalents
+  //   - Highly distinctive brand elements
+  //   - Should still follow HIG principles (simple, clear, consistent)
+  //
+  // Apple HIG Icon Principles:
+  //   1. Use SF Symbols (CupertinoIcons) for system actions
+  //   2. Keep icons simple, clear, and recognizable at small sizes
+  //   3. Maintain consistent size, stroke weight, and perspective
+  //   4. Avoid text within icons
+  //   5. Ensure icons are legible and accessible
+  //
+  // This approach ensures:
+  //   1. HIG compliance for native iOS feel (SF Symbols for system actions)
+  //   2. Brand flexibility when needed (custom icons for unique features)
+  //   3. Consistency across all screens
+  //
+  // ========================================
 
-  // Text Styles
+  // ========================================
+  // Typography - Hybrid Font Strategy
+  // ========================================
+  //
+  // This design system uses a hybrid approach balancing HIG compliance with brand identity:
+  //
+  // BRAND MOMENTS (Outfit - Custom Font):
+  //   - Main brand name/logo text
+  //   - Hero headlines and taglines
+  //   - Feature titles and prominent headings
+  //   - Marketing/promotional text
+  //   Usage: GoogleFonts.outfit() or BleyaTheme.headingLarge/headingMedium
+  //
+  // UI ELEMENTS (SF Pro - HIG Compliant):
+  //   - Body text and descriptions
+  //   - Button labels
+  //   - Navigation text
+  //   - Legal/disclaimer text
+  //   - Form labels and input text
+  //   - General UI copy
+  //   Usage: BleyaTheme.bodyLarge/bodyMedium/bodySmall/buttonText
+  //
+  // This approach ensures:
+  //   1. HIG compliance for native iOS feel (SF Pro for UI)
+  //   2. Brand differentiation (Outfit for brand moments)
+  //   3. Consistency across all screens
+  //
+  // ========================================
+
+  // Brand Typography (Outfit for brand moments)
   static TextStyle get headingLarge => GoogleFonts.outfit(
         fontSize: 44,
         fontWeight: FontWeight.w800,
@@ -103,22 +158,34 @@ class BleyaTheme {
         color: foreground,
       );
 
-  static TextStyle get bodyLarge => GoogleFonts.dmSans(
+  // UI Typography (SF Pro system font - HIG compliant)
+  // Uses system font which is SF Pro on iOS
+  static TextStyle get bodyLarge => TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.normal,
         color: mutedForeground,
         height: 1.5,
+        fontFamily: '.SF Pro Text', // SF Pro on iOS
       );
 
-  static TextStyle get bodyMedium => GoogleFonts.dmSans(
+  static TextStyle get bodyMedium => TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.normal,
         color: mutedForeground,
+        fontFamily: '.SF Pro Text', // SF Pro on iOS
       );
 
-  static TextStyle get bodySmall => GoogleFonts.dmSans(
+  static TextStyle get bodySmall => TextStyle(
         fontSize: 13,
         fontWeight: FontWeight.normal,
         color: mutedForeground,
+        fontFamily: '.SF Pro Text', // SF Pro on iOS
+      );
+
+  // Button text style (SF Pro - HIG compliant)
+  static TextStyle get buttonText => TextStyle(
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+        fontFamily: '.SF Pro Text', // SF Pro on iOS
       );
 }

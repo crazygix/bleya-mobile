@@ -134,7 +134,7 @@ class IntroPage extends StatelessWidget {
                 Column(
                   children: [
                     _FeatureItem(
-                      icon: Icons.location_on,
+                      icon: CupertinoIcons.location,
                       iconColor: BleyaTheme.primary,
                       title: 'Discover Travelers',
                       description:
@@ -142,14 +142,14 @@ class IntroPage extends StatelessWidget {
                     ),
                     const SizedBox(height: BleyaTheme.spacingMD),
                     _FeatureItem(
-                      icon: Icons.people,
+                      icon: CupertinoIcons.person_2,
                       iconColor: BleyaTheme.secondary,
                       title: 'Connect Instantly',
                       description: 'Real-time chat with fellow adventurers.',
                     ),
                     const SizedBox(height: BleyaTheme.spacingMD),
                     _FeatureItem(
-                      icon: Icons.auto_awesome,
+                      icon: CupertinoIcons.sparkles,
                       iconColor: BleyaTheme.accent,
                       title: 'No Hassle',
                       description:
@@ -210,14 +210,12 @@ class IntroPage extends StatelessWidget {
                             children: [
                               Text(
                                 "Let's Go",
-                                style: TextStyle(
+                                style: BleyaTheme.buttonText.copyWith(
                                   color: Colors.white,
-                                  fontSize: 18,
-                                  fontWeight: FontWeight.bold,
                                 ),
                               ),
                               const SizedBox(width: BleyaTheme.spacingSM),
-                              Icon(Icons.arrow_forward,
+                              Icon(CupertinoIcons.arrow_right,
                                   color: Colors.white, size: 20),
                             ],
                           ),
