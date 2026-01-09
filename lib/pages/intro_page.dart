@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/theme.dart';
+import '../widgets/primary_button.dart';
 import 'authorisation_page.dart';
 
 class IntroPage extends StatelessWidget {
@@ -166,61 +167,28 @@ class IntroPage extends StatelessWidget {
             left: 0,
             right: 0,
             bottom: 0,
-            child: Container(
+            child: Padding(
               padding: EdgeInsets.only(
                 left: BleyaTheme.footerPadding,
                 right: BleyaTheme.footerPadding,
                 top: BleyaTheme.footerPadding,
                 bottom: padding.bottom + BleyaTheme.footerBottomPadding,
               ),
-              decoration: BoxDecoration(
-                color: BleyaTheme.background.withValues(alpha: 0.8),
-                border: Border(
-                  top: BorderSide(
-                    color: BleyaTheme.border.withValues(alpha: 0.5),
-                    width: 1,
-                  ),
-                ),
-              ),
               child: Column(
                 children: [
-                  SizedBox(
-                    width: double.infinity,
-                    height: BleyaTheme.buttonHeight,
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      color: Colors.transparent,
-                      onPressed: () {
-                        Navigator.of(context).push(
-                          CupertinoPageRoute(
-                            builder: (context) => AuthorisationPage(),
-                          ),
-                        );
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: BleyaTheme.skywashGradient,
-                          borderRadius:
-                              BorderRadius.circular(BleyaTheme.radiusSmall),
-                          boxShadow: BleyaTheme.primaryShadow,
+                  PrimaryButton(
+                    text: "Let's Go",
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        CupertinoPageRoute(
+                          builder: (context) => AuthorisationPage(),
                         ),
-                        child: Center(
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Let's Go",
-                                style: BleyaTheme.buttonText.copyWith(
-                                  color: Colors.white,
-                                ),
-                              ),
-                              const SizedBox(width: BleyaTheme.spacingSM),
-                              Icon(CupertinoIcons.arrow_right,
-                                  color: Colors.white, size: 20),
-                            ],
-                          ),
-                        ),
-                      ),
+                      );
+                    },
+                    trailingIcon: Icon(
+                      CupertinoIcons.arrow_right,
+                      color: Colors.white,
+                      size: 20,
                     ),
                   ),
                   const SizedBox(height: BleyaTheme.spacingLG),

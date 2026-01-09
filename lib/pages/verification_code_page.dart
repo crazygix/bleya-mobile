@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import '../widgets/primary_button.dart';
 import 'username_page.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
@@ -355,62 +356,23 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                 ),
 
                 // Footer Buttons
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: BleyaTheme.background.withValues(alpha: 0.8),
-                    border: Border(
-                      top: BorderSide(
-                        color: BleyaTheme.border.withValues(alpha: 0.5),
-                        width: 1,
-                      ),
-                    ),
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: BleyaTheme.footerPadding,
+                    right: BleyaTheme.footerPadding,
+                    top: BleyaTheme.footerPadding,
+                    bottom: MediaQuery.of(context).padding.bottom +
+                        BleyaTheme.footerBottomPadding,
                   ),
                   child: Column(
                     children: [
-                      SizedBox(
-                        width: double.infinity,
-                        height: 56,
-                        child: CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          color: Colors.transparent,
-                          onPressed: _isLoading || !_isCodeComplete() ? null : _verifyCode,
-                          disabledColor: Colors.transparent,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: _isLoading || !_isCodeComplete()
-                                  ? null
-                                  : BleyaTheme.skywashGradient,
-                              color: _isLoading || !_isCodeComplete()
-                                  ? BleyaTheme.mutedForeground.withValues(alpha: 0.3)
-                                  : null,
-                              borderRadius: BorderRadius.circular(BleyaTheme.radiusLarge),
-                              boxShadow: _isLoading || !_isCodeComplete()
-                                  ? null
-                                  : BleyaTheme.primaryShadow,
-                            ),
-                            child: Center(
-                              child: _isLoading
-                                  ? SizedBox(
-                                      width: 20,
-                                      height: 20,
-                                      child: CupertinoActivityIndicator(
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : Text(
-                                      'Verify',
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 17,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                            ),
-                          ),
-                        ),
+                      PrimaryButton(
+                        text: 'Verify',
+                        onPressed: _verifyCode,
+                        isLoading: _isLoading,
+                        isEnabled: _isCodeComplete(),
                       ),
-                      const SizedBox(height: 16),
+                      SizedBox(height: BleyaTheme.spacingLG),
                       CupertinoButton(
                         padding: EdgeInsets.zero,
                         onPressed: () {

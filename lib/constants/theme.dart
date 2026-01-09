@@ -16,6 +16,8 @@ class BleyaTheme {
   static const Color secondary = Color(0xFF22D3EE); // Aqua Tint
   static const Color accent = Color(0xFFFFB454); // Apricot
   static const Color success = Color(0xFF34D399); // Leaf
+  static const Color error = Color(0xFFEF4444); // Error red (shade500 equivalent)
+  static const Color errorBorder = Color(0xFFF87171); // Error border (shade400 equivalent)
 
   // Glass & Borders
   static const Color border = Color(0xFFE6EAF2); // Light border

@@ -1,10 +1,12 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import '../widgets/primary_button.dart';
 import 'verification_code_page.dart';
 
 class AuthorisationPage extends ConsumerStatefulWidget {
@@ -29,6 +31,9 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
           _hasPhoneNumber = hasValue;
         });
       }
+    });
+    _phoneFocusNode.addListener(() {
+      setState(() {}); // Update border color on focus change
     });
   }
 
@@ -80,10 +85,17 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BleyaTheme.background,
-      body: SafeArea(
-        child: Stack(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: BleyaTheme.background,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: BleyaTheme.background,
+        body: Stack(
           children: [
             // Liquid Glass Background
             Positioned(
@@ -120,11 +132,15 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
             ),
 
             // Main Content
-            Column(
-              children: [
-                // Header with back button
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 48, bottom: 16),
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // Header with back button
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BleyaTheme.contentPadding,
+                    ),
                   child: Row(
                     children: [
                       CupertinoButton(
@@ -134,17 +150,10 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                             Navigator.of(context).pop();
                           }
                         },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            color: BleyaTheme.mutedForeground,
-                            size: 28,
-                          ),
+                        child: Icon(
+                          CupertinoIcons.chevron_left,
+                          color: BleyaTheme.mutedForeground,
+                          size: 28,
                         ),
                       ),
                     ],
@@ -154,112 +163,98 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                 // Content
                 Expanded(
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: BleyaTheme.contentPadding,
+                    ),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const SizedBox(height: 16),
+                        SizedBox(height: BleyaTheme.spacingMD),
                         Text(
                           'Enter Your Number',
-                          style: BleyaTheme.headingMedium.copyWith(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w800,
-                          ),
+                          style: BleyaTheme.headingMedium,
                         ),
-                        const SizedBox(height: 12),
+                        SizedBox(height: BleyaTheme.spacingMD),
                         Text(
                           "We'll send you a code. Quick and secure.",
                           style: BleyaTheme.bodyLarge,
                         ),
-                        const SizedBox(height: 48),
+                        SizedBox(height: BleyaTheme.spacing3XL),
 
                         // Phone Input
                         Container(
                           decoration: BoxDecoration(
-                            color:
-                                BleyaTheme.glassSurface.withValues(alpha: 0.8),
+                            color: BleyaTheme.glassSurface,
                             borderRadius:
-                                BorderRadius.circular(BleyaTheme.radiusLarge),
+                                BorderRadius.circular(BleyaTheme.radiusMedium),
                             border: Border.all(
                               color: _errorMessage != null
-                                  ? Colors.red.shade400
-                                  : BleyaTheme.border,
+                                  ? BleyaTheme.errorBorder
+                                  : (_phoneFocusNode.hasFocus
+                                      ? BleyaTheme.primary
+                                      : BleyaTheme.border),
                               width: 1,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color: Colors.black.withValues(alpha: 0.04),
-                                blurRadius: 8,
-                                offset: Offset(0, 2),
-                              ),
-                            ],
+                            boxShadow: BleyaTheme.glassShadow,
                           ),
-                          child: ClipRRect(
-                            borderRadius:
-                                BorderRadius.circular(BleyaTheme.radiusLarge),
-                            child: BackdropFilter(
-                              filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                              child: Container(
-                                padding:
-                                    const EdgeInsets.symmetric(horizontal: 16),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      CupertinoIcons.phone,
-                                      color: BleyaTheme.mutedForeground,
-                                      size: 20,
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: CupertinoTextField(
-                                        controller: _phoneController,
-                                        focusNode: _phoneFocusNode,
-                                        placeholder: '+1 (555) 000-0000',
-                                        keyboardType: TextInputType.phone,
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.w600,
-                                          letterSpacing: 0.5,
-                                          color: BleyaTheme.foreground,
-                                        ),
-                                        placeholderStyle: TextStyle(
-                                          color: BleyaTheme.mutedForeground
-                                              .withValues(alpha: 0.6),
-                                        ),
-                                        decoration: BoxDecoration(
-                                            color: Colors.transparent),
-                                        padding: const EdgeInsets.symmetric(
-                                            vertical: 18),
-                                      ),
-                                    ),
-                                  ],
+                          child: Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: BleyaTheme.spacingLG,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.phone,
+                                  color: BleyaTheme.mutedForeground,
+                                  size: 20,
                                 ),
-                              ),
+                                SizedBox(width: BleyaTheme.spacingMD),
+                                Expanded(
+                                  child: CupertinoTextField(
+                                    controller: _phoneController,
+                                    focusNode: _phoneFocusNode,
+                                    placeholder: '+1 (555) 000-0000',
+                                    keyboardType: TextInputType.phone,
+                                    style: BleyaTheme.bodyLarge.copyWith(
+                                      color: BleyaTheme.foreground,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                    placeholderStyle: BleyaTheme.bodyLarge
+                                        .copyWith(
+                                      color: BleyaTheme.mutedForeground
+                                          .withValues(alpha: 0.6),
+                                    ),
+                                    decoration: BoxDecoration(
+                                        color: Colors.transparent),
+                                    padding: EdgeInsets.symmetric(
+                                      vertical: BleyaTheme.spacingLG + 2,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
 
                         if (_errorMessage != null) ...[
-                          const SizedBox(height: 12),
+                          SizedBox(height: BleyaTheme.spacingMD),
                           Text(
                             _errorMessage!,
-                            style: TextStyle(
-                              fontSize: 13,
+                            style: BleyaTheme.bodySmall.copyWith(
+                              color: BleyaTheme.error,
                               fontWeight: FontWeight.w500,
-                              color: Colors.red.shade500,
                             ),
                           ),
                         ],
 
-                        const SizedBox(height: 24),
+                        SizedBox(height: BleyaTheme.spacing2XL),
 
                         // Privacy Message
                         Container(
-                          padding: const EdgeInsets.all(16),
+                          padding: EdgeInsets.all(BleyaTheme.cardPadding),
                           decoration: BoxDecoration(
-                            color:
-                                BleyaTheme.glassSurface.withValues(alpha: 0.7),
+                            color: BleyaTheme.glassSurface,
                             borderRadius:
                                 BorderRadius.circular(BleyaTheme.radiusMedium),
                             border: Border.all(
@@ -269,21 +264,18 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                             boxShadow: BleyaTheme.glassShadow,
                           ),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
                               Icon(
                                 CupertinoIcons.shield,
                                 color: BleyaTheme.primary,
                                 size: 20,
                               ),
-                              const SizedBox(width: 12),
+                              SizedBox(width: BleyaTheme.spacingMD),
                               Expanded(
                                 child: Text(
                                   'Your number stays private. We never share it with anyone.',
-                                  style: BleyaTheme.bodySmall.copyWith(
-                                    fontSize: 13,
-                                    height: 1.5,
-                                  ),
+                                  style: BleyaTheme.bodySmall,
                                 ),
                               ),
                             ],
@@ -295,63 +287,23 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                 ),
 
                 // Footer Button
-                Container(
-                  padding: const EdgeInsets.all(24),
-                  decoration: BoxDecoration(
-                    color: BleyaTheme.background.withValues(alpha: 0.8),
-                    border: Border(
-                      top: BorderSide(
-                        color: BleyaTheme.border.withValues(alpha: 0.5),
-                        width: 1,
-                      ),
-                    ),
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: BleyaTheme.footerPadding,
+                    right: BleyaTheme.footerPadding,
+                    top: BleyaTheme.footerPadding,
+                    bottom: MediaQuery.of(context).padding.bottom +
+                        BleyaTheme.footerBottomPadding,
                   ),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 56,
-                    child: CupertinoButton(
-                      padding: EdgeInsets.zero,
-                      color: Colors.transparent,
-                      onPressed: _isLoading ? null : _requestCode,
-                      disabledColor: Colors.transparent,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          gradient: _isLoading || !_hasPhoneNumber
-                              ? null
-                              : BleyaTheme.skywashGradient,
-                          color: _isLoading || !_hasPhoneNumber
-                              ? BleyaTheme.mutedForeground
-                                  .withValues(alpha: 0.3)
-                              : null,
-                          borderRadius:
-                              BorderRadius.circular(BleyaTheme.radiusLarge),
-                          boxShadow: _isLoading || !_hasPhoneNumber
-                              ? null
-                              : BleyaTheme.primaryShadow,
-                        ),
-                        child: Center(
-                          child: _isLoading
-                              ? SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child: CupertinoActivityIndicator(
-                                    color: Colors.white,
-                                  ),
-                                )
-                              : Text(
-                                  'Send Code',
-                                  style: TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                        ),
-                      ),
-                    ),
+                  child: PrimaryButton(
+                    text: 'Send Code',
+                    onPressed: _requestCode,
+                    isLoading: _isLoading,
+                    isEnabled: _hasPhoneNumber,
                   ),
                 ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
