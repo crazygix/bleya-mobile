@@ -103,7 +103,6 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
     }
   }
 
-
   String _getCode() {
     return _codeControllers.map((c) => c.text).join();
   }
@@ -115,7 +114,8 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   Future<void> _verifyCode() async {
     final code = _getCode();
     if (code.length != 6) {
-      setState(() => _errorMessage = 'Please enter the complete verification code');
+      setState(
+          () => _errorMessage = 'Please enter the complete verification code');
       return;
     }
 
@@ -152,7 +152,8 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
         if (e is AppError) {
           setState(() => _errorMessage = e.getUserMessage());
         } else {
-          setState(() => _errorMessage = 'An unexpected error occurred. Please try again.');
+          setState(() => _errorMessage =
+              'An unexpected error occurred. Please try again.');
         }
       }
     } finally {
@@ -164,10 +165,17 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: BleyaTheme.background,
-      body: SafeArea(
-        child: Stack(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: BleyaTheme.background,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: BleyaTheme.background,
+        body: Stack(
           children: [
             // Liquid Glass Background
             Positioned(
@@ -204,195 +212,220 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
             ),
 
             // Main Content
-            Column(
-              children: [
-                // Header with back button
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 48, bottom: 16),
-                  child: Row(
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () {
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // Header with back button
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BleyaTheme.contentPadding,
+                    ),
+                    child: Row(
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
                           child: Icon(
                             CupertinoIcons.chevron_left,
                             color: BleyaTheme.mutedForeground,
                             size: 28,
                           ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
-                ),
 
-                // Content
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
-                        Text(
-                          'Enter the Code',
-                          style: BleyaTheme.headingMedium.copyWith(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w800,
+                  // Content
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: BleyaTheme.contentPadding,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: BleyaTheme.spacingMD),
+                          Text(
+                            'Enter the Code',
+                            style: BleyaTheme.headingMedium,
                           ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          "We sent a 6-digit code to your phone.",
-                          style: BleyaTheme.bodyLarge,
-                        ),
-                        const SizedBox(height: 48),
+                          SizedBox(height: BleyaTheme.spacingMD),
+                          Text(
+                            "We sent a 6-digit code to your phone.",
+                            style: BleyaTheme.bodyLarge,
+                          ),
+                          SizedBox(
+                            height:
+                                BleyaTheme.spacing3XL + BleyaTheme.spacing2XL,
+                          ),
 
-                        // 6-Digit Code Inputs
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: List.generate(6, (index) {
-                            return SizedBox(
-                              width: 48,
-                              height: 60,
-                              child: Container(
-                                decoration: BoxDecoration(
-                                  color: _hasValue[index]
-                                      ? BleyaTheme.primary.withValues(alpha: 0.05)
-                                      : BleyaTheme.glassSurface.withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
-                                  border: Border.all(
-                                    color: _hasValue[index]
-                                        ? BleyaTheme.primary
-                                        : BleyaTheme.border,
-                                    width: 1,
-                                  ),
-                                  boxShadow: _hasValue[index]
-                                      ? [
-                                          BoxShadow(
-                                            color: BleyaTheme.primary.withValues(alpha: 0.1),
-                                            blurRadius: 3,
-                                            offset: Offset(0, 0),
-                                          ),
-                                        ]
-                                      : BleyaTheme.glassShadow,
+                          // 6-Digit Code Inputs
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: List.generate(6, (index) {
+                              return Padding(
+                                padding: EdgeInsets.symmetric(
+                                  horizontal: BleyaTheme.spacingSM,
                                 ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
-                                    child: CupertinoTextField(
-                                      controller: _codeControllers[index],
-                                      focusNode: _focusNodes[index],
-                                      textAlign: TextAlign.center,
-                                      keyboardType: TextInputType.number,
-                                      maxLength: 1,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-                                      style: TextStyle(
-                                        fontSize: 24,
-                                        fontWeight: FontWeight.bold,
+                                child: SizedBox(
+                                  width: BleyaTheme.iconContainerSize,
+                                  height: 60,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: _hasValue[index]
+                                          ? BleyaTheme.primary
+                                              .withValues(alpha: 0.05)
+                                          : BleyaTheme.glassSurface.withValues(
+                                              alpha: BleyaTheme.glassOpacity),
+                                      borderRadius: BorderRadius.circular(
+                                          BleyaTheme.radiusMedium),
+                                      border: Border.all(
                                         color: _hasValue[index]
                                             ? BleyaTheme.primary
-                                            : BleyaTheme.foreground,
+                                            : BleyaTheme.border,
+                                        width: 1,
                                       ),
-                                      decoration: BoxDecoration(color: Colors.transparent),
-                                      onChanged: (value) => _handleCodeChange(index, value),
-                                      onSubmitted: (_) {
-                                        if (index < 5) {
-                                          _focusNodes[index + 1].requestFocus();
-                                        } else {
-                                          _verifyCode();
-                                        }
-                                      },
-                                      onTap: () {
-                                        _codeControllers[index].selection = TextSelection(
-                                          baseOffset: 0,
-                                          extentOffset: _codeControllers[index].text.length,
-                                        );
-                                      },
+                                      boxShadow: _hasValue[index]
+                                          ? [
+                                              BoxShadow(
+                                                color: BleyaTheme.primary
+                                                    .withValues(alpha: 0.1),
+                                                blurRadius: 3,
+                                                offset: Offset(0, 0),
+                                              ),
+                                            ]
+                                          : BleyaTheme.glassShadow,
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(
+                                          BleyaTheme.radiusMedium),
+                                      child: BackdropFilter(
+                                        filter: ImageFilter.blur(
+                                            sigmaX: 20, sigmaY: 20),
+                                        child: CupertinoTextField(
+                                          controller: _codeControllers[index],
+                                          focusNode: _focusNodes[index],
+                                          textAlign: TextAlign.center,
+                                          keyboardType: TextInputType.number,
+                                          maxLength: 1,
+                                          inputFormatters: [
+                                            FilteringTextInputFormatter
+                                                .digitsOnly,
+                                          ],
+                                          padding: EdgeInsets.only(
+                                            top: BleyaTheme.spacingLG,
+                                            left: BleyaTheme.spacingXS,
+                                            bottom: BleyaTheme.spacingSM,
+                                          ),
+                                          style: TextStyle(
+                                            fontSize: 24,
+                                            fontWeight: FontWeight.bold,
+                                            color: _hasValue[index]
+                                                ? BleyaTheme.primary
+                                                : BleyaTheme.foreground,
+                                          ),
+                                          decoration: BoxDecoration(
+                                              color: Colors.transparent),
+                                          onChanged: (value) =>
+                                              _handleCodeChange(index, value),
+                                          onSubmitted: (_) {
+                                            if (index < 5) {
+                                              _focusNodes[index + 1]
+                                                  .requestFocus();
+                                            } else {
+                                              _verifyCode();
+                                            }
+                                          },
+                                          onTap: () {
+                                            _codeControllers[index].selection =
+                                                TextSelection(
+                                              baseOffset: 0,
+                                              extentOffset:
+                                                  _codeControllers[index]
+                                                      .text
+                                                      .length,
+                                            );
+                                          },
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          }),
-                        ),
+                              );
+                            }),
+                          ),
 
-                        if (_errorMessage != null) ...[
-                          const SizedBox(height: 24),
-                          Text(
-                            _errorMessage!,
-                            style: TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Colors.red.shade500,
+                          if (_errorMessage != null) ...[
+                            SizedBox(height: BleyaTheme.spacing2XL),
+                            Center(
+                              child: Text(
+                                _errorMessage!,
+                                style: BleyaTheme.bodySmall.copyWith(
+                                  color: BleyaTheme.error,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
+
+                          SizedBox(height: BleyaTheme.spacing2XL),
+                          Center(
+                            child: Text(
+                              'Code expires in 4:59',
+                              style: BleyaTheme.bodySmall.copyWith(
+                                color: BleyaTheme.mutedForeground,
+                              ),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+                  ),
 
-                        const SizedBox(height: 40),
-                        Center(
+                  // Footer Buttons
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BleyaTheme.footerPadding,
+                      right: BleyaTheme.footerPadding,
+                      top: BleyaTheme.footerPadding,
+                      bottom: MediaQuery.of(context).padding.bottom +
+                          BleyaTheme.footerBottomPadding,
+                    ),
+                    child: Column(
+                      children: [
+                        PrimaryButton(
+                          text: 'Verify',
+                          onPressed: _verifyCode,
+                          isLoading: _isLoading,
+                          isEnabled: _isCodeComplete(),
+                        ),
+                        SizedBox(height: BleyaTheme.spacingLG),
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
                           child: Text(
-                            'Code expires in 4:59',
-                            style: BleyaTheme.bodySmall.copyWith(
-                              color: BleyaTheme.mutedForeground,
+                            "Didn't get it? Resend",
+                            style: TextStyle(
+                              color: BleyaTheme.primary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
-
-                // Footer Buttons
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: BleyaTheme.footerPadding,
-                    right: BleyaTheme.footerPadding,
-                    top: BleyaTheme.footerPadding,
-                    bottom: MediaQuery.of(context).padding.bottom +
-                        BleyaTheme.footerBottomPadding,
-                  ),
-                  child: Column(
-                    children: [
-                      PrimaryButton(
-                        text: 'Verify',
-                        onPressed: _verifyCode,
-                        isLoading: _isLoading,
-                        isEnabled: _isCodeComplete(),
-                      ),
-                      SizedBox(height: BleyaTheme.spacingLG),
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () {
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Text(
-                          "Didn't get it? Resend",
-                          style: TextStyle(
-                            color: BleyaTheme.primary,
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
