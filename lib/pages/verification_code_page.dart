@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -11,10 +12,12 @@ import 'username_page.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
   final String phoneNumber;
+  final String? codeSentAt;
 
   const VerificationCodePage({
     super.key,
     required this.phoneNumber,
+    this.codeSentAt,
   });
 
   @override
@@ -29,9 +32,21 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   bool _isLoading = false;
   final List<bool> _hasValue = List.generate(6, (_) => false);
 
+  DateTime? _codeSentAt;
+  int _resendRemainingSeconds = 60;
+  Timer? _countdownTimer;
+  bool _isResending = false;
+
   @override
   void initState() {
     super.initState();
+    if (widget.codeSentAt != null) {
+      _updateCodeSentTime(widget.codeSentAt);
+    } else {
+      _codeSentAt = DateTime.now();
+      _resendRemainingSeconds = 60;
+      _startCountdown();
+    }
     for (int i = 0; i < _codeControllers.length; i++) {
       final index = i;
       _codeControllers[i].addListener(() {
@@ -46,8 +61,52 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
     }
   }
 
+  void _startCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      final now = DateTime.now();
+
+      setState(() {
+        // Update resend cooldown (1 minute)
+        if (_codeSentAt != null) {
+          final resendElapsed = now.difference(_codeSentAt!).inSeconds;
+          _resendRemainingSeconds = (60 - resendElapsed).clamp(0, 60);
+
+          if (_resendRemainingSeconds <= 0) {
+            timer.cancel();
+          }
+        } else {
+          timer.cancel();
+        }
+      });
+    });
+  }
+
+  void _updateCodeSentTime(String? codeSentAtIso) {
+    if (codeSentAtIso != null) {
+      _codeSentAt = DateTime.parse(codeSentAtIso);
+      final now = DateTime.now();
+
+      // Calculate initial remaining time for resend cooldown
+      final resendElapsed = now.difference(_codeSentAt!).inSeconds;
+      _resendRemainingSeconds = (60 - resendElapsed).clamp(0, 60);
+
+      _startCountdown();
+    } else {
+      // Fallback if no timestamp provided
+      _codeSentAt = DateTime.now();
+      _resendRemainingSeconds = 60;
+      _startCountdown();
+    }
+  }
+
   @override
   void dispose() {
+    _countdownTimer?.cancel();
     for (var controller in _codeControllers) {
       controller.dispose();
     }
@@ -109,6 +168,45 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
 
   bool _isCodeComplete() {
     return _codeControllers.every((c) => c.text.isNotEmpty);
+  }
+
+  String _formatTime(int seconds) {
+    final minutes = seconds ~/ 60;
+    final secs = seconds % 60;
+    return '$minutes:${secs.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _handleResend() async {
+    if (_resendRemainingSeconds > 0 || _isResending) return;
+
+    try {
+      setState(() {
+        _errorMessage = null;
+        _isResending = true;
+      });
+
+      final authService = ref.read(authServiceProvider);
+      final result = await authService.resendCode(phone: widget.phoneNumber);
+
+      _updateCodeSentTime(result['codeSentAt'] as String?);
+
+      if (mounted) {
+        setState(() {
+          _isResending = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _isResending = false;
+          if (e is AppError) {
+            _errorMessage = e.getUserMessage();
+          } else {
+            _errorMessage = 'Failed to resend code. Please try again.';
+          }
+        });
+      }
+    }
   }
 
   Future<void> _verifyCode() async {
@@ -372,16 +470,6 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                               ),
                             ),
                           ],
-
-                          SizedBox(height: BleyaTheme.spacing2XL),
-                          Center(
-                            child: Text(
-                              'Code expires in 4:59',
-                              style: BleyaTheme.bodySmall.copyWith(
-                                color: BleyaTheme.mutedForeground,
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
@@ -407,15 +495,17 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                         SizedBox(height: BleyaTheme.spacingLG),
                         CupertinoButton(
                           padding: EdgeInsets.zero,
-                          onPressed: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
+                          onPressed: _resendRemainingSeconds > 0 || _isResending
+                              ? null
+                              : _handleResend,
                           child: Text(
-                            "Didn't get it? Resend",
+                            _resendRemainingSeconds > 0
+                                ? "Resend code in ${_formatTime(_resendRemainingSeconds)}"
+                                : "Didn't get it? Resend",
                             style: TextStyle(
-                              color: BleyaTheme.primary,
+                              color: _resendRemainingSeconds > 0 || _isResending
+                                  ? BleyaTheme.mutedForeground
+                                  : BleyaTheme.primary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),

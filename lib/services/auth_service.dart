@@ -6,6 +6,7 @@ import '../utils/app_errors.dart';
 class _ApiUrls {
   static const String requestCode = '/auth/request-code';
   static const String verifyCode = '/auth/verify-code';
+  static const String resendCode = '/auth/resend-code';
   static const String getMyInfo = '/auth/me';
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
@@ -18,7 +19,7 @@ class AuthService {
 
   AuthService(this._dio, this._secureStorage);
 
-  Future<void> requestCode({required String phone}) async {
+  Future<Map<String, dynamic>> requestCode({required String phone}) async {
     try {
       final response = await _dio.post(
         _ApiUrls.requestCode,
@@ -28,10 +29,31 @@ class AuthService {
       if (kDebugMode) {
         print("Code sent: ${response.data["code"]}");
       }
+      return {
+        'codeSentAt': response.data['codeSentAt'] as String?,
+      };
     } on DioException catch (e) {
       if (kDebugMode) {
         print('Auth service error: $e');
       }
+      throw _handleDioError(e);
+    }
+  }
+
+  Future<Map<String, dynamic>> resendCode({required String phone}) async {
+    try {
+      final response = await _dio.post(
+        _ApiUrls.resendCode,
+        data: {'phoneNumber': phone},
+      );
+      // Don't log verification code in production
+      if (kDebugMode) {
+        print("Code resent: ${response.data["code"]}");
+      }
+      return {
+        'codeSentAt': response.data['codeSentAt'] as String?,
+      };
+    } on DioException catch (e) {
       throw _handleDioError(e);
     }
   }

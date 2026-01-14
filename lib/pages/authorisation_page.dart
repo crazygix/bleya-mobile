@@ -56,13 +56,14 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         _isLoading = true;
       });
       final authService = ref.read(authServiceProvider);
-      await authService.requestCode(phone: _phoneController.text.trim());
+      final result = await authService.requestCode(phone: _phoneController.text.trim());
 
       if (mounted) {
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (context) => VerificationCodePage(
               phoneNumber: _phoneController.text.trim(),
+              codeSentAt: result['codeSentAt'] as String?,
             ),
           ),
         );
