@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import '../constants/theme.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -187,6 +188,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
 
     return Scaffold(
+      backgroundColor: BleyaTheme.background,
       appBar: AppBar(
         title: const Text('Settings'),
         automaticallyImplyLeading: false,
@@ -219,7 +221,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
                           return CircleAvatar(
                             radius: 60,
-                            backgroundColor: Colors.grey[300],
+                            backgroundColor: BleyaTheme.greyBorder,
                             backgroundImage: hasImage
                                 ? (_selectedImage != null
                                     ? FileImage(_selectedImage!)
@@ -235,8 +237,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                   }
                                 : null,
                             child: !hasImage
-                                ? const Icon(Icons.person,
-                                    size: 60, color: Colors.grey)
+                                ? Icon(Icons.person,
+                                    size: 60, color: BleyaTheme.greyText)
                                 : null,
                           );
                         },
@@ -247,7 +249,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         child: Container(
                           padding: const EdgeInsets.all(8),
                           decoration: const BoxDecoration(
-                            color: Colors.blue,
+                            color: BleyaTheme.primary,
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(

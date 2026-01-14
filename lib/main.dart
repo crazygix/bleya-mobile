@@ -10,6 +10,7 @@ import 'config/environment.dart';
 import 'providers/auth_providers.dart';
 import 'providers/connectivity_provider.dart';
 import 'utils/navigation.dart';
+import 'constants/theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -74,7 +75,7 @@ class MyApp extends ConsumerWidget {
     if (kDebugMode) {
       final bannerText = EnvironmentConfig.isProduction ? 'Prod' : 'Dev';
       final bannerColor =
-          EnvironmentConfig.isProduction ? Colors.red : Colors.green;
+          EnvironmentConfig.isProduction ? Colors.red : BleyaTheme.success;
 
       return Directionality(
         textDirection: TextDirection.ltr,

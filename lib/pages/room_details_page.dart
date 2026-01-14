@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import '../constants/theme.dart';
 import 'user_details_page.dart';
 
 class RoomDetailsPage extends ConsumerStatefulWidget {
@@ -62,7 +63,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(true),
                         child: const Text('Leave',
-                            style: TextStyle(color: Colors.red)),
+                            style: TextStyle(color: BleyaTheme.error)),
                       ),
                     ],
                   ),
@@ -98,7 +99,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
               icon: const Icon(Icons.exit_to_app),
               label: const Text('Leave Room'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: BleyaTheme.error,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 12),
               ),
@@ -123,7 +124,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                     '(${members.length})',
                     style: TextStyle(
                       fontSize: 18,
-                      color: Colors.grey[600],
+                      color: BleyaTheme.greyText,
                     ),
                   ),
                   loading: () => const SizedBox.shrink(),
@@ -153,7 +154,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                     return ListTile(
                       leading: CircleAvatar(
                         radius: 24,
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: BleyaTheme.greyBorder,
                         backgroundImage: member.profileImageUrl.isNotEmpty &&
                                 member.profileImageUrl.startsWith('https://')
                             ? NetworkImage(member.profileImageUrl)
@@ -170,7 +171,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                             : null,
                         child: member.profileImageUrl.isEmpty ||
                                 !member.profileImageUrl.startsWith('https://')
-                            ? const Icon(Icons.person, color: Colors.grey)
+                            ? Icon(Icons.person, color: BleyaTheme.greyText)
                             : null,
                       ),
                       title: Row(
@@ -187,14 +188,14 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                                 vertical: 2,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.blue[100],
+                                color: BleyaTheme.primaryLight,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: const Text(
                                 'You',
                                 style: TextStyle(
                                   fontSize: 12,
-                                  color: Colors.blue,
+                                  color: BleyaTheme.primary,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
@@ -224,7 +225,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const Icon(Icons.error_outline,
-                        size: 48, color: Colors.red),
+                        size: 48, color: BleyaTheme.error),
                     const SizedBox(height: 16),
                     Text('Error loading members: $error'),
                     const SizedBox(height: 16),

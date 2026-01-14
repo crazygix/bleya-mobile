@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../constants/theme.dart';
 import 'user_details_page.dart';
 
 class ThreadViewPage extends ConsumerStatefulWidget {
@@ -86,7 +87,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
           ),
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: isCurrentUser ? Colors.blue[600] : Colors.grey[200],
+            color: isCurrentUser ? BleyaTheme.primaryDark : BleyaTheme.greyMedium,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Column(
@@ -107,7 +108,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                     message.username,
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.blue[700],
+                      color: BleyaTheme.primaryDark,
                       fontWeight: FontWeight.bold,
                       decoration: TextDecoration.underline,
                     ),
@@ -118,7 +119,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
               Text(
                 message.text,
                 style: TextStyle(
-                  color: isCurrentUser ? Colors.white : Colors.black87,
+                  color: isCurrentUser ? Colors.white : BleyaTheme.foreground87,
                 ),
               ),
             ],
@@ -154,9 +155,9 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                     Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: BleyaTheme.primaryLight,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.blue[200]!),
+                        border: Border.all(color: BleyaTheme.primaryMedium),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -176,7 +177,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                                 parentMessage.username,
                                 style: TextStyle(
                                   fontSize: 14,
-                                  color: Colors.blue[700],
+                                  color: BleyaTheme.primaryDark,
                                   fontWeight: FontWeight.bold,
                                   decoration: TextDecoration.underline,
                                 ),
@@ -186,9 +187,9 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                             const SizedBox(height: 4),
                           Text(
                             parentMessage.text,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 16,
-                              color: Colors.black87,
+                              color: BleyaTheme.foreground87,
                             ),
                           ),
                           const SizedBox(height: 8),
@@ -196,7 +197,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                             '${replies.length} ${replies.length == 1 ? 'reply' : 'replies'}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.grey[600],
+                              color: BleyaTheme.greyText,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -206,7 +207,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                     const SizedBox(height: 16),
                     // Divider
                     if (replies.isNotEmpty)
-                      Divider(color: Colors.grey[300], thickness: 1),
+                      Divider(color: BleyaTheme.greyBorder, thickness: 1),
                     if (replies.isNotEmpty) const SizedBox(height: 8),
                     // Replies section
                     ...replies.map((reply) {
@@ -223,7 +224,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                   color: Colors.white,
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.grey.withValues(alpha: 0.2),
+                      color: BleyaTheme.greyText.withValues(alpha: 0.2),
                       spreadRadius: 1,
                       blurRadius: 5,
                     ),
@@ -251,7 +252,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                     IconButton(
                       icon: const Icon(Icons.send),
                       onPressed: _sendReply,
-                      color: Colors.blue,
+                      color: BleyaTheme.primary,
                     ),
                   ],
                 ),
@@ -264,7 +265,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.error_outline, size: 48, color: Colors.red),
+              Icon(Icons.error_outline, size: 48, color: BleyaTheme.error),
               const SizedBox(height: 16),
               Text('Failed to load thread: $error'),
               const SizedBox(height: 16),

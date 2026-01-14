@@ -173,6 +173,25 @@ class BleyaTheme {
   static const Color border = Color(0xFFE6EAF2); // Light border
   static const Color glassSurface = Color(0xFFFFFFFF); // White for glass effect
 
+  // Primary color variants (for chat bubbles, active states)
+  static Color get primaryLight => primary.withValues(alpha: 0.1); // ~blue[50]
+  static Color get primaryMedium => primary.withValues(alpha: 0.3); // ~blue[200]
+  static Color get primaryDark => Color(0xFF0052CC); // ~blue[700]
+
+  // Grey variants (for backgrounds, dividers, inactive states)
+  static Color get greyLight => Color(0xFFF5F5F5); // ~grey[50]
+  static Color get greyMedium => Color(0xFFE0E0E0); // ~grey[200]
+  static Color get greyBorder => Color(0xFFBDBDBD); // ~grey[300]
+  static Color get greyText => Color(0xFF757575); // ~grey[600]
+
+  // Text opacity variants
+  static Color get foreground87 => foreground.withValues(alpha: 0.87); // ~black87
+  static Color get foreground54 => foreground.withValues(alpha: 0.54); // ~black54
+
+  // Private room color (purple variant)
+  static Color get privateRoomLight => Color(0xFFE1BEE7); // ~purple[100]
+  static Color get privateRoomDark => Color(0xFF7B1FA2); // ~purple[700]
+
   // Glass opacity values
   // Glassmorphism: Semi-transparent white fill (bg-white/70) for frosted glass effect
   static const double glassOpacity = 0.82; // 70% opacity for glass surfaces

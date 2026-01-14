@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import '../constants/theme.dart';
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   @override
@@ -62,7 +63,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(errorMessage),
-            backgroundColor: Colors.red,
+            backgroundColor: BleyaTheme.error,
           ),
         );
       }
@@ -129,7 +130,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                                   'You have reached the limit of 5 group chats',
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: Colors.grey[600],
+                                    color: BleyaTheme.greyText,
                                   ),
                                 ),
                               ),
@@ -153,8 +154,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                               ? const SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CircularProgressIndicator(
-                                      strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : null,
                           onTap: isJoiningThis ? null : () => _joinRoom(room),
@@ -175,7 +176,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(Icons.error_outline,
-                              color: Colors.red, size: 48),
+                              color: BleyaTheme.error, size: 48),
                           const SizedBox(height: 16),
                           Text(
                             'Error loading rooms',
@@ -185,7 +186,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                           const SizedBox(height: 8),
                           Text(
                             error.toString(),
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            style: TextStyle(
+                                fontSize: 12, color: BleyaTheme.greyText),
                             textAlign: TextAlign.center,
                           ),
                           const SizedBox(height: 16),

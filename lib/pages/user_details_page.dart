@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../providers/chat_providers.dart';
 import '../utils/app_errors.dart';
+import '../constants/theme.dart';
 import 'chat_room_page.dart';
 
 class UserDetailsPage extends ConsumerStatefulWidget {
@@ -111,7 +112,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                       // Profile Image
                       CircleAvatar(
                         radius: 60,
-                        backgroundColor: Colors.grey[300],
+                        backgroundColor: BleyaTheme.greyBorder,
                         backgroundImage:
                             _userData!['profileImageUrl'] != null &&
                                     _userData!['profileImageUrl']
@@ -144,8 +145,8 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                 !_userData!['profileImageUrl']
                                     .toString()
                                     .startsWith('https://')
-                            ? const Icon(Icons.person,
-                                size: 60, color: Colors.grey)
+                            ? Icon(Icons.person,
+                                size: 60, color: BleyaTheme.greyText)
                             : null,
                       ),
                       const SizedBox(height: 24),
@@ -179,7 +180,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                             label: Text(_isCreatingChat ? 'Opening chat...' : 'Chat'),
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: Colors.blue[600],
+                              backgroundColor: BleyaTheme.primaryDark,
                               foregroundColor: Colors.white,
                             ),
                           ),
@@ -192,7 +193,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.grey[100],
+                            color: BleyaTheme.greyLight,
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Column(
@@ -222,7 +223,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.grey[50],
+                          color: BleyaTheme.greyLight,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Column(
@@ -268,7 +269,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
         Text(
           label,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
+                color: BleyaTheme.greyText,
               ),
         ),
         Text(

@@ -208,47 +208,46 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
               ),
             ),
 
-            // Back button positioned at top
-            Positioned(
-              top: MediaQuery.of(context).padding.top,
-              left: 4,
-              child: CupertinoButton(
-                padding: EdgeInsets.zero,
-                onPressed: () async {
-                  final authManager = ref.read(authManagerProvider);
-                  await authManager.logout();
-                },
-                child: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.transparent,
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Icon(
-                    CupertinoIcons.chevron_left,
-                    color: BleyaTheme.mutedForeground,
-                    size: 28,
-                  ),
-                ),
-              ),
-            ),
-
             // Main Content
             SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  SizedBox(height: 16),
+                  // Header with back button
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BleyaTheme.contentPadding,
+                    ),
+                    child: Row(
+                      children: [
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () async {
+                            final authManager = ref.read(authManagerProvider);
+                            await authManager.logout();
+                          },
+                          child: Icon(
+                            CupertinoIcons.chevron_left,
+                            color: BleyaTheme.mutedForeground,
+                            size: 28,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
 
                   // Content
                   Expanded(
                     child: SingleChildScrollView(
-                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: BleyaTheme.contentPadding,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          SizedBox(height: BleyaTheme.spacingMD),
                           Text(
-                            "How should we call you?",
+                            "Pick your handle",
                             style: BleyaTheme.headingMedium.copyWith(
                               fontSize: 34,
                               fontWeight: FontWeight.w800,
@@ -282,14 +281,14 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                       BleyaTheme.radiusLarge),
                                   border: Border.all(
                                     color: _errorMessage != null || showError
-                                        ? Colors.red.shade400
+                                        ? BleyaTheme.errorBorder
                                         : BleyaTheme.border,
                                     width: 1,
                                   ),
                                   boxShadow: [
                                     BoxShadow(
-                                      color:
-                                          Colors.black.withValues(alpha: 0.04),
+                                      color: BleyaTheme.foreground
+                                          .withValues(alpha: 0.04),
                                       blurRadius: 8,
                                       offset: Offset(0, 2),
                                     ),
@@ -466,7 +465,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                             shape: BoxShape.circle,
                                             boxShadow: [
                                               BoxShadow(
-                                                color: Colors.black
+                                                color: BleyaTheme.foreground
                                                     .withValues(alpha: 0.1),
                                                 blurRadius: 8,
                                                 offset: Offset(0, 2),
@@ -510,7 +509,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                               style: TextStyle(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w500,
-                                color: Colors.red.shade500,
+                                color: BleyaTheme.error,
                               ),
                               textAlign: TextAlign.center,
                             ),

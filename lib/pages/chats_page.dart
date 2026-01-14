@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
+import '../constants/theme.dart';
 import 'chat_room_page.dart';
 
 class ChatsPage extends ConsumerWidget {
@@ -28,16 +29,16 @@ class ChatsPage extends ConsumerWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(Icons.chat_bubble_outline,
-                          size: 64, color: Colors.grey),
+                          size: 64, color: BleyaTheme.greyText),
                       const SizedBox(height: 16),
                       Text(
                         'No rooms joined yet',
-                        style: TextStyle(fontSize: 18, color: Colors.grey),
+                        style: TextStyle(fontSize: 18, color: BleyaTheme.greyText),
                       ),
                       const SizedBox(height: 8),
                       Text(
                         'Tap the + button to join a room',
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                        style: TextStyle(fontSize: 14, color: BleyaTheme.greyText),
                       ),
                     ],
                   ),
@@ -58,10 +59,10 @@ class ChatsPage extends ConsumerWidget {
               return ListTile(
                 leading: CircleAvatar(
                   backgroundColor:
-                      isPrivate ? Colors.purple[100] : Colors.blue[100],
+                      isPrivate ? BleyaTheme.privateRoomLight : BleyaTheme.primaryLight,
                   child: Icon(
                     isPrivate ? Icons.person : Icons.group,
-                    color: isPrivate ? Colors.purple[700] : Colors.blue[700],
+                    color: isPrivate ? BleyaTheme.privateRoomDark : BleyaTheme.primaryDark,
                   ),
                 ),
                 title: Text(room.name),
@@ -69,7 +70,7 @@ class ChatsPage extends ConsumerWidget {
                   isPrivate ? 'Direct message' : 'Group chat',
                   style: TextStyle(
                     fontSize: 12,
-                    color: Colors.grey[600],
+                    color: BleyaTheme.greyText,
                   ),
                 ),
                 onTap: () {
@@ -95,7 +96,7 @@ class ChatsPage extends ConsumerWidget {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.error_outline, size: 64, color: Colors.red),
+                  Icon(Icons.error_outline, size: 64, color: BleyaTheme.error),
                   const SizedBox(height: 16),
                   Text(
                     'Error loading rooms',

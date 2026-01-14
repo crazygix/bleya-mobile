@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
+import '../constants/theme.dart';
 import 'user_details_page.dart';
 import 'room_details_page.dart';
 import 'thread_view_page.dart';
@@ -164,8 +165,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
                                 color: isCurrentUser
-                                    ? Colors.blue[600]
-                                    : Colors.grey[200],
+                                    ? BleyaTheme.primaryDark
+                                    : BleyaTheme.greyMedium,
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Column(
@@ -189,7 +190,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                         message.username,
                                         style: TextStyle(
                                           fontSize: 12,
-                                          color: Colors.blue[700],
+                                          color: BleyaTheme.primaryDark,
                                           fontWeight: FontWeight.bold,
                                           decoration: TextDecoration.underline,
                                         ),
@@ -203,7 +204,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                     style: TextStyle(
                                       color: isCurrentUser
                                           ? Colors.white
-                                          : Colors.black87,
+                                          : BleyaTheme.foreground87,
                                     ),
                                   ),
                                   if (message.replyCount > 0) ...[
@@ -215,8 +216,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: isCurrentUser
-                                            ? Colors.blue[700]
-                                            : Colors.grey[300],
+                                            ? BleyaTheme.primaryDark
+                                            : BleyaTheme.greyBorder,
                                         borderRadius: BorderRadius.circular(12),
                                       ),
                                       child: Row(
@@ -227,7 +228,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                             size: 14,
                                             color: isCurrentUser
                                                 ? Colors.white
-                                                : Colors.black54,
+                                                : BleyaTheme.foreground54,
                                           ),
                                           const SizedBox(width: 4),
                                           Text(
@@ -236,7 +237,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                               fontSize: 12,
                                               color: isCurrentUser
                                                   ? Colors.white
-                                                  : Colors.black54,
+                                                  : BleyaTheme.foreground54,
                                               fontWeight: FontWeight.w500,
                                             ),
                                           ),
@@ -259,7 +260,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.grey.withValues(alpha: 0.2),
+                  color: BleyaTheme.greyText.withValues(alpha: 0.2),
                   spreadRadius: 1,
                   blurRadius: 5,
                 ),
@@ -287,7 +288,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                 IconButton(
                   icon: const Icon(Icons.send),
                   onPressed: _sendMessage,
-                  color: Colors.blue,
+                  color: BleyaTheme.primary,
                 ),
               ],
             ),
