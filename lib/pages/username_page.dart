@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/theme.dart';
@@ -161,10 +162,17 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     final username = _usernameController.text.trim().toLowerCase();
     final showError = !_isValid && _isTouched && username.isNotEmpty;
 
-    return Scaffold(
-      backgroundColor: BleyaTheme.background,
-      body: SafeArea(
-        child: Stack(
+    return AnnotatedRegion<SystemUiOverlayStyle>(
+      value: SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.dark,
+        statusBarBrightness: Brightness.light,
+        systemNavigationBarColor: BleyaTheme.background,
+        systemNavigationBarIconBrightness: Brightness.dark,
+      ),
+      child: Scaffold(
+        backgroundColor: BleyaTheme.background,
+        body: Stack(
           children: [
             // Liquid Glass Background
             Positioned(
@@ -200,45 +208,45 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
               ),
             ),
 
-            // Main Content
-            Column(
-              children: [
-                // Header with back button
-                Padding(
-                  padding: const EdgeInsets.only(left: 4, top: 48, bottom: 16),
-                  child: Row(
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () async {
-                          final authManager = ref.read(authManagerProvider);
-                          await authManager.logout();
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: Colors.transparent,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            color: BleyaTheme.mutedForeground,
-                            size: 28,
-                          ),
-                        ),
-                      ),
-                    ],
+            // Back button positioned at top
+            Positioned(
+              top: MediaQuery.of(context).padding.top,
+              left: 4,
+              child: CupertinoButton(
+                padding: EdgeInsets.zero,
+                onPressed: () async {
+                  final authManager = ref.read(authManagerProvider);
+                  await authManager.logout();
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.transparent,
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Icon(
+                    CupertinoIcons.chevron_left,
+                    color: BleyaTheme.mutedForeground,
+                    size: 28,
                   ),
                 ),
+              ),
+            ),
 
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SizedBox(height: 16),
+            // Main Content
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  SizedBox(height: 16),
+
+                  // Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                         Text(
                           'Claim your handle',
                           style: BleyaTheme.headingMedium.copyWith(
@@ -505,28 +513,29 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                             textAlign: TextAlign.center,
                           ),
                         ],
-                      ],
+                        ],
+                      ),
                     ),
                   ),
-                ),
 
-                // Footer Button
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: BleyaTheme.footerPadding,
-                    right: BleyaTheme.footerPadding,
-                    top: BleyaTheme.footerPadding,
-                    bottom: MediaQuery.of(context).padding.bottom +
-                        BleyaTheme.footerBottomPadding,
+                  // Footer Button
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BleyaTheme.footerPadding,
+                      right: BleyaTheme.footerPadding,
+                      top: BleyaTheme.footerPadding,
+                      bottom: MediaQuery.of(context).padding.bottom +
+                          BleyaTheme.footerBottomPadding,
+                    ),
+                    child: PrimaryButton(
+                      text: 'Start Exploring',
+                      onPressed: _setUsername,
+                      isLoading: _isLoading,
+                      isEnabled: _isValid,
+                    ),
                   ),
-                  child: PrimaryButton(
-                    text: 'Start Exploring',
-                    onPressed: _setUsername,
-                    isLoading: _isLoading,
-                    isEnabled: _isValid,
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
