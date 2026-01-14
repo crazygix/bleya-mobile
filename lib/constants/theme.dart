@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 /// Bleya Design System - "Café Coast" Brand Bible
-/// 
+///
 /// This is the complete Brand Bible for the Flutter team to follow.
 /// It defines not just colors, but the emotional response the app should trigger.
 ///
@@ -86,75 +86,34 @@ import 'package:google_fonts/google_fonts.dart';
 ///
 /// THE "GOLDEN HOUR" TONE:
 ///   - Warm, not Wacky: Friendly, but we don't use 10 emojis per sentence
-///   - Active, not Passive: Guide the user forward
-///     ✅ "Find your crowd" (active)
-///     ❌ "Users can be found here" (passive)
+///   - Active, not Passive: Guide the user forward (use active voice)
 ///   - Concise: Mobile screens are small; we value the user's time
-///
-/// MESSAGING MAP (Onboarding Flow):
-///
-/// PHONE ENTRY:
-///   ❌ "Enter your mobile number to continue." (system-speak)
-///   ✅ "What's your number?"
-///      <small>We'll send a quick code to get you in.</small>
-///   Why: Feels like a natural start to a conversation.
-///
-/// OTP / VERIFY:
-///   ❌ "Verification Code. Please enter the 6-digit code sent to your device." (clinical)
-///   ✅ "Confirm it's you"
-///      <small>Enter the code we just sent to +1...</small>
-///   Why: "Verify" is a clinical/police word. "Confirm it's you" is personal.
-///
-/// USERNAME:
-///   ❌ "Choose a unique username for your profile." (formal)
-///   ✅ "How should we call you?"
-///      <small>This is how friends will find you.</small>
-///   Why: Emphasizes the social "hangout" aspect of the app.
-///
-/// PERMISSIONS:
-///   ❌ "Allow Bleya to access your location." (technical)
-///   ✅ "Where are we headed?"
-///      <small>Share your location to see who's hanging out nearby.</small>
-///   Why: Ties the technical request to a benefit (seeing friends).
-///
-/// ERROR & SUCCESS STATES:
-///
-/// Invalid OTP:
-///   ❌ "Invalid Code" (accusatory)
-///   ✅ "That code didn't quite match. Try one more time?" (encouraging, calm)
-///
-/// Success/Welcome:
-///   ✅ "You're in. Let's find your first hangout."
 ///
 /// THREE GOLDEN RULES OF BLEYA COPY:
 ///
 /// 1. LOWER THE STAKES:
 ///    - Don't make things sound like a "Security Check"
 ///    - Make them sound like an "Introduction"
-///    - Example: "Confirm it's you" not "Verify Identity"
 ///
 /// 2. NO "COMPUTER WORDS":
-///    ❌ Avoid: Submit, Processing, Input, Error, Execute
-///    ✅ Use: Go, Hang out, Join, Oops, Done
+///    ❌ Avoid: Submit, Processing, Input, Error, Execute, Verify, Submit
+///    ✅ Use: Go, Get code, Hang out, Join, Oops, Done, Confirm
 ///    - Keep it human and conversational
 ///
-/// 3. TITLE CASE FOR HEADERS:
+/// 3. SENTENCE CASE FOR HEADERS:
 ///    - Only the first letter is capitalized (Sentence case)
 ///    - Keeps it feeling casual and modern
-///    ✅ "What's your number?"
-///    ✅ "Confirm it's you"
-///    ✅ "How should we call you?"
-///    ❌ "What's Your Number?"
-///    ❌ "CONFIRM IT'S YOU"
 ///
 /// GENERAL PRINCIPLES:
 ///   - Move from utility to connection
 ///   - Sound like a knowledgeable, chill friend
 ///   - Be conversational, not robotic
-///   - Use contractions naturally ("We'll", "You're", "It's")
+///   - Use contractions naturally
 ///   - Active voice always
 ///   - Short sentences for clarity
 ///   - Even "bad" moments should feel calm and "Café Coast"
+///   - Error messages: Encouraging, not accusatory
+///   - Success messages: Welcoming and forward-looking
 ///
 /// ========================================
 /// 5. MOTION PRINCIPLES
@@ -182,7 +141,7 @@ class BleyaTheme {
   // ========================================
   // CAFÉ COAST COLOR PALETTE
   // ========================================
-  
+
   // BASE (Ice White - #F6F7FB)
   // Used for 90% of background. Slightly blue-tinted to feel "cooler" and premium.
   static const Color background = Color(0xFFF6F7FB);
@@ -190,7 +149,8 @@ class BleyaTheme {
   // TYPOGRAPHY (Deep Ocean Blue - #0B1220)
   // NEVER use pure black (#000000). This deep navy provides readability while staying "organic."
   static const Color foreground = Color(0xFF0B1220);
-  static const Color mutedForeground = Color(0xFF556274); // Slate gray for secondary text
+  static const Color mutedForeground =
+      Color(0xFF556274); // Slate gray for secondary text
 
   // PRIMARY ACTION (Coat Blue - #1E6BFF)
   // Bright Mediterranean blue for main buttons and links. Use sparingly (20% rule).
@@ -204,8 +164,10 @@ class BleyaTheme {
   // Used for highlights, success states, or active orbs. Provides the "warmth."
   static const Color accent = Color(0xFFFFB454);
   static const Color success = Color(0xFF34D399); // Leaf
-  static const Color error = Color(0xFFEF4444); // Error red (shade500 equivalent)
-  static const Color errorBorder = Color(0xFFF87171); // Error border (shade400 equivalent)
+  static const Color error =
+      Color(0xFFEF4444); // Error red (shade500 equivalent)
+  static const Color errorBorder =
+      Color(0xFFF87171); // Error border (shade400 equivalent)
 
   // Glass & Borders
   static const Color border = Color(0xFFE6EAF2); // Light border
@@ -214,7 +176,8 @@ class BleyaTheme {
   // Glass opacity values
   // Glassmorphism: Semi-transparent white fill (bg-white/70) for frosted glass effect
   static const double glassOpacity = 0.82; // 70% opacity for glass surfaces
-  static const double glassBorderOpacity = 0.1; // Subtle border for inner glow effect
+  static const double glassBorderOpacity =
+      0.1; // Subtle border for inner glow effect
 
   // Border radius - Aligned with Apple's Human Interface Guidelines
   // Buttons: 10px (HIG standard for interactive elements)
@@ -407,217 +370,29 @@ class BleyaTheme {
       );
 
   // ========================================
-  // IMPLEMENTATION PATTERNS & GUIDELINES
+  // IMPLEMENTATION GUIDELINES
   // ========================================
   //
-  // When implementing new features or screens, follow these patterns.
+  // When implementing new features or screens, follow these guidelines.
   // Reference: "implement per design system" or "follow design system"
   //
-  // ========================================
-  // PAGE STRUCTURE
-  // ========================================
+  // PAGE STRUCTURE:
+  //   - Transparent status bar (see existing pages)
+  //   - Back button positioned at top using MediaQuery.padding.top
+  //   - Liquid glass background with 2-3 blurry orbs (primary + accent colors)
+  //   - SafeArea(bottom: false) for main content
+  //   - Use BleyaTheme constants for spacing, padding, colors
   //
-  // Every page should follow this structure:
+  // GLASSMORPHISM:
+  //   - Backdrop blur: 20px+
+  //   - Semi-transparent white: glassSurface.withValues(alpha: glassOpacity)
+  //   - Inner glow: 1px white border (top/left)
+  //   - Shadow: glassShadow
   //
-  // AnnotatedRegion<SystemUiOverlayStyle>(
-  //   value: SystemUiOverlayStyle(
-  //     statusBarColor: Colors.transparent,
-  //     statusBarIconBrightness: Brightness.dark,
-  //     statusBarBrightness: Brightness.light,
-  //     systemNavigationBarColor: BleyaTheme.background,
-  //     systemNavigationBarIconBrightness: Brightness.dark,
-  //   ),
-  //   child: Scaffold(
-  //     backgroundColor: BleyaTheme.background,
-  //     body: Stack(
-  //       children: [
-  //         // Liquid Glass Background (see Background Effects section)
-  //         // Back button positioned at top (see Navigation section)
-  //         // Main Content in SafeArea
-  //         SafeArea(
-  //           bottom: false,
-  //           child: Column(
-  //             children: [
-  //               SizedBox(height: 16), // Header spacing
-  //               Expanded(...), // Content
-  //               // Footer with proper padding
-  //               Padding(
-  //                 padding: EdgeInsets.only(
-  //                   left: BleyaTheme.footerPadding,
-  //                   right: BleyaTheme.footerPadding,
-  //                   top: BleyaTheme.footerPadding,
-  //                   bottom: MediaQuery.of(context).padding.bottom +
-  //                       BleyaTheme.footerBottomPadding,
-  //                 ),
-  //                 child: // Footer content
-  //               ),
-  //             ],
-  //           ),
-  //         ),
-  //       ],
-  //     ),
-  //   ),
-  // )
-  //
-  // ========================================
-  // STATUS BAR
-  // ========================================
-  //
-  // Always use transparent status bar:
-  // - statusBarColor: Colors.transparent
-  // - statusBarIconBrightness: Brightness.dark
-  // - statusBarBrightness: Brightness.light
-  //
-  // ========================================
-  // NAVIGATION - BACK BUTTON
-  // ========================================
-  //
-  // Back button should always be positioned at the very top:
-  //
-  // Positioned(
-  //   top: MediaQuery.of(context).padding.top,
-  //   left: 4,
-  //   child: CupertinoButton(
-  //     padding: EdgeInsets.zero,
-  //     onPressed: () {
-  //       if (Navigator.of(context).canPop()) {
-  //         Navigator.of(context).pop();
-  //       }
-  //     },
-  //     child: Icon(
-  //       CupertinoIcons.chevron_left,
-  //       color: BleyaTheme.mutedForeground,
-  //       size: 28,
-  //     ),
-  //   ),
-  // )
-  //
-  // ========================================
-  // BACKGROUND EFFECTS - LIQUID GLASS
-  // ========================================
-  //
-  // LIQUID BACKGROUNDS (Critical for "Café Coast" vibe):
-  // Instead of static color, background has 2-3 large, blurry "orbs" that make the app feel "alive."
-  // These orbs should slowly pulse or drift (consider adding animation).
-  //
-  // Top-right orb (Primary Blue):
-  // Positioned(
-  //   top: -80,
-  //   right: -60,
-  //   child: Container(
-  //     width: 500,
-  //     height: 500,
-  //     decoration: BoxDecoration(
-  //       shape: BoxShape.circle,
-  //       color: BleyaTheme.primary.withValues(alpha: 0.06),
-  //     ),
-  //     child: BackdropFilter(
-  //       filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
-  //       child: Container(color: Colors.transparent),
-  //     ),
-  //   ),
-  // ),
-  //
-  // Bottom-left orb (Apricot for warmth):
-  // Positioned(
-  //   bottom: -40,
-  //   left: -60,
-  //   child: Container(
-  //     width: 400,
-  //     height: 400,
-  //     decoration: BoxDecoration(
-  //       shape: BoxShape.circle,
-  //       color: BleyaTheme.accent.withValues(alpha: 0.05), // Apricot provides the "warmth"
-  //     ),
-  //     child: BackdropFilter(
-  //       filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-  //       child: Container(color: Colors.transparent),
-  //     ),
-  //   ),
-  // ),
-  //
-  // GLASSMORPHISM CARDS:
-  // - Use backdrop-blur (20px+)
-  // - Semi-transparent white fill: BleyaTheme.glassSurface.withValues(alpha: BleyaTheme.glassOpacity)
-  // - Inner glow: subtle 1px white border (top/left) to simulate light source
-  // - Shadow: BleyaTheme.glassShadow
-  //
-  // ========================================
-  // LAYOUT & SPACING
-  // ========================================
-  //
-  // - Horizontal content padding: BleyaTheme.contentPadding (20px)
-  // - Footer horizontal padding: BleyaTheme.footerPadding (20px)
-  // - Footer bottom: MediaQuery.of(context).padding.bottom + BleyaTheme.footerBottomPadding
-  // - Always use SafeArea(bottom: false, child: ...) for main content
-  // - Header spacing after back button: SizedBox(height: 16)
-  //
-  // ========================================
-  // INPUT FIELDS
-  // ========================================
-  //
-  // - Container: Glass surface with backdrop filter
-  // - Border radius: BleyaTheme.radiusLarge (20px) or BleyaTheme.radiusMedium (16px)
-  // - Border: BleyaTheme.border (default), BleyaTheme.primary (focused), BleyaTheme.errorBorder (error)
-  // - Padding: EdgeInsets.symmetric(horizontal: 16, vertical: 18)
-  // - Shadow: BleyaTheme.glassShadow
-  // - Glass surface: BleyaTheme.glassSurface.withValues(alpha: BleyaTheme.glassOpacity)
-  //
-  // ========================================
-  // ERROR HANDLING
-  // ========================================
-  //
-  // VISUAL:
-  // - Error text color: BleyaTheme.error or Colors.red.shade500
-  // - Error border color: BleyaTheme.errorBorder
-  // - Error text style: BleyaTheme.bodySmall with fontWeight: FontWeight.w500
-  //
-  // MESSAGING (Follow Bleya Voice Framework):
-  // Even "bad" moments should feel calm and "Café Coast"
-  //
-  // Invalid OTP:
-  //   ❌ "Invalid Code" (accusatory, system-speak)
-  //   ✅ "That code didn't quite match. Try one more time?" (encouraging, calm)
-  //
-  // General Error Pattern:
-  //   - Lower the stakes (not a security check, just a small hiccup)
-  //   - No "computer words" (avoid "Error", use "Oops" or friendly phrasing)
-  //   - Be encouraging, not accusatory
-  //   - Example: "That doesn't look right. Try again?" not "Invalid input"
-  //
-  // ========================================
-  // MOTION PRINCIPLES
-  // ========================================
-  //
-  // STAGGERED ENTRANCE:
-  //   - Content shouldn't just "appear"
-  //   - Headers slide up first, then inputs, then buttons
-  //   - 0.05s delay between each element
-  //   - Creates a sense of flow and intentionality
-  //   Example: Use AnimatedOpacity or SlideTransition with staggered delays
-  //
-  // THE "SQUISH":
-  //   - Buttons should have a slight scale-down animation (scale: 0.95) when pressed
-  //   - Gives tactile feedback
-  //   - Makes interactions feel responsive and alive
-  //   Example: Use GestureDetector with onTapDown/onTapUp and AnimatedScale
-  //
-  // WEIGHTLESS TRANSITIONS:
-  //   - When moving between screens, background orbs should stay persistent
-  //   - Text slides out while orbs remain
-  //   - Creates a "single-page" feel
-  //   - Maintains the weightless, continuous experience
-  //   Example: Keep background orbs in a shared Stack, animate only content
-  //
-  // ========================================
-  // REQUIRED IMPORTS
-  // ========================================
-  //
-  // import 'dart:ui'; // For BackdropFilter and ImageFilter
-  // import 'package:flutter/cupertino.dart';
-  // import 'package:flutter/material.dart';
-  // import 'package:flutter/services.dart'; // For SystemUiOverlayStyle
-  // import '../constants/theme.dart';
+  // MOTION:
+  //   - Staggered entrance: 0.05s delay between elements
+  //   - Button "squish": scale 0.95 on press
+  //   - Weightless transitions: orbs persist, content animates
   //
   // ========================================
 }

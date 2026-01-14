@@ -46,7 +46,7 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
 
   Future<void> _requestCode() async {
     if (_phoneController.text.trim().isEmpty) {
-      setState(() => _errorMessage = 'Please enter your phone number');
+      setState(() => _errorMessage = "What's your number?");
       return;
     }
 
@@ -56,7 +56,8 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         _isLoading = true;
       });
       final authService = ref.read(authServiceProvider);
-      final result = await authService.requestCode(phone: _phoneController.text.trim());
+      final result =
+          await authService.requestCode(phone: _phoneController.text.trim());
 
       if (mounted) {
         Navigator.of(context).push(
@@ -73,8 +74,8 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         if (e is AppError) {
           setState(() => _errorMessage = e.getUserMessage());
         } else {
-          setState(() => _errorMessage =
-              'An unexpected error occurred. Please try again.');
+          setState(() =>
+              _errorMessage = "Something went wrong. Let's try that again.");
         }
       }
     } finally {
@@ -142,167 +143,167 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                     padding: EdgeInsets.only(
                       left: BleyaTheme.contentPadding,
                     ),
-                  child: Row(
-                    children: [
-                      CupertinoButton(
-                        padding: EdgeInsets.zero,
-                        onPressed: () {
-                          if (Navigator.of(context).canPop()) {
-                            Navigator.of(context).pop();
-                          }
-                        },
-                        child: Icon(
-                          CupertinoIcons.chevron_left,
-                          color: BleyaTheme.mutedForeground,
-                          size: 28,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-
-                // Content
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: BleyaTheme.contentPadding,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Row(
                       children: [
-                        SizedBox(height: BleyaTheme.spacingMD),
-                        Text(
-                          'Enter Your Number',
-                          style: BleyaTheme.headingMedium,
-                        ),
-                        SizedBox(height: BleyaTheme.spacingMD),
-                        Text(
-                          "We'll send you a code. Quick and secure.",
-                          style: BleyaTheme.bodyLarge,
-                        ),
-                        SizedBox(height: BleyaTheme.spacing3XL),
-
-                        // Phone Input
-                        Container(
-                          decoration: BoxDecoration(
-                            color: BleyaTheme.glassSurface,
-                            borderRadius:
-                                BorderRadius.circular(BleyaTheme.radiusMedium),
-                            border: Border.all(
-                              color: _errorMessage != null
-                                  ? BleyaTheme.errorBorder
-                                  : (_phoneFocusNode.hasFocus
-                                      ? BleyaTheme.primary
-                                      : BleyaTheme.border),
-                              width: 1,
-                            ),
-                            boxShadow: BleyaTheme.glassShadow,
-                          ),
-                          child: Container(
-                            padding: EdgeInsets.symmetric(
-                              horizontal: BleyaTheme.spacingLG,
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Icon(
-                                  CupertinoIcons.phone,
-                                  color: BleyaTheme.mutedForeground,
-                                  size: 20,
-                                ),
-                                SizedBox(width: BleyaTheme.spacingMD),
-                                Expanded(
-                                  child: CupertinoTextField(
-                                    controller: _phoneController,
-                                    focusNode: _phoneFocusNode,
-                                    placeholder: '+1 (555) 000-0000',
-                                    keyboardType: TextInputType.phone,
-                                    style: BleyaTheme.bodyLarge.copyWith(
-                                      color: BleyaTheme.foreground,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                    placeholderStyle: BleyaTheme.bodyLarge
-                                        .copyWith(
-                                      color: BleyaTheme.mutedForeground
-                                          .withValues(alpha: 0.6),
-                                    ),
-                                    decoration: BoxDecoration(
-                                        color: Colors.transparent),
-                                    padding: EdgeInsets.symmetric(
-                                      vertical: BleyaTheme.spacingLG + 2,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-
-                        if (_errorMessage != null) ...[
-                          SizedBox(height: BleyaTheme.spacingMD),
-                          Text(
-                            _errorMessage!,
-                            style: BleyaTheme.bodySmall.copyWith(
-                              color: BleyaTheme.error,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-
-                        SizedBox(height: BleyaTheme.spacing2XL),
-
-                        // Privacy Message
-                        Container(
-                          padding: EdgeInsets.all(BleyaTheme.cardPadding),
-                          decoration: BoxDecoration(
-                            color: BleyaTheme.glassSurface,
-                            borderRadius:
-                                BorderRadius.circular(BleyaTheme.radiusMedium),
-                            border: Border.all(
-                              color: BleyaTheme.border,
-                              width: 1,
-                            ),
-                            boxShadow: BleyaTheme.glassShadow,
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.center,
-                            children: [
-                              Icon(
-                                CupertinoIcons.shield,
-                                color: BleyaTheme.primary,
-                                size: 20,
-                              ),
-                              SizedBox(width: BleyaTheme.spacingMD),
-                              Expanded(
-                                child: Text(
-                                  'Your number stays private. We never share it with anyone.',
-                                  style: BleyaTheme.bodySmall,
-                                ),
-                              ),
-                            ],
+                        CupertinoButton(
+                          padding: EdgeInsets.zero,
+                          onPressed: () {
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
+                          child: Icon(
+                            CupertinoIcons.chevron_left,
+                            color: BleyaTheme.mutedForeground,
+                            size: 28,
                           ),
                         ),
                       ],
                     ),
                   ),
-                ),
 
-                // Footer Button
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: BleyaTheme.footerPadding,
-                    right: BleyaTheme.footerPadding,
-                    top: BleyaTheme.footerPadding,
-                    bottom: MediaQuery.of(context).padding.bottom +
-                        BleyaTheme.footerBottomPadding,
+                  // Content
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: BleyaTheme.contentPadding,
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(height: BleyaTheme.spacingMD),
+                          Text(
+                            "What's your number?",
+                            style: BleyaTheme.headingMedium,
+                          ),
+                          SizedBox(height: BleyaTheme.spacingMD),
+                          Text(
+                            "We'll send you a code. Quick and secure.",
+                            style: BleyaTheme.bodyLarge,
+                          ),
+                          SizedBox(height: BleyaTheme.spacing3XL),
+
+                          // Phone Input
+                          Container(
+                            decoration: BoxDecoration(
+                              color: BleyaTheme.glassSurface,
+                              borderRadius: BorderRadius.circular(
+                                  BleyaTheme.radiusMedium),
+                              border: Border.all(
+                                color: _errorMessage != null
+                                    ? BleyaTheme.errorBorder
+                                    : (_phoneFocusNode.hasFocus
+                                        ? BleyaTheme.primary
+                                        : BleyaTheme.border),
+                                width: 1,
+                              ),
+                              boxShadow: BleyaTheme.glassShadow,
+                            ),
+                            child: Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: BleyaTheme.spacingLG,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    CupertinoIcons.phone,
+                                    color: BleyaTheme.mutedForeground,
+                                    size: 20,
+                                  ),
+                                  SizedBox(width: BleyaTheme.spacingMD),
+                                  Expanded(
+                                    child: CupertinoTextField(
+                                      controller: _phoneController,
+                                      focusNode: _phoneFocusNode,
+                                      placeholder: '+1 (555) 000-0000',
+                                      keyboardType: TextInputType.phone,
+                                      style: BleyaTheme.bodyLarge.copyWith(
+                                        color: BleyaTheme.foreground,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      placeholderStyle:
+                                          BleyaTheme.bodyLarge.copyWith(
+                                        color: BleyaTheme.mutedForeground
+                                            .withValues(alpha: 0.6),
+                                      ),
+                                      decoration: BoxDecoration(
+                                          color: Colors.transparent),
+                                      padding: EdgeInsets.symmetric(
+                                        vertical: BleyaTheme.spacingLG + 2,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+
+                          if (_errorMessage != null) ...[
+                            SizedBox(height: BleyaTheme.spacingMD),
+                            Text(
+                              _errorMessage!,
+                              style: BleyaTheme.bodySmall.copyWith(
+                                color: BleyaTheme.error,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+
+                          SizedBox(height: BleyaTheme.spacing2XL),
+
+                          // Privacy Message
+                          Container(
+                            padding: EdgeInsets.all(BleyaTheme.cardPadding),
+                            decoration: BoxDecoration(
+                              color: BleyaTheme.glassSurface,
+                              borderRadius: BorderRadius.circular(
+                                  BleyaTheme.radiusMedium),
+                              border: Border.all(
+                                color: BleyaTheme.border,
+                                width: 1,
+                              ),
+                              boxShadow: BleyaTheme.glassShadow,
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  CupertinoIcons.shield,
+                                  color: BleyaTheme.primary,
+                                  size: 20,
+                                ),
+                                SizedBox(width: BleyaTheme.spacingMD),
+                                Expanded(
+                                  child: Text(
+                                    'Your number stays private. We never share it with anyone.',
+                                    style: BleyaTheme.bodySmall,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ),
-                  child: PrimaryButton(
-                    text: 'Send Code',
-                    onPressed: _requestCode,
-                    isLoading: _isLoading,
-                    isEnabled: _hasPhoneNumber,
+
+                  // Footer Button
+                  Padding(
+                    padding: EdgeInsets.only(
+                      left: BleyaTheme.footerPadding,
+                      right: BleyaTheme.footerPadding,
+                      top: BleyaTheme.footerPadding,
+                      bottom: MediaQuery.of(context).padding.bottom +
+                          BleyaTheme.footerBottomPadding,
+                    ),
+                    child: PrimaryButton(
+                      text: 'Get code',
+                      onPressed: _requestCode,
+                      isLoading: _isLoading,
+                      isEnabled: _hasPhoneNumber,
+                    ),
                   ),
-                ),
                 ],
               ),
             ),

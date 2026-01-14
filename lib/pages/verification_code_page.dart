@@ -202,7 +202,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
           if (e is AppError) {
             _errorMessage = e.getUserMessage();
           } else {
-            _errorMessage = 'Failed to resend code. Please try again.';
+            _errorMessage = "Couldn't send the code. Try again?";
           }
         });
       }
@@ -213,7 +213,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
     final code = _getCode();
     if (code.length != 6) {
       setState(
-          () => _errorMessage = 'Please enter the complete verification code');
+          () => _errorMessage = "That code doesn't look complete. Try again?");
       return;
     }
 
@@ -250,8 +250,8 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
         if (e is AppError) {
           setState(() => _errorMessage = e.getUserMessage());
         } else {
-          setState(() => _errorMessage =
-              'An unexpected error occurred. Please try again.');
+          setState(() =>
+              _errorMessage = "Something went wrong. Let's try that again.");
         }
       }
     } finally {
@@ -349,12 +349,12 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                         children: [
                           SizedBox(height: BleyaTheme.spacingMD),
                           Text(
-                            'Enter the Code',
+                            "Confirm it's you",
                             style: BleyaTheme.headingMedium,
                           ),
                           SizedBox(height: BleyaTheme.spacingMD),
                           Text(
-                            "We sent a 6-digit code to your phone.",
+                            "Enter the code we just sent to ${widget.phoneNumber}",
                             style: BleyaTheme.bodyLarge,
                           ),
                           SizedBox(
@@ -487,7 +487,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                     child: Column(
                       children: [
                         PrimaryButton(
-                          text: 'Verify',
+                          text: 'Confirm',
                           onPressed: _verifyCode,
                           isLoading: _isLoading,
                           isEnabled: _isCodeComplete(),
