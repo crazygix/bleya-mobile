@@ -58,9 +58,9 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     }
     Future.delayed(Duration(milliseconds: 500), () {
       if (mounted) {
-        final isValid = RegExp(r'^[a-z0-9_]+$').hasMatch(username) &&
-            username.length >= 3 &&
-            username.length <= 30;
+        // Re-check current value to avoid race conditions
+        final currentUsername = _usernameController.text.trim().toLowerCase();
+        final isValid = RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(currentUsername);
         setState(() {
           _isValid = isValid;
           _isChecking = false;
@@ -320,7 +320,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                             ),
                                             placeholderStyle: TextStyle(
                                               color: BleyaTheme.mutedForeground
-                                                  .withValues(alpha: 0.6),
+                                                  .withValues(alpha: 0.8),
                                             ),
                                             decoration: BoxDecoration(
                                                 color: Colors.transparent),
@@ -488,9 +488,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w600,
-                                    color: username.isNotEmpty
-                                        ? BleyaTheme.foreground
-                                        : BleyaTheme.border,
+                                    color: BleyaTheme.foreground,
                                   ),
                                 ),
                                 const SizedBox(height: 4),

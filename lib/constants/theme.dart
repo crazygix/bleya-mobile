@@ -150,7 +150,7 @@ class BleyaTheme {
   // NEVER use pure black (#000000). This deep navy provides readability while staying "organic."
   static const Color foreground = Color(0xFF0B1220);
   static const Color mutedForeground =
-      Color(0xFF556274); // Slate gray for secondary text
+      Color(0xFF64748B); // Muted text for placeholders, helper text
 
   // PRIMARY ACTION (Coat Blue - #1E6BFF)
   // Bright Mediterranean blue for main buttons and links. Use sparingly (20% rule).
@@ -163,19 +163,22 @@ class BleyaTheme {
   // ACCENTS (Soft Sand - #FFB454 / Apricot)
   // Used for highlights, success states, or active orbs. Provides the "warmth."
   static const Color accent = Color(0xFFFFB454);
-  static const Color success = Color(0xFF34D399); // Leaf
+  static const Color success =
+      Color(0xFF059669); // Darker emerald green for validations
   static const Color error =
       Color(0xFFEF4444); // Error red (shade500 equivalent)
   static const Color errorBorder =
       Color(0xFFF87171); // Error border (shade400 equivalent)
 
   // Glass & Borders
-  static const Color border = Color(0xFFE6EAF2); // Light border
+  static const Color border =
+      Color(0xFFE2E8F0); // Hairline dividers, glass borders
   static const Color glassSurface = Color(0xFFFFFFFF); // White for glass effect
 
   // Primary color variants (for chat bubbles, active states)
   static Color get primaryLight => primary.withValues(alpha: 0.1); // ~blue[50]
-  static Color get primaryMedium => primary.withValues(alpha: 0.3); // ~blue[200]
+  static Color get primaryMedium =>
+      primary.withValues(alpha: 0.3); // ~blue[200]
   static Color get primaryDark => Color(0xFF0052CC); // ~blue[700]
 
   // Grey variants (for backgrounds, dividers, inactive states)
@@ -185,16 +188,18 @@ class BleyaTheme {
   static Color get greyText => Color(0xFF757575); // ~grey[600]
 
   // Text opacity variants
-  static Color get foreground87 => foreground.withValues(alpha: 0.87); // ~black87
-  static Color get foreground54 => foreground.withValues(alpha: 0.54); // ~black54
+  static Color get foreground87 =>
+      foreground.withValues(alpha: 0.87); // ~black87
+  static Color get foreground54 =>
+      foreground.withValues(alpha: 0.54); // ~black54
 
   // Private room color (purple variant)
   static Color get privateRoomLight => Color(0xFFE1BEE7); // ~purple[100]
   static Color get privateRoomDark => Color(0xFF7B1FA2); // ~purple[700]
 
   // Glass opacity values
-  // Glassmorphism: Semi-transparent white fill (bg-white/70) for frosted glass effect
-  static const double glassOpacity = 0.82; // 70% opacity for glass surfaces
+  // Glassmorphism: Semi-transparent white fill for frosted glass effect
+  static const double glassOpacity = 0.8; // 80% opacity for glass surfaces
   static const double glassBorderOpacity =
       0.1; // Subtle border for inner glow effect
 
@@ -248,7 +253,7 @@ class BleyaTheme {
         ),
       ];
 
-  // Gradient
+  // Gradients
   static const LinearGradient skywashGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
