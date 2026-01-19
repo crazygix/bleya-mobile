@@ -55,9 +55,9 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           errorMessage = e.getUserMessage();
         } else if (e is DioException) {
           // This shouldn't happen if services are using AppError, but handle it just in case
-          errorMessage = 'Failed to join room. Please try again.';
+          errorMessage = "Couldn't join that room. Try again?";
         } else {
-          errorMessage = 'An unexpected error occurred. Please try again.';
+          errorMessage = "Something unexpected happened. Try again?";
         }
 
         ScaffoldMessenger.of(context).showSnackBar(

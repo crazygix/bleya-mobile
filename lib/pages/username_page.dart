@@ -213,23 +213,33 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
               bottom: false,
               child: Column(
                 children: [
-                  // Header with back button
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: BleyaTheme.contentPadding,
+                  // iOS-style Navigation Bar (44pt height per HIG)
+                  Container(
+                    height: 44.0, // HIG standard navigation bar height
+                    padding: EdgeInsets.symmetric(
+                      horizontal: BleyaTheme.contentPadding,
                     ),
                     child: Row(
                       children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () async {
-                            final authManager = ref.read(authManagerProvider);
-                            await authManager.logout();
-                          },
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            color: BleyaTheme.mutedForeground,
-                            size: 28,
+                        // Back button with proper touch target (44x44pt minimum)
+                        SizedBox(
+                          width: BleyaTheme.iconContainerSize, // 44pt minimum touch target
+                          height: BleyaTheme.iconContainerSize,
+                          child: CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            onPressed: () async {
+                              final authManager = ref.read(authManagerProvider);
+                              await authManager.logout();
+                            },
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Icon(
+                                CupertinoIcons.chevron_left,
+                                color: BleyaTheme.mutedForeground,
+                                size: 28,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -329,7 +339,12 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                               vertical: 18,
                                             ),
                                             onChanged: (_) {
-                                              setState(() => _isTouched = true);
+                                              setState(() {
+                                                _isTouched = true;
+                                                // Clear any previous server-side error
+                                                // when the user edits the username
+                                                _errorMessage = null;
+                                              });
                                             },
                                           ),
                                         ),
@@ -363,26 +378,43 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                               const SizedBox(height: 8),
                               SizedBox(
                                 height: 20,
-                                child: showError
-                                    ? Text(
-                                        username.length < 3
-                                            ? 'Keep it simple: at least 3 characters, just letters, numbers, and underscores.'
-                                            : 'Just letters, numbers, and underscores.',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: BleyaTheme.mutedForeground,
-                                        ),
-                                      )
-                                    : _isValid
-                                        ? Text(
-                                            '@$username is available!',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              fontWeight: FontWeight.w500,
-                                              color: BleyaTheme.success,
-                                            ),
-                                          )
-                                        : SizedBox.shrink(),
+                                child: Builder(
+                                  builder: (context) {
+                                    String? helperText;
+                                    Color helperColor = BleyaTheme.mutedForeground;
+
+                                    if (_errorMessage != null) {
+                                      // Server-side or submission error (e.g. username taken)
+                                      helperText = _errorMessage;
+                                      helperColor = BleyaTheme.error;
+                                    } else if (showError) {
+                                      // Local format validation error
+                                      helperText = username.length < 3
+                                          ? 'Keep it simple: at least 3 characters, just letters, numbers, and underscores.'
+                                          : 'Just letters, numbers, and underscores.';
+                                      helperColor = BleyaTheme.mutedForeground;
+                                    } else if (_isValid && username.isNotEmpty) {
+                                      // Local format looks good
+                                      helperText = 'Looks good';
+                                      helperColor = BleyaTheme.success;
+                                    }
+
+                                    if (helperText == null) {
+                                      return const SizedBox.shrink();
+                                    }
+
+                                    return Text(
+                                      helperText,
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: helperColor == BleyaTheme.success
+                                            ? FontWeight.w500
+                                            : FontWeight.normal,
+                                        color: helperColor,
+                                      ),
+                                    );
+                                  },
+                                ),
                               ),
                             ],
                           ),
@@ -497,21 +529,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                   style: BleyaTheme.bodySmall,
                                 ),
                               ],
-                            ),
                           ),
-
-                          if (_errorMessage != null) ...[
-                            const SizedBox(height: 24),
-                            Text(
-                              _errorMessage!,
-                              style: TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w500,
-                                color: BleyaTheme.error,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
+                        ),
                         ],
                       ),
                     ),

@@ -47,7 +47,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         if (e is AppError) {
           errorMessage = e.getUserMessage();
         } else {
-          errorMessage = 'Failed to load profile. Please try again.';
+          errorMessage = "Couldn't load your profile. Try again?";
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage)),
@@ -76,7 +76,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         // Image picker errors are usually not AppErrors, so show generic message
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-              content: Text('Failed to pick image. Please try again.')),
+              content: Text("Couldn't pick that image. Try another one?")),
         );
       }
     }
@@ -130,7 +130,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         if (e is AppError) {
           errorMessage = e.getUserMessage();
         } else {
-          errorMessage = 'Failed to update profile. Please try again.';
+          errorMessage = "Couldn't update your profile. Try again?";
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage)),

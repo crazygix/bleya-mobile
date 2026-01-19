@@ -25,7 +25,9 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
   void initState() {
     super.initState();
     _phoneController.addListener(() {
-      final hasValue = _phoneController.text.trim().isNotEmpty;
+      final digits =
+          _phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+      final hasValue = digits.isNotEmpty;
       if (_hasPhoneNumber != hasValue) {
         setState(() {
           _hasPhoneNumber = hasValue;
@@ -37,6 +39,74 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
     });
   }
 
+  String _getPhoneNumber() {
+    final digits =
+        _phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
+    return digits.isNotEmpty ? '+$digits' : '';
+  }
+
+  String _getPhonePlaceholder(BuildContext context) {
+    final locale = Localizations.localeOf(context);
+    final countryCode = locale.countryCode ?? 'US';
+
+    // Common phone number formats by country code
+    final formats = {
+      'US': '1 (555) 000-0000',
+      'CA': '1 (555) 000-0000',
+      'GB': '44 20 1234 5678',
+      'AU': '61 2 1234 5678',
+      'DE': '49 30 12345678',
+      'FR': '33 1 23 45 67 89',
+      'IT': '39 02 1234 5678',
+      'ES': '34 91 123 45 67',
+      'NL': '31 20 123 4567',
+      'BE': '32 2 123 45 67',
+      'CH': '41 21 123 45 67',
+      'AT': '43 1 2345678',
+      'SE': '46 8 123 456 78',
+      'NO': '47 21 12 34 56',
+      'DK': '45 12 34 56 78',
+      'FI': '358 9 1234 567',
+      'PL': '48 22 123 45 67',
+      'CZ': '420 2 1234 5678',
+      'IE': '353 1 234 5678',
+      'PT': '351 21 123 4567',
+      'GR': '30 21 1234 5678',
+      'BR': '55 11 91234-5678',
+      'MX': '52 55 1234 5678',
+      'AR': '54 11 1234-5678',
+      'CL': '56 2 1234 5678',
+      'CO': '57 1 234 5678',
+      'PE': '51 1 234 5678',
+      'ZA': '27 11 123 4567',
+      'EG': '20 2 1234 5678',
+      'NG': '234 1 234 5678',
+      'KE': '254 20 1234567',
+      'IN': '91 11 2345 6789',
+      'PK': '92 21 12345678',
+      'BD': '880 2 1234567',
+      'ID': '62 21 1234 5678',
+      'TH': '66 2 123 4567',
+      'VN': '84 24 1234 5678',
+      'PH': '63 2 123 4567',
+      'MY': '60 3 1234 5678',
+      'SG': '65 6123 4567',
+      'HK': '852 2123 4567',
+      'TW': '886 2 1234 5678',
+      'KR': '82 2-1234-5678',
+      'JP': '81 3-1234-5678',
+      'CN': '86 10 1234 5678',
+      'RU': '7 495 123-45-67',
+      'UA': '380 44 123 4567',
+      'TR': '90 212 123 45 67',
+      'IL': '972 2-123-4567',
+      'AE': '971 4 123 4567',
+      'SA': '966 11 123 4567',
+    };
+
+    return formats[countryCode] ?? formats['US'] ?? '1234567890';
+  }
+
   @override
   void dispose() {
     _phoneController.dispose();
@@ -45,7 +115,8 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
   }
 
   Future<void> _requestCode() async {
-    if (_phoneController.text.trim().isEmpty) {
+    final phoneNumber = _getPhoneNumber();
+    if (phoneNumber.isEmpty) {
       setState(() => _errorMessage = "What's your number?");
       return;
     }
@@ -56,14 +127,13 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         _isLoading = true;
       });
       final authService = ref.read(authServiceProvider);
-      final result =
-          await authService.requestCode(phone: _phoneController.text.trim());
+      final result = await authService.requestCode(phone: phoneNumber);
 
       if (mounted) {
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (context) => VerificationCodePage(
-              phoneNumber: _phoneController.text.trim(),
+              phoneNumber: phoneNumber,
               codeSentAt: result['codeSentAt'] as String?,
             ),
           ),
@@ -138,24 +208,35 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
               bottom: false,
               child: Column(
                 children: [
-                  // Header with back button
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: BleyaTheme.contentPadding,
+                  // iOS-style Navigation Bar (44pt height per HIG)
+                  Container(
+                    height: 44.0, // HIG standard navigation bar height
+                    padding: EdgeInsets.symmetric(
+                      horizontal: BleyaTheme.contentPadding,
                     ),
                     child: Row(
                       children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            color: BleyaTheme.mutedForeground,
-                            size: 28,
+                        // Back button with proper touch target (44x44pt minimum)
+                        SizedBox(
+                          width: BleyaTheme
+                              .iconContainerSize, // 44pt minimum touch target
+                          height: BleyaTheme.iconContainerSize,
+                          child: CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            onPressed: () {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Icon(
+                                CupertinoIcons.chevron_left,
+                                color: BleyaTheme.mutedForeground,
+                                size: 28,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -212,12 +293,29 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                                     size: 20,
                                   ),
                                   SizedBox(width: BleyaTheme.spacingMD),
+                                  // Hardcoded "+" prefix
+                                  Text(
+                                    '+',
+                                    style: BleyaTheme.bodyLarge.copyWith(
+                                      color: BleyaTheme.foreground,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  SizedBox(width: 4),
                                   Expanded(
                                     child: CupertinoTextField(
                                       controller: _phoneController,
                                       focusNode: _phoneFocusNode,
-                                      placeholder: '+1 (555) 000-0000',
-                                      keyboardType: TextInputType.phone,
+                                      placeholder:
+                                          _getPhonePlaceholder(context),
+                                      autofillHints: const [
+                                        AutofillHints.telephoneNumber,
+                                      ],
+                                      textInputAction: TextInputAction.done,
+                                      keyboardType: TextInputType.number,
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                      ],
                                       style: BleyaTheme.bodyLarge.copyWith(
                                         color: BleyaTheme.foreground,
                                         fontWeight: FontWeight.w600,

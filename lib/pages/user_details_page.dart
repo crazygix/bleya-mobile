@@ -47,7 +47,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
         if (e is AppError) {
           errorMessage = e.getUserMessage();
         } else {
-          errorMessage = 'Failed to load user information. Please try again.';
+          errorMessage = "Couldn't load that user. Try again?";
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage)),
@@ -80,7 +80,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
         if (e is AppError) {
           errorMessage = e.getUserMessage();
         } else {
-          errorMessage = 'Failed to start chat. Please try again.';
+          errorMessage = "Couldn't start the chat. Try again?";
         }
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(errorMessage)),

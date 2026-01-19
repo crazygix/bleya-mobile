@@ -147,18 +147,21 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
       _hasValue[index] = value.isNotEmpty;
     });
 
-    // Handle backspace - move to previous field if current is empty
-    if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-      // Select all text in previous field for easy deletion
-      _codeControllers[index - 1].selection = TextSelection(
-        baseOffset: 0,
-        extentOffset: _codeControllers[index - 1].text.length,
-      );
-    }
-
-    if (value.isNotEmpty && index < 5) {
-      _focusNodes[index + 1].requestFocus();
+    // Handle backspace - clear current field and move to previous
+    if (value.isEmpty) {
+      if (index > 0) {
+        // Clear previous field and move focus there
+        _codeControllers[index - 1].clear();
+        setState(() {
+          _hasValue[index - 1] = false;
+        });
+        _focusNodes[index - 1].requestFocus();
+      }
+    } else {
+      // Move to next field when digit is entered
+      if (index < 5) {
+        _focusNodes[index + 1].requestFocus();
+      }
     }
   }
 
@@ -314,24 +317,34 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
               bottom: false,
               child: Column(
                 children: [
-                  // Header with back button
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: BleyaTheme.contentPadding,
+                  // iOS-style Navigation Bar (44pt height per HIG)
+                  Container(
+                    height: 44.0, // HIG standard navigation bar height
+                    padding: EdgeInsets.symmetric(
+                      horizontal: BleyaTheme.contentPadding,
                     ),
                     child: Row(
                       children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () {
-                            if (Navigator.of(context).canPop()) {
-                              Navigator.of(context).pop();
-                            }
-                          },
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            color: BleyaTheme.mutedForeground,
-                            size: 28,
+                        // Back button with proper touch target (44x44pt minimum)
+                        SizedBox(
+                          width: BleyaTheme.iconContainerSize, // 44pt minimum touch target
+                          height: BleyaTheme.iconContainerSize,
+                          child: CupertinoButton(
+                            padding: EdgeInsets.zero,
+                            minimumSize: Size.zero,
+                            onPressed: () {
+                              if (Navigator.of(context).canPop()) {
+                                Navigator.of(context).pop();
+                              }
+                            },
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Icon(
+                                CupertinoIcons.chevron_left,
+                                color: BleyaTheme.mutedForeground,
+                                size: 28,
+                              ),
+                            ),
                           ),
                         ),
                       ],
@@ -354,7 +367,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                           ),
                           SizedBox(height: BleyaTheme.spacingMD),
                           Text(
-                            "Enter the code we just sent to ${widget.phoneNumber}",
+                            "Enter the code we just sent to ${widget.phoneNumber.startsWith('+') ? widget.phoneNumber : '+${widget.phoneNumber}'}",
                             style: BleyaTheme.bodyLarge,
                           ),
                           SizedBox(
@@ -399,56 +412,65 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                                             ]
                                           : BleyaTheme.glassShadow,
                                     ),
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(
-                                          BleyaTheme.radiusMedium),
-                                      child: BackdropFilter(
-                                        filter: ImageFilter.blur(
-                                            sigmaX: 20, sigmaY: 20),
-                                        child: CupertinoTextField(
-                                          controller: _codeControllers[index],
-                                          focusNode: _focusNodes[index],
-                                          textAlign: TextAlign.center,
-                                          keyboardType: TextInputType.number,
-                                          maxLength: 1,
-                                          inputFormatters: [
-                                            FilteringTextInputFormatter
-                                                .digitsOnly,
-                                          ],
-                                          padding: EdgeInsets.only(
-                                            top: BleyaTheme.spacingLG,
-                                            left: BleyaTheme.spacingXS,
-                                            bottom: BleyaTheme.spacingSM,
+                                    child: GestureDetector(
+                                      // Prevent manual field selection - only allow keyboard input
+                                      onTap: () {
+                                        // Find the first empty field or last filled field
+                                        int targetIndex = index;
+                                        for (int i = 0; i < 6; i++) {
+                                          if (!_hasValue[i]) {
+                                            targetIndex = i;
+                                            break;
+                                          }
+                                        }
+                                        _focusNodes[targetIndex].requestFocus();
+                                      },
+                                      child: ClipRRect(
+                                        borderRadius: BorderRadius.circular(
+                                            BleyaTheme.radiusMedium),
+                                        child: BackdropFilter(
+                                          filter: ImageFilter.blur(
+                                              sigmaX: 20, sigmaY: 20),
+                                          child: CupertinoTextField(
+                                            controller: _codeControllers[index],
+                                            focusNode: _focusNodes[index],
+                                            textAlign: TextAlign.center,
+                                            keyboardType: TextInputType.number,
+                                            maxLength: 1,
+                                            enableInteractiveSelection: false,
+                                            showCursor: true,
+                                            autofillHints: index == 0
+                                                ? const [AutofillHints.oneTimeCode]
+                                                : null,
+                                            inputFormatters: [
+                                              FilteringTextInputFormatter
+                                                  .digitsOnly,
+                                            ],
+                                            padding: EdgeInsets.only(
+                                              top: BleyaTheme.spacingLG,
+                                              left: BleyaTheme.spacingXS,
+                                              bottom: BleyaTheme.spacingSM,
+                                            ),
+                                            style: TextStyle(
+                                              fontSize: 24,
+                                              fontWeight: FontWeight.bold,
+                                              color: _hasValue[index]
+                                                  ? BleyaTheme.primary
+                                                  : BleyaTheme.foreground,
+                                            ),
+                                            decoration: BoxDecoration(
+                                                color: Colors.transparent),
+                                            onChanged: (value) =>
+                                                _handleCodeChange(index, value),
+                                            onSubmitted: (_) {
+                                              if (index < 5) {
+                                                _focusNodes[index + 1]
+                                                    .requestFocus();
+                                              } else {
+                                                _verifyCode();
+                                              }
+                                            },
                                           ),
-                                          style: TextStyle(
-                                            fontSize: 24,
-                                            fontWeight: FontWeight.bold,
-                                            color: _hasValue[index]
-                                                ? BleyaTheme.primary
-                                                : BleyaTheme.foreground,
-                                          ),
-                                          decoration: BoxDecoration(
-                                              color: Colors.transparent),
-                                          onChanged: (value) =>
-                                              _handleCodeChange(index, value),
-                                          onSubmitted: (_) {
-                                            if (index < 5) {
-                                              _focusNodes[index + 1]
-                                                  .requestFocus();
-                                            } else {
-                                              _verifyCode();
-                                            }
-                                          },
-                                          onTap: () {
-                                            _codeControllers[index].selection =
-                                                TextSelection(
-                                              baseOffset: 0,
-                                              extentOffset:
-                                                  _codeControllers[index]
-                                                      .text
-                                                      .length,
-                                            );
-                                          },
                                         ),
                                       ),
                                     ),

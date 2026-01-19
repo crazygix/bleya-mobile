@@ -87,7 +87,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                         errorMessage = e.getUserMessage();
                       } else {
                         errorMessage =
-                            'Failed to leave room. Please try again.';
+                            "Couldn't leave that room. Try again?";
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(errorMessage)),

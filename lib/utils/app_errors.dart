@@ -48,34 +48,34 @@ class AppError implements Exception {
       case AppErrorCode.networkError:
       case AppErrorCode.connectionTimeout:
       case AppErrorCode.receiveTimeout:
-        return 'Network connection failed. Please check your internet connection and try again.';
+        return "Connection issue. Check your internet and try again?";
 
       case AppErrorCode.badRequest:
-        return 'Invalid request. Please check your input and try again.';
+        return "Something's not quite right. Check your input and try again?";
 
       case AppErrorCode.unauthorized:
-        return 'Your session has expired. Please log in again.';
+        return "Your session expired. Sign in again?";
 
       case AppErrorCode.forbidden:
-        return 'You don\'t have permission to perform this action.';
+        return "You don't have permission to do that.";
 
       case AppErrorCode.notFound:
-        return 'The requested resource was not found.';
+        return "Couldn't find that. Try again?";
 
       case AppErrorCode.conflict:
-        return 'This action conflicts with existing data.';
+        return "That conflicts with something else. Try again?";
 
       case AppErrorCode.tooManyRequests:
-        return 'Too many attempts. Please try again later.';
+        return "Too many tries. Give it a moment and try again?";
 
       case AppErrorCode.serverError:
-        return 'Server error occurred. Please try again later.';
+        return "Something went wrong on our end. Try again in a bit?";
 
       case AppErrorCode.serviceUnavailable:
-        return 'Service is temporarily unavailable. Please try again later.';
+        return "We're temporarily unavailable. Try again soon?";
 
       case AppErrorCode.unknown:
-        return 'An unexpected error occurred. Please try again.';
+        return "Something unexpected happened. Try again?";
     }
   }
 
@@ -106,7 +106,7 @@ class BadRequestError extends AppError {
           code: AppErrorCode.badRequest,
           message: message ?? 'Bad request',
           userMessage:
-              userMessage ?? 'Invalid request. Please check your input.',
+              userMessage ?? "Something's not quite right. Check your input and try again?",
         );
 }
 
@@ -120,7 +120,7 @@ class UnauthorizedError extends AppError {
           code: AppErrorCode.unauthorized,
           message: message ?? 'Unauthorized',
           userMessage:
-              userMessage ?? 'Your session has expired. Please log in again.',
+              userMessage ?? "Your session expired. Sign in again?",
         );
 }
 
@@ -133,7 +133,7 @@ class NotFoundError extends AppError {
   }) : super(
           code: AppErrorCode.notFound,
           message: message ?? 'Resource not found',
-          userMessage: userMessage ?? 'The requested resource was not found.',
+          userMessage: userMessage ?? "Couldn't find that. Try again?",
         );
 }
 
@@ -147,7 +147,7 @@ class ServerError extends AppError {
           code: AppErrorCode.serverError,
           message: message ?? 'Server error',
           userMessage:
-              userMessage ?? 'Server error occurred. Please try again later.',
+              userMessage ?? "Something went wrong on our end. Try again in a bit?",
         );
 }
 
@@ -161,7 +161,7 @@ class TooManyRequestsError extends AppError {
           code: AppErrorCode.tooManyRequests,
           message: message ?? 'Too many requests',
           userMessage:
-              userMessage ?? 'Too many attempts. Please try again later.',
+              userMessage ?? "Too many tries. Give it a moment and try again?",
         );
 }
 
@@ -175,7 +175,7 @@ class ForbiddenError extends AppError {
           code: AppErrorCode.forbidden,
           message: message ?? 'Forbidden',
           userMessage: userMessage ??
-              'You don\'t have permission to perform this action.',
+              "You don't have permission to do that.",
         );
 }
 
@@ -190,7 +190,7 @@ class ConflictError extends AppError {
           code: AppErrorCode.conflict,
           message: message ?? 'Conflict',
           userMessage:
-              userMessage ?? 'This action conflicts with existing data.',
+              userMessage ?? "That conflicts with something else. Try again?",
         );
 }
 
@@ -204,6 +204,6 @@ class ServiceUnavailableError extends AppError {
           code: AppErrorCode.serviceUnavailable,
           message: message ?? 'Service unavailable',
           userMessage: userMessage ??
-              'Service is temporarily unavailable. Please try again later.',
+              "We're temporarily unavailable. Try again soon?",
         );
 }
