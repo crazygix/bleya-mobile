@@ -1,118 +1,28 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:dio/dio.dart';
 import 'auth_providers.dart';
+import 'repository_providers.dart';
 import '../services/socket_service.dart';
-import '../models/room.dart';
+import '../domain/entities/room.dart';
+import '../domain/entities/message.dart';
+import '../domain/entities/room_member.dart';
+import '../data/dtos/message_dto.dart';
+import '../data/dtos/room_dto.dart';
+import 'use_case_providers.dart';
 
-export '../models/room.dart';
-
-class Message {
-  final String id;
-  final String roomId;
-  final String userId;
-  final String username;
-  final String text;
-  final DateTime createdAt;
-  final String? parentMessageId;
-  final int replyCount;
-
-  Message({
-    required this.id,
-    required this.roomId,
-    required this.userId,
-    required this.username,
-    required this.text,
-    required this.createdAt,
-    this.parentMessageId,
-    this.replyCount = 0,
-  });
-
-  factory Message.fromJson(Map<String, dynamic> json) {
-    // Handle createdAt which might be a string or already a DateTime
-    DateTime createdAt;
-    if (json['createdAt'] is String) {
-      createdAt = DateTime.parse(json['createdAt'] as String);
-    } else {
-      createdAt = DateTime.fromMillisecondsSinceEpoch(json['createdAt'] as int);
-    }
-
-    return Message(
-      id: json['id'] as String,
-      roomId: json['roomId'] as String,
-      userId: json['userId'] as String,
-      username: json['username'] as String? ?? '',
-      text: json['text'] as String,
-      createdAt: createdAt,
-      parentMessageId: json['parentMessageId'] as String?,
-      replyCount: json['replyCount'] as int? ?? 0,
-    );
-  }
-}
-
-class RoomMember {
-  final String id;
-  final String username;
-  final String phoneNumber;
-  final String profileImageUrl;
-
-  RoomMember({
-    required this.id,
-    required this.username,
-    required this.phoneNumber,
-    required this.profileImageUrl,
-  });
-
-  factory RoomMember.fromJson(Map<String, dynamic> json) {
-    return RoomMember(
-      id: json['id'] as String,
-      username: json['username'] as String? ?? '',
-      phoneNumber: json['phoneNumber'] as String,
-      profileImageUrl: json['profileImageUrl'] as String? ?? '',
-    );
-  }
-}
+export '../domain/entities/room.dart';
+export '../domain/entities/message.dart';
+export '../domain/entities/room_member.dart';
 
 // Provider to fetch available rooms
 final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
   try {
-    final dio = ref.read(dioProvider);
-    final token = ref.read(tokenProvider);
-
-    if (kDebugMode) {
-      print('Fetching rooms from: ${dio.options.baseUrl}/rooms');
-      print('Token available: ${token != null && token.isNotEmpty}');
-    }
-
-    // Let the request go through - interceptor will handle token and 401
-    final response = await dio.get(
-      '/rooms',
-      options: Options(
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
-        // Token will be added by interceptor if available
-      ),
-    );
-
-    if (kDebugMode) {
-      print('Rooms response status: ${response.statusCode}');
-    }
-
-    if (response.data is! List) {
-      throw Exception('Invalid response format: expected List');
-    }
-
-    final List<dynamic> roomsJson = response.data;
-    return roomsJson.map((json) => Room.fromJson(json)).toList();
+    final useCase = ref.read(getAvailableRoomsUseCaseProvider);
+    return await useCase();
   } catch (e, stack) {
     if (kDebugMode) {
       print('Error in availableRoomsProvider: $e');
       print('Stack: $stack');
-      if (e is DioException) {
-        print('DioException details: ${e.response?.statusCode}');
-        print('Request path: ${e.requestOptions.path}');
-        // Don't log response data or headers (may contain sensitive data)
-      }
     }
     rethrow;
   }
@@ -122,29 +32,13 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
 final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
     FutureProvider.autoDispose<List<Room>>((ref) async {
   try {
-    final dio = ref.read(dioProvider);
     final token = ref.read(tokenProvider);
-
     if (token == null || token.isEmpty) {
       return [];
     }
 
-    final response = await dio.get(
-      '/rooms/joined',
-      options: Options(
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
-      ),
-    );
-
-    if (response.data is! List) {
-      throw Exception('Invalid response format: expected List');
-    }
-
-    final List<dynamic> roomsJson = response.data;
-    final rooms = roomsJson.map((json) => Room.fromJson(json)).toList();
-
-    return rooms;
+    final useCase = ref.read(getJoinedRoomsUseCaseProvider);
+    return await useCase();
   } catch (e) {
     if (kDebugMode) {
       print('Error fetching joined rooms: $e');
@@ -175,22 +69,17 @@ class ThreadController extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
     _isInitialized = true;
 
     try {
-      final dio = ref.read(dioProvider);
-      final response = await dio.get('/messages/$messageId/thread');
-      final data = response.data as Map<String, dynamic>;
-      final parentMessage = Message.fromJson(data['parentMessage']);
-      final initialReplies = (data['replies'] as List)
-          .map((json) => Message.fromJson(json))
-          .toList();
+      final getThreadUseCase = ref.read(getThreadUseCaseProvider);
+      final threadData = await getThreadUseCase(messageId);
 
       state = AsyncValue.data({
-        'parentMessage': parentMessage,
-        'replies': initialReplies,
+        'parentMessage': threadData.parentMessage,
+        'replies': threadData.replies,
       });
 
       // Listen to socket events for new replies
       _socketHandler = socketService.addListener('new_message', (data) {
-        final message = Message.fromJson(data);
+        final message = MessageDto.fromJson(data);
         // If this is a reply to our thread's parent message
         if (message.parentMessageId == messageId) {
           final currentState = state.value;
@@ -273,10 +162,10 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       final joinedRoomId = roomData?['id'] as String?;
       if (joinedRoomId == roomId) {
         // Confirm room join in socket service
-        final joinedRoom = Room.fromJson(roomData!);
+        final joinedRoom = RoomDto.fromJson(roomData!);
         socketService.onRoomJoinedConfirmed(joinedRoom);
         final messages =
-            (data['messages'] as List).map((m) => Message.fromJson(m)).toList();
+            (data['messages'] as List).map((m) => MessageDto.fromJson(m)).toList();
         ref.read(roomMessagesProvider(roomId).notifier).state = messages;
       }
     });
@@ -286,7 +175,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       // Ignore events if this controller has been disposed
       if (_disposed) return;
 
-      final message = Message.fromJson(data);
+      final message = MessageDto.fromJson(data);
       // Only process if it's for this room
       if (message.roomId == roomId) {
         final currentMessages = ref.read(roomMessagesProvider(roomId));
@@ -406,21 +295,8 @@ final chatRoomControllerProvider = StateNotifierProvider.autoDispose
 final roomMembersProvider =
     FutureProvider.family<List<RoomMember>, String>((ref, roomId) async {
   try {
-    final dio = ref.read(dioProvider);
-    final response = await dio.get(
-      '/rooms/$roomId/members',
-      options: Options(
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
-      ),
-    );
-
-    if (response.data is! List) {
-      throw Exception('Invalid response format: expected List');
-    }
-
-    final List<dynamic> membersJson = response.data;
-    return membersJson.map((json) => RoomMember.fromJson(json)).toList();
+    final roomRepository = ref.read(roomRepositoryProvider);
+    return await roomRepository.getRoomMembers(roomId);
   } catch (e) {
     if (kDebugMode) {
       print('Error fetching room members: $e');
@@ -432,14 +308,8 @@ final roomMembersProvider =
 // Function to leave a room
 Future<void> leaveRoom(WidgetRef ref, String roomId) async {
   try {
-    final dio = ref.read(dioProvider);
-    await dio.post(
-      '/rooms/$roomId/leave',
-      options: Options(
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
-      ),
-    );
+    final useCase = ref.read(leaveRoomUseCaseProvider);
+    await useCase(roomId);
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);
@@ -454,17 +324,8 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
 // Function to create or get direct message room with a user
 Future<Room> createDirectMessage(WidgetRef ref, String otherUserId) async {
   try {
-    final dio = ref.read(dioProvider);
-    final response = await dio.post(
-      '/rooms/direct/$otherUserId',
-      options: Options(
-        receiveTimeout: const Duration(seconds: 10),
-        sendTimeout: const Duration(seconds: 10),
-      ),
-    );
-
-    final roomData = response.data['room'] as Map<String, dynamic>;
-    final room = Room.fromJson(roomData);
+    final useCase = ref.read(createDirectMessageUseCaseProvider);
+    final room = await useCase(otherUserId);
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../providers/use_case_providers.dart';
 import 'username_page.dart';
 import 'intro_page.dart';
 
@@ -41,8 +42,8 @@ class _InitialPageState extends ConsumerState<InitialPage> {
 
       // Check if user has username
       try {
-        final userService = ref.read(userServiceProvider);
-        final profile = await userService.getProfile();
+        final getProfileUseCase = ref.read(getProfileUseCaseProvider);
+        final profile = await getProfileUseCase();
         final username = profile['username'] as String?;
         final hasUsername = username != null && username.trim().isNotEmpty;
 

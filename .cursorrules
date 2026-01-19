@@ -1,0 +1,6 @@
+# Bleya Mobile - Cursor Rules
+
+Follow these architectural and design rules when working on the Flutter mobile app:
+
+@lib/core/architecture_rules.dart
+@lib/constants/theme.dart

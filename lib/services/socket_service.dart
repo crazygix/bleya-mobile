@@ -2,7 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
-import '../models/room.dart';
+import '../domain/entities/room.dart';
 
 class SocketService {
   io.Socket? _socket;

@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
@@ -8,7 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
-import '../utils/app_errors.dart';
+import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
 
 class UsernamePage extends ConsumerStatefulWidget {
@@ -21,115 +20,31 @@ class UsernamePage extends ConsumerStatefulWidget {
 class UsernamePageState extends ConsumerState<UsernamePage> {
   final TextEditingController _usernameController = TextEditingController();
   final FocusNode _usernameFocusNode = FocusNode();
-  String? _errorMessage;
-  bool _isLoading = false;
-  bool _isChecking = false;
-  bool _isValid = false;
   bool _isTouched = false;
-  bool _hasCheckedAvailability = false;
-  File? _selectedImage;
-  Timer? _debounceTimer;
 
   @override
   void initState() {
     super.initState();
-    _usernameController.addListener(_validateUsername);
+    _usernameController.addListener(_onUsernameChanged);
   }
 
   @override
   void dispose() {
-    _debounceTimer?.cancel();
-    _usernameController.removeListener(_validateUsername);
+    _usernameController.removeListener(_onUsernameChanged);
     _usernameController.dispose();
     _usernameFocusNode.dispose();
     super.dispose();
   }
 
-  void _validateUsername() {
+  void _onUsernameChanged() {
     final username = _usernameController.text.trim().toLowerCase();
-
-    // Cancel any pending debounce timer
-    _debounceTimer?.cancel();
-
-    if (username.length < 3) {
-      if (mounted) {
-        setState(() {
-          _isValid = false;
-          _isChecking = false;
-          _hasCheckedAvailability = false;
-        });
-      }
-      return;
+    final controller = ref.read(usernameControllerProvider.notifier);
+    controller.validateUsername(username);
+    if (!_isTouched) {
+      setState(() => _isTouched = true);
     }
-
-    // Validate format first
-    if (!RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(username)) {
-      if (mounted) {
-        setState(() {
-          _isValid = false;
-          _isChecking = false;
-          _hasCheckedAvailability = false;
-        });
-      }
-      return;
-    }
-
-    // Show checking indicator immediately
-    if (mounted) {
-      setState(() => _isChecking = true);
-    }
-
-    // Debounce: cancel previous timer and start a new one
-    _debounceTimer = Timer(Duration(milliseconds: 500), () async {
-      if (!mounted) return;
-
-      // Re-check current value to avoid race conditions
-      final currentUsername = _usernameController.text.trim().toLowerCase();
-
-      // If format is invalid, don't check
-      if (!RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(currentUsername)) {
-        if (mounted) {
-          setState(() {
-            _isValid = false;
-            _isChecking = false;
-          });
-        }
-        return;
-      }
-
-      try {
-        final authService = ref.read(authServiceProvider);
-        final isAvailable =
-            await authService.checkUsername(username: currentUsername);
-
-        // Double-check username hasn't changed during async call
-        if (mounted &&
-            _usernameController.text.trim().toLowerCase() == currentUsername) {
-          setState(() {
-            _isValid = isAvailable;
-            _isChecking = false;
-            _hasCheckedAvailability = true;
-          });
-        }
-      } catch (e) {
-        // On error, assume unavailable
-        if (mounted &&
-            _usernameController.text.trim().toLowerCase() == currentUsername) {
-          setState(() {
-            _isValid = false;
-            _isChecking = false;
-            _hasCheckedAvailability = true;
-          });
-        }
-      }
-    });
-  }
-
-  bool _validateUsernameFormat(String username) {
-    if (username.length < 3 || username.length > 30) {
-      return false;
-    }
-    return RegExp(r'^[a-z0-9_]+$').hasMatch(username);
+    controller.clearError();
+    controller.resetAvailabilityCheck();
   }
 
   Future<void> _pickImage() async {
@@ -143,65 +58,28 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
       );
 
       if (image != null) {
-        setState(() {
-          _selectedImage = File(image.path);
-        });
+        final controller = ref.read(usernameControllerProvider.notifier);
+        controller.setSelectedImage(File(image.path));
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _errorMessage = "Couldn't pick that image. Try another one?";
-        });
+        final controller = ref.read(usernameControllerProvider.notifier);
+        controller.setError("Couldn't pick that image. Try another one?");
       }
     }
   }
 
   Future<void> _setUsername() async {
     final username = _usernameController.text.trim().toLowerCase();
-
-    if (username.isEmpty) {
-      setState(() => _errorMessage = "How should we call you?");
-      return;
-    }
-
-    if (!_validateUsernameFormat(username)) {
-      setState(() => _errorMessage =
-          "Keep it simple: 3-30 characters, just letters, numbers, and underscores.");
-      return;
-    }
+    final controller = ref.read(usernameControllerProvider.notifier);
 
     try {
-      setState(() {
-        _errorMessage = null;
-        _isLoading = true;
-      });
-
-      final authService = ref.read(authServiceProvider);
-      final userService = ref.read(userServiceProvider);
-
-      // Upload image first if selected
-      if (_selectedImage != null) {
-        await userService.uploadProfileImage(_selectedImage!);
-      }
-
-      await authService.setUsername(username: username);
-
+      await controller.setUsername(username);
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
       }
     } catch (e) {
-      if (mounted) {
-        if (e is AppError) {
-          setState(() => _errorMessage = e.getUserMessage());
-        } else {
-          setState(() =>
-              _errorMessage = "Something went wrong. Let's try that again.");
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Error is already set in controller state
     }
   }
 
@@ -215,14 +93,16 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
 
   @override
   Widget build(BuildContext context) {
+    final usernameState = ref.watch(usernameControllerProvider);
     final username = _usernameController.text.trim().toLowerCase();
-    final isUnavailable = _hasCheckedAvailability &&
-        !_isValid &&
+    final isUnavailable = usernameState.hasCheckedAvailability &&
+        !usernameState.isValid &&
         username.isNotEmpty &&
         RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(username);
-    // Only show format error if it's not an availability issue
-    final showError =
-        !_isValid && _isTouched && username.isNotEmpty && !isUnavailable;
+    final showError = !usernameState.isValid &&
+        _isTouched &&
+        username.isNotEmpty &&
+        !isUnavailable;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -356,7 +236,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                   borderRadius: BorderRadius.circular(
                                       BleyaTheme.radiusLarge),
                                   border: Border.all(
-                                    color: _errorMessage != null ||
+                                    color: usernameState.errorMessage != null ||
                                             showError ||
                                             isUnavailable
                                         ? BleyaTheme.errorBorder
@@ -407,18 +287,11 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                               vertical: 18,
                                             ),
                                             onChanged: (_) {
-                                              setState(() {
-                                                _isTouched = true;
-                                                // Clear any previous server-side error
-                                                // when the user edits the username
-                                                _errorMessage = null;
-                                                // Reset availability check when user edits
-                                                _hasCheckedAvailability = false;
-                                              });
+                                              // Handled by _onUsernameChanged listener
                                             },
                                           ),
                                         ),
-                                        if (_isChecking)
+                                        if (usernameState.isChecking)
                                           Padding(
                                             padding: const EdgeInsets.only(
                                                 right: 16),
@@ -430,7 +303,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                               ),
                                             ),
                                           )
-                                        else if (_isValid)
+                                        else if (usernameState.isValid)
                                           Padding(
                                             padding: const EdgeInsets.only(
                                                 right: 16),
@@ -464,28 +337,20 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                     Color helperColor =
                                         BleyaTheme.mutedForeground;
 
-                                    if (_errorMessage != null) {
-                                      // Server-side or submission error (e.g. username taken)
-                                      helperText = _errorMessage;
+                                    if (usernameState.errorMessage != null) {
+                                      helperText = usernameState.errorMessage;
                                       helperColor = BleyaTheme.error;
-                                    } else if (_hasCheckedAvailability &&
-                                        !_isValid &&
-                                        username.isNotEmpty &&
-                                        RegExp(r'^[a-z0-9_]{3,30}$')
-                                            .hasMatch(username)) {
-                                      // Username format is valid but was checked and is unavailable
+                                    } else if (isUnavailable) {
                                       helperText =
                                           "That username's taken. Try another one?";
                                       helperColor = BleyaTheme.error;
                                     } else if (showError) {
-                                      // Local format validation error
                                       helperText = username.length < 3
                                           ? 'Keep it simple: at least 3 characters, just letters, numbers, and underscores.'
                                           : 'Just letters, numbers, and underscores.';
                                       helperColor = BleyaTheme.mutedForeground;
-                                    } else if (_isValid &&
+                                    } else if (usernameState.isValid &&
                                         username.isNotEmpty) {
-                                      // Username is available
                                       helperText = 'Looks good!';
                                       helperColor = BleyaTheme.success;
                                     }
@@ -521,7 +386,9 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                             child: Column(
                               children: [
                                 GestureDetector(
-                                  onTap: _isLoading ? null : _pickImage,
+                                  onTap: usernameState.isLoading
+                                      ? null
+                                      : _pickImage,
                                   child: Stack(
                                     children: [
                                       Container(
@@ -547,10 +414,11 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                                 ]
                                               : null,
                                         ),
-                                        child: _selectedImage != null
+                                        child: usernameState.selectedImage !=
+                                                null
                                             ? ClipOval(
                                                 child: Image.file(
-                                                  _selectedImage!,
+                                                  usernameState.selectedImage!,
                                                   fit: BoxFit.cover,
                                                   errorBuilder: (context, error,
                                                       stackTrace) {
@@ -643,8 +511,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                     child: PrimaryButton(
                       text: 'Start Exploring',
                       onPressed: _setUsername,
-                      isLoading: _isLoading,
-                      isEnabled: _isValid,
+                      isLoading: usernameState.isLoading,
+                      isEnabled: usernameState.isValid,
                     ),
                   ),
                 ],

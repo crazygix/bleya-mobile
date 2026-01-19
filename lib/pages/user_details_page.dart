@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../providers/chat_providers.dart';
+import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
 import 'chat_room_page.dart';
@@ -33,8 +34,8 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
   Future<void> _loadUserData() async {
     try {
       setState(() => _isLoading = true);
-      final userService = ref.read(userServiceProvider);
-      final user = await userService.getUserById(widget.userId);
+      final getUserByIdUseCase = ref.read(getUserByIdUseCaseProvider);
+      final user = await getUserByIdUseCase(widget.userId);
 
       setState(() {
         _userData = user;
@@ -285,7 +286,11 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
   String _formatDate(dynamic date) {
     if (date == null) return 'N/A';
     try {
-      final dateTime = date is String ? DateTime.parse(date) : date as DateTime;
+      final dateTime = date is int
+          ? DateTime.fromMillisecondsSinceEpoch(date)
+          : (date is String
+              ? DateTime.fromMillisecondsSinceEpoch(int.parse(date))
+              : date as DateTime);
       return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
     } catch (e) {
       return 'N/A';

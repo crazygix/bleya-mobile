@@ -6,13 +6,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
-import '../utils/app_errors.dart';
+import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
 import 'username_page.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
   final String phoneNumber;
-  final String? codeSentAt;
+  final dynamic codeSentAt; // Accepts int (timestamp) or String (for backward compatibility)
 
   const VerificationCodePage({
     super.key,
@@ -28,8 +28,6 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   final List<TextEditingController> _codeControllers =
       List.generate(6, (_) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  String? _errorMessage;
-  bool _isLoading = false;
   final List<bool> _hasValue = List.generate(6, (_) => false);
 
   DateTime? _codeSentAt;
@@ -41,7 +39,10 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   void initState() {
     super.initState();
     if (widget.codeSentAt != null) {
-      _updateCodeSentTime(widget.codeSentAt);
+      final timestamp = widget.codeSentAt is int 
+          ? widget.codeSentAt as int
+          : (widget.codeSentAt is String ? int.tryParse(widget.codeSentAt) : null);
+      _updateCodeSentTime(timestamp);
     } else {
       _codeSentAt = DateTime.now();
       _resendRemainingSeconds = 60;
@@ -86,9 +87,9 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
     });
   }
 
-  void _updateCodeSentTime(String? codeSentAtIso) {
-    if (codeSentAtIso != null) {
-      _codeSentAt = DateTime.parse(codeSentAtIso);
+  void _updateCodeSentTime(int? codeSentAtTimestamp) {
+    if (codeSentAtTimestamp != null) {
+      _codeSentAt = DateTime.fromMillisecondsSinceEpoch(codeSentAtTimestamp);
       final now = DateTime.now();
 
       // Calculate initial remaining time for resend cooldown
@@ -183,89 +184,55 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
     if (_resendRemainingSeconds > 0 || _isResending) return;
 
     try {
-      setState(() {
-        _errorMessage = null;
-        _isResending = true;
-      });
-
-      final authService = ref.read(authServiceProvider);
-      final result = await authService.resendCode(phone: widget.phoneNumber);
-
-      _updateCodeSentTime(result['codeSentAt'] as String?);
-
+      setState(() => _isResending = true);
+      final controller = ref.read(authControllerProvider.notifier);
+      final result = await controller.resendCode(widget.phoneNumber);
+      final codeSentAt = result['codeSentAt'];
+      _updateCodeSentTime(codeSentAt is int ? codeSentAt : null);
       if (mounted) {
-        setState(() {
-          _isResending = false;
-        });
+        setState(() => _isResending = false);
       }
     } catch (e) {
       if (mounted) {
-        setState(() {
-          _isResending = false;
-          if (e is AppError) {
-            _errorMessage = e.getUserMessage();
-          } else {
-            _errorMessage = "Couldn't send the code. Try again?";
-          }
-        });
+        setState(() => _isResending = false);
       }
     }
   }
 
   Future<void> _verifyCode() async {
     final code = _getCode();
-    if (code.length != 6) {
-      setState(
-          () => _errorMessage = "That code doesn't look complete. Try again?");
-      return;
-    }
+    final controller = ref.read(authControllerProvider.notifier);
 
     try {
-      setState(() {
-        _errorMessage = null;
-        _isLoading = true;
-      });
-      final authService = ref.read(authServiceProvider);
-      final result = await authService.verifyCode(
+      final result = await controller.verifyCode(
         phone: widget.phoneNumber,
         code: code,
       );
-      // Update token provider state so interceptor starts injecting Authorization
-      final token = result['token'] as String;
-      final requiresUsername = result['requiresUsername'] as bool? ?? false;
-      ref.read(tokenProvider.notifier).state = token;
+      
+      if (result.isNotEmpty && mounted) {
+        // Update token provider state so interceptor starts injecting Authorization
+        final token = result['token'] as String;
+        final requiresUsername = result['requiresUsername'] as bool? ?? false;
+        ref.read(tokenProvider.notifier).state = token;
 
-      if (mounted) {
         if (requiresUsername) {
-          // Navigate to username page if username is required
           Navigator.of(context).pushReplacement(
             CupertinoPageRoute(
               builder: (context) => UsernamePage(),
             ),
           );
         } else {
-          // Navigate to home if username is already set
           Navigator.of(context).pushReplacementNamed('/home');
         }
       }
     } catch (e) {
-      if (mounted) {
-        if (e is AppError) {
-          setState(() => _errorMessage = e.getUserMessage());
-        } else {
-          setState(() =>
-              _errorMessage = "Something went wrong. Let's try that again.");
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Error is already set in controller state
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -480,11 +447,11 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                             }),
                           ),
 
-                          if (_errorMessage != null) ...[
+                          if (authState.errorMessage != null) ...[
                             SizedBox(height: BleyaTheme.spacing2XL),
                             Center(
                               child: Text(
-                                _errorMessage!,
+                                authState.errorMessage!,
                                 style: BleyaTheme.bodySmall.copyWith(
                                   color: BleyaTheme.error,
                                   fontWeight: FontWeight.w500,
@@ -511,7 +478,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                         PrimaryButton(
                           text: 'Confirm',
                           onPressed: _verifyCode,
-                          isLoading: _isLoading,
+                          isLoading: authState.isLoading,
                           isEnabled: _isCodeComplete(),
                         ),
                         SizedBox(height: BleyaTheme.spacingLG),

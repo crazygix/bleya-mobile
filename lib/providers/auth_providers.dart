@@ -2,13 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
-import '../services/auth_service.dart';
 import '../services/auth_manager.dart';
 import '../services/socket_service.dart';
-import '../services/user_service.dart';
 import '../constants/urls.dart';
 import '../utils/jwt_utils.dart';
 import '../utils/app_errors.dart';
+import 'use_case_providers.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
 
@@ -69,7 +68,7 @@ final dioProvider = Provider<Dio>((ref) {
           RegExp(r'"code":\s*"\d{6}"'),
           '"code": "[REDACTED]"',
         );
-        print('🌐 API: $sanitized');
+        print('API: $sanitized');
       },
     ));
   }
@@ -199,16 +198,6 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-final authServiceProvider = Provider<AuthService>((ref) {
-  final dio = ref.watch(dioProvider);
-  final storage = ref.watch(secureStorageProvider);
-  return AuthService(dio, storage);
-});
-
-final userServiceProvider = Provider<UserService>((ref) {
-  final dio = ref.watch(dioProvider);
-  return UserService(dio);
-});
 
 // Current user info derived from JWT (no network call)
 final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
@@ -302,10 +291,10 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
   if (existingToken != null && existingToken.isNotEmpty) {
     ref.read(tokenProvider.notifier).state = existingToken;
     try {
-      final userService = ref.read(userServiceProvider);
+      final getProfileUseCase = ref.read(getProfileUseCaseProvider);
       // Validate the token by making a test API call.
       // The Dio interceptor will handle refresh and logout on 401/expired token.
-      await userService.getProfile();
+      await getProfileUseCase();
       return true;
     } catch (e) {
       // Only logout on explicit 401s; otherwise keep token and let app show offline/retry

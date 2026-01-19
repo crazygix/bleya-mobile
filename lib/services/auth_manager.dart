@@ -6,6 +6,7 @@ import 'package:dio_cookie_manager/dio_cookie_manager.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../providers/repository_providers.dart';
 import '../utils/navigation.dart';
 
 /// Manages authentication state, token refresh, and logout flow
@@ -119,8 +120,8 @@ class AuthManager {
 
       // Call logout endpoint to clear server-side refresh token
       try {
-        final authService = _ref.read(authServiceProvider);
-        await authService.logout();
+        final authRepository = _ref.read(authRepositoryProvider);
+        await authRepository.logout();
       } catch (e) {
         // If logout endpoint fails, still continue with local cleanup
       }

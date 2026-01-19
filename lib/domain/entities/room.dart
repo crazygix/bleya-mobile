@@ -1,3 +1,4 @@
+/// Domain entity for Room - pure business object, no JSON parsing
 class Room {
   final String id;
   final String name;
@@ -12,19 +13,6 @@ class Room {
     this.participants = const [],
     this.otherUserId,
   });
-
-  factory Room.fromJson(Map<String, dynamic> json) {
-    return Room(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      type: json['type'] as String? ?? 'public',
-      participants: (json['participants'] as List<dynamic>?)
-              ?.map((e) => e.toString())
-              .toList() ??
-          [],
-      otherUserId: json['otherUserId'] as String?,
-    );
-  }
 
   bool get isPrivate => type == 'private';
 

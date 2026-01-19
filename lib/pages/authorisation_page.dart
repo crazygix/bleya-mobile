@@ -4,8 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
-import '../providers/auth_providers.dart';
-import '../utils/app_errors.dart';
+import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
 import 'verification_code_page.dart';
 
@@ -17,8 +16,6 @@ class AuthorisationPage extends ConsumerStatefulWidget {
 class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
   final TextEditingController _phoneController = TextEditingController();
   final FocusNode _phoneFocusNode = FocusNode();
-  String? _errorMessage;
-  bool _isLoading = false;
   bool _hasPhoneNumber = false;
 
   @override
@@ -116,47 +113,28 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
 
   Future<void> _requestCode() async {
     final phoneNumber = _getPhoneNumber();
-    if (phoneNumber.isEmpty) {
-      setState(() => _errorMessage = "What's your number?");
-      return;
-    }
+    final controller = ref.read(authControllerProvider.notifier);
 
     try {
-      setState(() {
-        _errorMessage = null;
-        _isLoading = true;
-      });
-      final authService = ref.read(authServiceProvider);
-      final result = await authService.requestCode(phone: phoneNumber);
-
-      if (mounted) {
+      final result = await controller.requestCode(phoneNumber);
+      if (mounted && result.isNotEmpty) {
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (context) => VerificationCodePage(
               phoneNumber: phoneNumber,
-              codeSentAt: result['codeSentAt'] as String?,
+              codeSentAt: result['codeSentAt'],
             ),
           ),
         );
       }
     } catch (e) {
-      if (mounted) {
-        if (e is AppError) {
-          setState(() => _errorMessage = e.getUserMessage());
-        } else {
-          setState(() =>
-              _errorMessage = "Something went wrong. Let's try that again.");
-        }
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      // Error is already set in controller state
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final authState = ref.watch(authControllerProvider);
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -271,7 +249,7 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                               borderRadius: BorderRadius.circular(
                                   BleyaTheme.radiusMedium),
                               border: Border.all(
-                                color: _errorMessage != null
+                                color: authState.errorMessage != null
                                     ? BleyaTheme.errorBorder
                                     : (_phoneFocusNode.hasFocus
                                         ? BleyaTheme.primary
@@ -337,10 +315,10 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                             ),
                           ),
 
-                          if (_errorMessage != null) ...[
+                          if (authState.errorMessage != null) ...[
                             SizedBox(height: BleyaTheme.spacingMD),
                             Text(
-                              _errorMessage!,
+                              authState.errorMessage!,
                               style: BleyaTheme.bodySmall.copyWith(
                                 color: BleyaTheme.error,
                                 fontWeight: FontWeight.w500,
@@ -398,7 +376,7 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                     child: PrimaryButton(
                       text: 'Get code',
                       onPressed: _requestCode,
-                      isLoading: _isLoading,
+                      isLoading: authState.isLoading,
                       isEnabled: _hasPhoneNumber,
                     ),
                   ),

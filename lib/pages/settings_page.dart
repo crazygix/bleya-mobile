@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/auth_providers.dart';
+import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
 
@@ -31,8 +32,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _loadProfile() async {
     try {
       setState(() => _isLoadingProfile = true);
-      final userService = ref.read(userServiceProvider);
-      final profile = await userService.getProfile();
+      final getProfileUseCase = ref.read(getProfileUseCaseProvider);
+      final profile = await getProfileUseCase();
 
       setState(() {
         _usernameController.text = profile['username'] ?? '';
@@ -102,15 +103,16 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     setState(() => _isLoading = true);
 
     try {
-      final userService = ref.read(userServiceProvider);
+      final uploadImageUseCase = ref.read(uploadProfileImageUseCaseProvider);
+      final updateProfileUseCase = ref.read(updateProfileUseCaseProvider);
 
       // Upload image first if selected
       if (_selectedImage != null) {
-        await userService.uploadProfileImage(_selectedImage!);
+        await uploadImageUseCase(_selectedImage!);
       }
 
       // Update profile
-      await userService.updateProfile(
+      await updateProfileUseCase(
         username: _usernameController.text.trim(),
         bio: _bioController.text.trim(),
       );
