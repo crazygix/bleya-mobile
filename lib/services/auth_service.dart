@@ -10,6 +10,7 @@ class _ApiUrls {
   static const String getMyInfo = '/auth/me';
   static const String refresh = '/auth/refresh';
   static const String logout = '/auth/logout';
+  static const String checkUsername = '/auth/check-username';
   static const String setUsername = '/auth/set-username';
 }
 
@@ -81,6 +82,23 @@ class AuthService {
     }
   }
 
+  Future<bool> checkUsername({required String username}) async {
+    try {
+      final response = await _dio.post(
+        _ApiUrls.checkUsername,
+        data: {'username': username},
+      );
+      return response.data['available'] as bool? ?? false;
+    } on DioException catch (e) {
+      // If it's a validation error (400), username format is invalid
+      if (e.response?.statusCode == 400) {
+        return false;
+      }
+      // For other errors, assume unavailable to be safe
+      return false;
+    }
+  }
+
   Future<void> setUsername({required String username}) async {
     try {
       await _dio.post(
@@ -135,13 +153,14 @@ class AuthService {
     if (e.response != null) {
       final statusCode = e.response?.statusCode;
       final responseData = e.response?.data;
-      
+
       // Try to extract error message from backend response
       String? errorMessage;
       String? userMessage;
       Map<String, dynamic>? details;
-      
-      if (responseData is Map<String, dynamic> && responseData['error'] != null) {
+
+      if (responseData is Map<String, dynamic> &&
+          responseData['error'] != null) {
         final errorData = responseData['error'];
         if (errorData is Map<String, dynamic>) {
           errorMessage = errorData['message'] as String?;
@@ -149,7 +168,7 @@ class AuthService {
           details = errorData['details'] as Map<String, dynamic>?;
         }
       }
-      
+
       switch (statusCode) {
         case 400:
           return BadRequestError(
@@ -207,7 +226,7 @@ class AuthService {
           );
       }
     }
-    
+
     // Handle network errors (no response)
     if (e.type == DioExceptionType.connectionTimeout ||
         e.type == DioExceptionType.sendTimeout ||
@@ -215,19 +234,21 @@ class AuthService {
       return AppError(
         code: AppErrorCode.connectionTimeout,
         message: 'Connection timeout',
-        userMessage: 'Request timed out. Please check your connection and try again.',
+        userMessage:
+            'Request timed out. Please check your connection and try again.',
         originalError: e,
       );
     }
-    
+
     if (e.type == DioExceptionType.connectionError) {
       return NetworkError(
         message: 'Network connection error',
-        userMessage: 'Unable to connect to the server. Please check your internet connection.',
+        userMessage:
+            'Unable to connect to the server. Please check your internet connection.',
         originalError: e,
       );
     }
-    
+
     return NetworkError(
       message: e.message ?? 'Network error',
       originalError: e,

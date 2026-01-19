@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
@@ -25,7 +26,9 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   bool _isChecking = false;
   bool _isValid = false;
   bool _isTouched = false;
+  bool _hasCheckedAvailability = false;
   File? _selectedImage;
+  Timer? _debounceTimer;
 
   @override
   void initState() {
@@ -35,6 +38,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
 
   @override
   void dispose() {
+    _debounceTimer?.cancel();
     _usernameController.removeListener(_validateUsername);
     _usernameController.dispose();
     _usernameFocusNode.dispose();
@@ -43,28 +47,80 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
 
   void _validateUsername() {
     final username = _usernameController.text.trim().toLowerCase();
+
+    // Cancel any pending debounce timer
+    _debounceTimer?.cancel();
+
     if (username.length < 3) {
       if (mounted) {
         setState(() {
           _isValid = false;
           _isChecking = false;
+          _hasCheckedAvailability = false;
         });
       }
       return;
     }
 
+    // Validate format first
+    if (!RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(username)) {
+      if (mounted) {
+        setState(() {
+          _isValid = false;
+          _isChecking = false;
+          _hasCheckedAvailability = false;
+        });
+      }
+      return;
+    }
+
+    // Show checking indicator immediately
     if (mounted) {
       setState(() => _isChecking = true);
     }
-    Future.delayed(Duration(milliseconds: 500), () {
-      if (mounted) {
-        // Re-check current value to avoid race conditions
-        final currentUsername = _usernameController.text.trim().toLowerCase();
-        final isValid = RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(currentUsername);
-        setState(() {
-          _isValid = isValid;
-          _isChecking = false;
-        });
+
+    // Debounce: cancel previous timer and start a new one
+    _debounceTimer = Timer(Duration(milliseconds: 500), () async {
+      if (!mounted) return;
+
+      // Re-check current value to avoid race conditions
+      final currentUsername = _usernameController.text.trim().toLowerCase();
+
+      // If format is invalid, don't check
+      if (!RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(currentUsername)) {
+        if (mounted) {
+          setState(() {
+            _isValid = false;
+            _isChecking = false;
+          });
+        }
+        return;
+      }
+
+      try {
+        final authService = ref.read(authServiceProvider);
+        final isAvailable =
+            await authService.checkUsername(username: currentUsername);
+
+        // Double-check username hasn't changed during async call
+        if (mounted &&
+            _usernameController.text.trim().toLowerCase() == currentUsername) {
+          setState(() {
+            _isValid = isAvailable;
+            _isChecking = false;
+            _hasCheckedAvailability = true;
+          });
+        }
+      } catch (e) {
+        // On error, assume unavailable
+        if (mounted &&
+            _usernameController.text.trim().toLowerCase() == currentUsername) {
+          setState(() {
+            _isValid = false;
+            _isChecking = false;
+            _hasCheckedAvailability = true;
+          });
+        }
       }
     });
   }
@@ -160,7 +216,13 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   @override
   Widget build(BuildContext context) {
     final username = _usernameController.text.trim().toLowerCase();
-    final showError = !_isValid && _isTouched && username.isNotEmpty;
+    final isUnavailable = _hasCheckedAvailability &&
+        !_isValid &&
+        username.isNotEmpty &&
+        RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(username);
+    // Only show format error if it's not an availability issue
+    final showError =
+        !_isValid && _isTouched && username.isNotEmpty && !isUnavailable;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
@@ -223,7 +285,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                       children: [
                         // Back button with proper touch target (44x44pt minimum)
                         SizedBox(
-                          width: BleyaTheme.iconContainerSize, // 44pt minimum touch target
+                          width: BleyaTheme
+                              .iconContainerSize, // 44pt minimum touch target
                           height: BleyaTheme.iconContainerSize,
                           child: CupertinoButton(
                             padding: EdgeInsets.zero,
@@ -274,12 +337,15 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                           Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'Username',
-                                style: TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                  color: BleyaTheme.foreground,
+                              Padding(
+                                padding: const EdgeInsets.only(left: 8.0),
+                                child: Text(
+                                  'Username',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: BleyaTheme.foreground,
+                                  ),
                                 ),
                               ),
                               const SizedBox(height: 8),
@@ -290,7 +356,9 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                   borderRadius: BorderRadius.circular(
                                       BleyaTheme.radiusLarge),
                                   border: Border.all(
-                                    color: _errorMessage != null || showError
+                                    color: _errorMessage != null ||
+                                            showError ||
+                                            isUnavailable
                                         ? BleyaTheme.errorBorder
                                         : BleyaTheme.border,
                                     width: 1,
@@ -344,6 +412,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                                 // Clear any previous server-side error
                                                 // when the user edits the username
                                                 _errorMessage = null;
+                                                // Reset availability check when user edits
+                                                _hasCheckedAvailability = false;
                                               });
                                             },
                                           ),
@@ -369,6 +439,16 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                               color: BleyaTheme.success,
                                               size: 20,
                                             ),
+                                          )
+                                        else if (isUnavailable)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                                right: 16),
+                                            child: Icon(
+                                              CupertinoIcons.xmark_circle_fill,
+                                              color: BleyaTheme.error,
+                                              size: 20,
+                                            ),
                                           ),
                                       ],
                                     ),
@@ -381,11 +461,21 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                 child: Builder(
                                   builder: (context) {
                                     String? helperText;
-                                    Color helperColor = BleyaTheme.mutedForeground;
+                                    Color helperColor =
+                                        BleyaTheme.mutedForeground;
 
                                     if (_errorMessage != null) {
                                       // Server-side or submission error (e.g. username taken)
                                       helperText = _errorMessage;
+                                      helperColor = BleyaTheme.error;
+                                    } else if (_hasCheckedAvailability &&
+                                        !_isValid &&
+                                        username.isNotEmpty &&
+                                        RegExp(r'^[a-z0-9_]{3,30}$')
+                                            .hasMatch(username)) {
+                                      // Username format is valid but was checked and is unavailable
+                                      helperText =
+                                          "That username's taken. Try another one?";
                                       helperColor = BleyaTheme.error;
                                     } else if (showError) {
                                       // Local format validation error
@@ -393,9 +483,10 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                           ? 'Keep it simple: at least 3 characters, just letters, numbers, and underscores.'
                                           : 'Just letters, numbers, and underscores.';
                                       helperColor = BleyaTheme.mutedForeground;
-                                    } else if (_isValid && username.isNotEmpty) {
-                                      // Local format looks good
-                                      helperText = 'Looks good';
+                                    } else if (_isValid &&
+                                        username.isNotEmpty) {
+                                      // Username is available
+                                      helperText = 'Looks good!';
                                       helperColor = BleyaTheme.success;
                                     }
 
@@ -403,14 +494,18 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                       return const SizedBox.shrink();
                                     }
 
-                                    return Text(
-                                      helperText,
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: helperColor == BleyaTheme.success
-                                            ? FontWeight.w500
-                                            : FontWeight.normal,
-                                        color: helperColor,
+                                    return Padding(
+                                      padding: const EdgeInsets.only(left: 8.0),
+                                      child: Text(
+                                        helperText,
+                                        style: TextStyle(
+                                          fontSize: 12,
+                                          fontWeight:
+                                              helperColor == BleyaTheme.success
+                                                  ? FontWeight.w500
+                                                  : FontWeight.normal,
+                                          color: helperColor,
+                                        ),
                                       ),
                                     );
                                   },
@@ -529,8 +624,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                   style: BleyaTheme.bodySmall,
                                 ),
                               ],
+                            ),
                           ),
-                        ),
                         ],
                       ),
                     ),
