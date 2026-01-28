@@ -1,10 +1,13 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/danger_button.dart';
+import '../widgets/error_state.dart';
 import 'user_details_page.dart';
 
 class RoomDetailsPage extends ConsumerStatefulWidget {
@@ -44,10 +47,10 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
       body: Column(
         children: [
           // Leave Room Button
-          Container(
-            width: double.infinity,
+          Padding(
             padding: const EdgeInsets.all(16),
-            child: ElevatedButton.icon(
+            child: DangerButton(
+              text: 'Leave Room',
               onPressed: () async {
                 final confirmed = await showDialog<bool>(
                   context: context,
@@ -86,8 +89,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                       if (e is AppError) {
                         errorMessage = e.getUserMessage();
                       } else {
-                        errorMessage =
-                            "Couldn't leave that room. Try again?";
+                        errorMessage = "Couldn't leave that room. Try again?";
                       }
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(errorMessage)),
@@ -96,12 +98,10 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                   }
                 }
               },
-              icon: const Icon(Icons.exit_to_app),
-              label: const Text('Leave Room'),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: BleyaTheme.error,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(vertical: 12),
+              trailingIcon: Icon(
+                CupertinoIcons.arrow_right_square,
+                color: Colors.white,
+                size: 20,
               ),
             ),
           ),
@@ -152,27 +152,12 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                         currentUserId != null && member.id == currentUserId;
 
                     return ListTile(
-                      leading: CircleAvatar(
-                        radius: 24,
-                        backgroundColor: BleyaTheme.greyBorder,
-                        backgroundImage: member.profileImageUrl.isNotEmpty &&
-                                member.profileImageUrl.startsWith('https://')
-                            ? NetworkImage(member.profileImageUrl)
-                            : null,
-                        onBackgroundImageError: member
-                                    .profileImageUrl.isNotEmpty &&
-                                member.profileImageUrl.startsWith('https://')
-                            ? (exception, stackTrace) {
-                                if (kDebugMode) {
-                                  print(
-                                      'Error loading profile image: $exception');
-                                }
-                              }
-                            : null,
-                        child: member.profileImageUrl.isEmpty ||
-                                !member.profileImageUrl.startsWith('https://')
-                            ? Icon(Icons.person, color: BleyaTheme.greyText)
-                            : null,
+                      leading: ProfileAvatar(
+                        imageUrl: member.profileImageUrl,
+                        size: 48,
+                        backgroundColor: BleyaTheme.greyLight,
+                        fallbackIcon: CupertinoIcons.person_fill,
+                        fallbackIconColor: BleyaTheme.mutedForeground,
                       ),
                       title: Row(
                         children: [
@@ -221,21 +206,12 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
               },
               loading: () => const Center(child: CircularProgressIndicator()),
               error: (error, stack) => Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    const Icon(Icons.error_outline,
-                        size: 48, color: BleyaTheme.error),
-                    const SizedBox(height: 16),
-                    Text('Error loading members: $error'),
-                    const SizedBox(height: 16),
-                    ElevatedButton(
-                      onPressed: () {
-                        ref.invalidate(roomMembersProvider(widget.roomId));
-                      },
-                      child: const Text('Retry'),
-                    ),
-                  ],
+                child: ErrorState(
+                  title: 'Error loading members',
+                  description: error.toString(),
+                  onRetry: () {
+                    ref.invalidate(roomMembersProvider(widget.roomId));
+                  },
                 ),
               ),
             ),

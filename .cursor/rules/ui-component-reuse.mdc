@@ -1,0 +1,83 @@
+---
+description: Always check for reusable UI components before creating new ones
+globs: **/*.dart
+alwaysApply: false
+---
+
+# UI Component Reuse First
+
+Before creating new UI elements or duplicating code, ALWAYS check if a reusable component exists that can be used or adapted.
+
+## Existing Reusable Widgets
+
+The following widgets are available in `lib/widgets/`:
+
+### Layout & Background
+- `LiquidGlassBackground` - Liquid glass background with blurred orbs
+- `AppNavigationBar` - iOS-style navigation bar with back button
+
+### Forms & Input
+- `FormField` - Complete form field with label, input, and feedback states (error/success/helper)
+- `GlassTextField` - Glass-style text field with focus states (use FormField instead)
+- `MessageInputField` - Message input with send button
+
+### Buttons
+- `PrimaryButton` - Primary action button with gradient
+- `SecondaryButton` - Secondary button with border
+- `DangerButton` - Destructive action button
+
+### Display
+- `MessageBubble` - Chat message bubble
+- `ProfileAvatar` - User avatar with fallback
+- `EmptyState` - Empty state with icon and message
+- `ErrorState` - Error state with retry action
+
+## Process
+
+1. **Search first**: Check `lib/widgets/` for existing components
+2. **Adapt if possible**: Can an existing widget be extended with props?
+3. **Create only if needed**: If no suitable widget exists, create a new reusable one
+4. **Document**: Add clear documentation to new widgets
+
+## Examples
+
+### BAD - Duplicating code
+```dart
+// In page A
+Container(
+  decoration: BoxDecoration(
+    color: isCurrentUser ? BleyaTheme.primaryDark : BleyaTheme.greyMedium,
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Text(message.text),
+)
+
+// In page B - same code duplicated
+Container(
+  decoration: BoxDecoration(
+    color: isCurrentUser ? BleyaTheme.primaryDark : BleyaTheme.greyMedium,
+    borderRadius: BorderRadius.circular(12),
+  ),
+  child: Text(message.text),
+)
+```
+
+### GOOD - Using reusable widget
+```dart
+// In both pages
+MessageBubble(
+  messageText: message.text,
+  isCurrentUser: isCurrentUser,
+)
+```
+
+### GOOD - Adapting existing widget
+```dart
+// ProfileAvatar widget already exists, adapt it with props
+ProfileAvatar(
+  imageUrl: user.profileUrl,
+  size: 48.0,
+  borderColor: BleyaTheme.primary,
+  borderWidth: 2.0,
+)
+```

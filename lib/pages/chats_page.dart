@@ -1,7 +1,11 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../constants/theme.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/error_state.dart';
+import '../widgets/profile_avatar.dart';
 import 'chat_room_page.dart';
 
 class ChatsPage extends ConsumerWidget {
@@ -24,24 +28,10 @@ class ChatsPage extends ConsumerWidget {
             child: ListView(
               children: [
                 SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-                Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.chat_bubble_outline,
-                          size: 64, color: BleyaTheme.greyText),
-                      const SizedBox(height: 16),
-                      Text(
-                        'No rooms joined yet',
-                        style: TextStyle(fontSize: 18, color: BleyaTheme.greyText),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Tap the + button to join a room',
-                        style: TextStyle(fontSize: 14, color: BleyaTheme.greyText),
-                      ),
-                    ],
-                  ),
+                EmptyState(
+                  icon: CupertinoIcons.chat_bubble,
+                  title: 'No rooms joined yet',
+                  description: 'Tap the + button to join a room',
                 ),
               ],
             ),
@@ -57,14 +47,21 @@ class ChatsPage extends ConsumerWidget {
               final isPrivate = room.isPrivate;
 
               return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor:
-                      isPrivate ? BleyaTheme.privateRoomLight : BleyaTheme.primaryLight,
-                  child: Icon(
-                    isPrivate ? Icons.person : Icons.group,
-                    color: isPrivate ? BleyaTheme.privateRoomDark : BleyaTheme.primaryDark,
-                  ),
-                ),
+                leading: isPrivate
+                    ? ProfileAvatar(
+                        imageUrl: null,
+                        size: 40,
+                        backgroundColor: BleyaTheme.privateRoomLight,
+                        fallbackIcon: CupertinoIcons.person_fill,
+                        fallbackIconColor: BleyaTheme.privateRoomDark,
+                      )
+                    : ProfileAvatar(
+                        imageUrl: null,
+                        size: 40,
+                        backgroundColor: BleyaTheme.primaryLight,
+                        fallbackIcon: CupertinoIcons.person_2_fill,
+                        fallbackIconColor: BleyaTheme.primaryDark,
+                      ),
                 title: Text(room.name),
                 subtitle: Text(
                   isPrivate ? 'Direct message' : 'Group chat',
@@ -92,23 +89,10 @@ class ChatsPage extends ConsumerWidget {
         child: ListView(
           children: [
             SizedBox(height: MediaQuery.of(context).size.height * 0.3),
-            Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.error_outline, size: 64, color: BleyaTheme.error),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Error loading rooms',
-                    style: TextStyle(fontSize: 18, color: Colors.grey),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Pull down to retry',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                  ),
-                ],
-              ),
+            ErrorState(
+              title: 'Error loading rooms',
+              description: 'Pull down to retry',
+              onRetry: () => _refreshRooms(ref),
             ),
           ],
         ),

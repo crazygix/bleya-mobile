@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../constants/theme.dart';
+import '../widgets/message_bubble.dart';
+import '../widgets/message_input_field.dart';
 import 'user_details_page.dart';
 
 class ThreadViewPage extends ConsumerStatefulWidget {
@@ -61,10 +63,11 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     final text = _replyController.text.trim();
     if (text.isEmpty) return;
 
-    final controller = ref.read(chatRoomControllerProvider(widget.room).notifier);
+    final controller =
+        ref.read(chatRoomControllerProvider(widget.room).notifier);
     controller.sendMessage(text, parentMessageId: widget.parentMessage.id);
     _replyController.clear();
-    
+
     // The reply will appear automatically via socket listener in threadMessagesProvider
   }
 
@@ -77,61 +80,26 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   }
 
   Widget _buildMessageBubble(Message message, bool isCurrentUser) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Align(
-        alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: Container(
-          constraints: BoxConstraints(
-            maxWidth: MediaQuery.of(context).size.width * 0.75,
+    return MessageBubble(
+      messageText: message.text,
+      isCurrentUser: isCurrentUser,
+      username: message.username,
+      onUsernameTap: () {
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => UserDetailsPage(
+              userId: message.userId,
+            ),
           ),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: isCurrentUser ? BleyaTheme.primaryDark : BleyaTheme.greyMedium,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (!isCurrentUser && message.username.isNotEmpty)
-                GestureDetector(
-                  onTap: () {
-                    Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => UserDetailsPage(
-                          userId: message.userId,
-                        ),
-                      ),
-                    );
-                  },
-                  child: Text(
-                    message.username,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: BleyaTheme.primaryDark,
-                      fontWeight: FontWeight.bold,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              if (!isCurrentUser && message.username.isNotEmpty)
-                const SizedBox(height: 4),
-              Text(
-                message.text,
-                style: TextStyle(
-                  color: isCurrentUser ? Colors.white : BleyaTheme.foreground87,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final threadState = ref.watch(threadMessagesProvider(widget.parentMessage.id));
+    final threadState =
+        ref.watch(threadMessagesProvider(widget.parentMessage.id));
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
 
@@ -218,44 +186,10 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                   ],
                 ),
               ),
-              Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  boxShadow: [
-                    BoxShadow(
-                      color: BleyaTheme.greyText.withValues(alpha: 0.2),
-                      spreadRadius: 1,
-                      blurRadius: 5,
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _replyController,
-                        decoration: InputDecoration(
-                          hintText: 'Reply to thread...',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                          contentPadding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                        ),
-                        onSubmitted: (_) => _sendReply(),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      icon: const Icon(Icons.send),
-                      onPressed: _sendReply,
-                      color: BleyaTheme.primary,
-                    ),
-                  ],
-                ),
+              MessageInputField(
+                controller: _replyController,
+                hintText: 'Reply to thread...',
+                onSend: _sendReply,
               ),
             ],
           );
@@ -271,7 +205,8 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
               const SizedBox(height: 16),
               ElevatedButton(
                 onPressed: () {
-                  ref.invalidate(threadMessagesProvider(widget.parentMessage.id));
+                  ref.invalidate(
+                      threadMessagesProvider(widget.parentMessage.id));
                 },
                 child: const Text('Retry'),
               ),
@@ -282,4 +217,3 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     );
   }
 }
-

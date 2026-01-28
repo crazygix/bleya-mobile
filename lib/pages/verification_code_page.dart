@@ -8,11 +8,14 @@ import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/liquid_glass_background.dart';
+import '../widgets/app_navigation_bar.dart';
 import 'username_page.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
   final String phoneNumber;
-  final dynamic codeSentAt; // Accepts int (timestamp) or String (for backward compatibility)
+  final dynamic
+      codeSentAt; // Accepts int (timestamp) or String (for backward compatibility)
 
   const VerificationCodePage({
     super.key,
@@ -39,9 +42,11 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   void initState() {
     super.initState();
     if (widget.codeSentAt != null) {
-      final timestamp = widget.codeSentAt is int 
+      final timestamp = widget.codeSentAt is int
           ? widget.codeSentAt as int
-          : (widget.codeSentAt is String ? int.tryParse(widget.codeSentAt) : null);
+          : (widget.codeSentAt is String
+              ? int.tryParse(widget.codeSentAt)
+              : null);
       _updateCodeSentTime(timestamp);
     } else {
       _codeSentAt = DateTime.now();
@@ -208,7 +213,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
         phone: widget.phoneNumber,
         code: code,
       );
-      
+
       if (result.isNotEmpty && mounted) {
         // Update token provider state so interceptor starts injecting Authorization
         final token = result['token'] as String;
@@ -246,77 +251,15 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
         body: Stack(
           children: [
             // Liquid Glass Background
-            Positioned(
-              top: -80,
-              right: -60,
-              child: Container(
-                width: 500,
-                height: 500,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BleyaTheme.primary.withValues(alpha: 0.06),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -40,
-              left: -60,
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BleyaTheme.secondary.withValues(alpha: 0.05),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
+            LiquidGlassBackground(),
 
             // Main Content
             SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  // iOS-style Navigation Bar (44pt height per HIG)
-                  Container(
-                    height: 44.0, // HIG standard navigation bar height
-                    padding: EdgeInsets.symmetric(
-                      horizontal: BleyaTheme.contentPadding,
-                    ),
-                    child: Row(
-                      children: [
-                        // Back button with proper touch target (44x44pt minimum)
-                        SizedBox(
-                          width: BleyaTheme.iconContainerSize, // 44pt minimum touch target
-                          height: BleyaTheme.iconContainerSize,
-                          child: CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            onPressed: () {
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Icon(
-                                CupertinoIcons.chevron_left,
-                                color: BleyaTheme.mutedForeground,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // iOS-style Navigation Bar
+                  AppNavigationBar(),
 
                   // Content
                   Expanded(
@@ -407,7 +350,9 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                                             enableInteractiveSelection: false,
                                             showCursor: true,
                                             autofillHints: index == 0
-                                                ? const [AutofillHints.oneTimeCode]
+                                                ? const [
+                                                    AutofillHints.oneTimeCode
+                                                  ]
                                                 : null,
                                             inputFormatters: [
                                               FilteringTextInputFormatter

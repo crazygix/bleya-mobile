@@ -1,0 +1,267 @@
+---
+description: Modularity, clean code, and best practices for Flutter development
+globs: **/*.dart
+alwaysApply: false
+---
+
+# Modularity & Clean Code
+
+Keep views modular, break down components into smaller reusable elements, and follow clean code best practices.
+
+## Core Principles
+
+### 1. Single Responsibility Principle
+Each widget should do ONE thing well. If a widget has multiple responsibilities, split it.
+
+### 2. Small, Focused Widgets
+Keep widgets under 200 lines. Extract sections into smaller widgets.
+
+### 3. Composition Over Complexity
+Build complex UIs by composing simple widgets, not by creating complex ones.
+
+### 4. Extract and Reuse
+If you write similar code twice, extract it into a reusable widget or helper.
+
+## Breaking Down Large Widgets
+
+### BAD - Monolithic widget
+```dart
+class ChatPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(/* 20 lines */),
+      body: Column(
+        children: [
+          // 50 lines of header code
+          Container(/* complex header */),
+          
+          // 100 lines of message list
+          ListView.builder(/* complex list */),
+          
+          // 40 lines of input field
+          Container(/* complex input */),
+        ],
+      ),
+    );
+  }
+}
+```
+
+### GOOD - Modular approach
+```dart
+class ChatPage extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: _ChatAppBar(),
+      body: Column(
+        children: [
+          _ChatHeader(),
+          Expanded(child: _MessageList()),
+          _MessageInput(),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatHeader extends StatelessWidget { /* focused widget */ }
+class _MessageList extends StatelessWidget { /* focused widget */ }
+class _MessageInput extends StatelessWidget { /* focused widget */ }
+```
+
+## Widget Organization
+
+### Private vs Public Widgets
+
+**Private (_prefix)**: Used only within current file
+```dart
+class _MessageBubble extends StatelessWidget { }
+```
+
+**Public (no prefix)**: Reusable across the app, in `lib/widgets/`
+```dart
+class PrimaryButton extends StatelessWidget { }
+```
+
+### File Structure
+```
+lib/
+  widgets/          # Reusable components
+    buttons/
+      primary_button.dart
+      secondary_button.dart
+    inputs/
+      glass_text_field.dart
+  pages/            # Full screens
+    chat_room_page.dart
+  models/           # Data models
+  providers/        # State management
+  constants/        # Theme, colors, etc.
+```
+
+## Extract Complex Logic
+
+### BAD - Logic in build method
+```dart
+Widget build(BuildContext context) {
+  return ListView.builder(
+    itemBuilder: (context, index) {
+      final message = messages[index];
+      final isCurrentUser = currentUserId != null && 
+                           message.userId == currentUserId;
+      final alignment = isCurrentUser ? Alignment.right : Alignment.left;
+      final color = isCurrentUser ? Colors.blue : Colors.grey;
+      // 30 more lines of logic...
+      return Container(/* complex widget */);
+    },
+  );
+}
+```
+
+### GOOD - Extract to helper methods
+```dart
+Widget build(BuildContext context) {
+  return ListView.builder(
+    itemBuilder: (context, index) => _buildMessageItem(messages[index]),
+  );
+}
+
+Widget _buildMessageItem(Message message) {
+  final isCurrentUser = _isCurrentUser(message);
+  return MessageBubble(
+    message: message,
+    isCurrentUser: isCurrentUser,
+  );
+}
+
+bool _isCurrentUser(Message message) {
+  return currentUserId != null && message.userId == currentUserId;
+}
+```
+
+## Conditional Rendering
+
+### BAD - Nested ternaries
+```dart
+child: isLoading ? 
+  CircularProgressIndicator() : 
+  hasError ? 
+    ErrorWidget() : 
+    hasData ? 
+      DataWidget() : 
+      EmptyWidget()
+```
+
+### GOOD - Early returns or separate method
+```dart
+Widget _buildContent() {
+  if (isLoading) return CircularProgressIndicator();
+  if (hasError) return ErrorState(error: error);
+  if (!hasData) return EmptyState();
+  return DataWidget(data: data);
+}
+```
+
+## State Management
+
+### Keep state logic separate from UI
+```dart
+// BAD - Mixed concerns
+class ChatPage extends StatefulWidget {
+  State<ChatPage> createState() => _ChatPageState();
+}
+
+class _ChatPageState extends State<ChatPage> {
+  List<Message> messages = [];
+  
+  Future<void> fetchMessages() async {
+    // 50 lines of API logic mixed with UI
+  }
+  
+  Widget build(BuildContext context) {
+    // 100 lines of UI
+  }
+}
+
+// GOOD - Separated concerns
+class ChatPage extends ConsumerWidget {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final messages = ref.watch(chatMessagesProvider);
+    return _ChatPageContent(messages: messages);
+  }
+}
+
+// Provider handles all state logic separately
+```
+
+## Naming Conventions
+
+### Widget Names
+- Descriptive and specific: `MessageInputField` not `InputWidget`
+- Prefix with context: `ChatMessageBubble` not `Bubble`
+
+### Methods
+- Private helpers: `_buildHeader()`, `_isCurrentUser()`
+- Event handlers: `_onSendMessage()`, `_handleSubmit()`
+
+### Variables
+- Clear intent: `isCurrentUser` not `isCu`
+- Full words: `messageController` not `msgCtrl`
+
+## Constants and Magic Numbers
+
+### BAD - Magic numbers
+```dart
+Container(
+  padding: EdgeInsets.all(16),
+  margin: EdgeInsets.only(top: 8, bottom: 12),
+  child: Text('Hello', style: TextStyle(fontSize: 14)),
+)
+```
+
+### GOOD - Named constants
+```dart
+Container(
+  padding: EdgeInsets.all(BleyaTheme.spacingLG),
+  margin: EdgeInsets.only(
+    top: BleyaTheme.spacingSM,
+    bottom: BleyaTheme.spacingMD,
+  ),
+  child: Text('Hello', style: BleyaTheme.bodySmall),
+)
+```
+
+## Comments
+
+### When to Comment
+- **Complex business logic**: Why this approach was chosen
+- **Workarounds**: Why this hack exists
+- **Non-obvious code**: What might confuse future developers
+
+### When NOT to Comment
+- **Obvious code**: Don't comment what the code already says
+- **Bad code**: Refactor instead of explaining
+
+```dart
+// BAD - Obvious comment
+// Create a list of messages
+List<Message> messages = [];
+
+// GOOD - Explains non-obvious business logic
+// Messages are cached for 5 minutes to reduce API calls
+// while ensuring users see reasonably fresh data
+final cachedMessages = _getCachedMessages(maxAge: Duration(minutes: 5));
+```
+
+## Checklist for Every Widget/Page
+
+- [ ] Widget is under 200 lines (extract if larger)
+- [ ] One clear responsibility
+- [ ] Complex sections extracted to smaller widgets
+- [ ] Logic extracted from build method
+- [ ] No magic numbers (use theme constants)
+- [ ] Descriptive names for widgets and variables
+- [ ] Reusable components used from `lib/widgets/`
+- [ ] State management separated from UI

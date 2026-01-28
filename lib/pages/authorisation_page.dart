@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/liquid_glass_background.dart';
+import '../widgets/app_navigation_bar.dart';
+import '../widgets/form_field.dart' as bleya;
 import 'verification_code_page.dart';
 
 class AuthorisationPage extends ConsumerStatefulWidget {
@@ -148,78 +150,15 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         body: Stack(
           children: [
             // Liquid Glass Background
-            Positioned(
-              top: -80,
-              right: -60,
-              child: Container(
-                width: 500,
-                height: 500,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BleyaTheme.primary.withValues(alpha: 0.06),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -40,
-              left: -60,
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BleyaTheme.secondary.withValues(alpha: 0.05),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
+            LiquidGlassBackground(),
 
             // Main Content
             SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  // iOS-style Navigation Bar (44pt height per HIG)
-                  Container(
-                    height: 44.0, // HIG standard navigation bar height
-                    padding: EdgeInsets.symmetric(
-                      horizontal: BleyaTheme.contentPadding,
-                    ),
-                    child: Row(
-                      children: [
-                        // Back button with proper touch target (44x44pt minimum)
-                        SizedBox(
-                          width: BleyaTheme
-                              .iconContainerSize, // 44pt minimum touch target
-                          height: BleyaTheme.iconContainerSize,
-                          child: CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            onPressed: () {
-                              if (Navigator.of(context).canPop()) {
-                                Navigator.of(context).pop();
-                              }
-                            },
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Icon(
-                                CupertinoIcons.chevron_left,
-                                color: BleyaTheme.mutedForeground,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  // iOS-style Navigation Bar
+                  AppNavigationBar(),
 
                   // Content
                   Expanded(
@@ -243,88 +182,28 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                           SizedBox(height: BleyaTheme.spacing3XL),
 
                           // Phone Input
-                          Container(
-                            decoration: BoxDecoration(
-                              color: BleyaTheme.glassSurface,
-                              borderRadius: BorderRadius.circular(
-                                  BleyaTheme.radiusMedium),
-                              border: Border.all(
-                                color: authState.errorMessage != null
-                                    ? BleyaTheme.errorBorder
-                                    : (_phoneFocusNode.hasFocus
-                                        ? BleyaTheme.primary
-                                        : BleyaTheme.border),
-                                width: 1,
-                              ),
-                              boxShadow: BleyaTheme.glassShadow,
-                            ),
-                            child: Container(
-                              padding: EdgeInsets.symmetric(
-                                horizontal: BleyaTheme.spacingLG,
-                              ),
-                              child: Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    CupertinoIcons.phone,
-                                    color: BleyaTheme.mutedForeground,
-                                    size: 20,
-                                  ),
-                                  SizedBox(width: BleyaTheme.spacingMD),
-                                  // Hardcoded "+" prefix
-                                  Text(
-                                    '+',
-                                    style: BleyaTheme.bodyLarge.copyWith(
-                                      color: BleyaTheme.foreground,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  SizedBox(width: 4),
-                                  Expanded(
-                                    child: CupertinoTextField(
-                                      controller: _phoneController,
-                                      focusNode: _phoneFocusNode,
-                                      placeholder:
-                                          _getPhonePlaceholder(context),
-                                      autofillHints: const [
-                                        AutofillHints.telephoneNumber,
-                                      ],
-                                      textInputAction: TextInputAction.done,
-                                      keyboardType: TextInputType.number,
-                                      inputFormatters: [
-                                        FilteringTextInputFormatter.digitsOnly,
-                                      ],
-                                      style: BleyaTheme.bodyLarge.copyWith(
-                                        color: BleyaTheme.foreground,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                      placeholderStyle:
-                                          BleyaTheme.bodyLarge.copyWith(
-                                        color: BleyaTheme.mutedForeground
-                                            .withValues(alpha: 0.6),
-                                      ),
-                                      decoration: BoxDecoration(
-                                          color: Colors.transparent),
-                                      padding: EdgeInsets.symmetric(
-                                        vertical: BleyaTheme.spacingLG + 2,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                          bleya.FormField(
+                            controller: _phoneController,
+                            focusNode: _phoneFocusNode,
+                            placeholder: _getPhonePlaceholder(context),
+                            leadingIcon: CupertinoIcons.phone,
+                            errorMessage: authState.errorMessage,
+                            keyboardType: TextInputType.number,
+                            inputFormatters: [
+                              FilteringTextInputFormatter.digitsOnly,
+                            ],
+                            textInputAction: TextInputAction.done,
+                            autofillHints: const [
+                              AutofillHints.telephoneNumber,
+                            ],
+                            prefix: Text(
+                              '+',
+                              style: BleyaTheme.bodyLarge.copyWith(
+                                color: BleyaTheme.foreground,
+                                fontWeight: FontWeight.w600,
                               ),
                             ),
                           ),
-
-                          if (authState.errorMessage != null) ...[
-                            SizedBox(height: BleyaTheme.spacingMD),
-                            Text(
-                              authState.errorMessage!,
-                              style: BleyaTheme.bodySmall.copyWith(
-                                color: BleyaTheme.error,
-                                fontWeight: FontWeight.w500,
-                              ),
-                            ),
-                          ],
 
                           SizedBox(height: BleyaTheme.spacing2XL),
 

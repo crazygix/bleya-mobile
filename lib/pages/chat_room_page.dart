@@ -3,7 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
-import '../constants/theme.dart';
+import '../widgets/message_bubble.dart';
+import '../widgets/message_input_field.dart';
 import 'user_details_page.dart';
 import 'room_details_page.dart';
 import 'thread_view_page.dart';
@@ -140,158 +141,38 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                       final isCurrentUser = currentUserId != null &&
                           message.userId == currentUserId;
 
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Align(
-                          alignment: isCurrentUser
-                              ? Alignment.centerRight
-                              : Alignment.centerLeft,
-                          child: GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => ThreadViewPage(
-                                    parentMessage: message,
-                                    room: widget.room,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              constraints: BoxConstraints(
-                                maxWidth:
-                                    MediaQuery.of(context).size.width * 0.75,
-                              ),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: isCurrentUser
-                                    ? BleyaTheme.primaryDark
-                                    : BleyaTheme.greyMedium,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (!isCurrentUser &&
-                                      message.username.isNotEmpty)
-                                    GestureDetector(
-                                      onTap: () {
-                                        Navigator.of(context).push(
-                                          MaterialPageRoute(
-                                            builder: (context) =>
-                                                UserDetailsPage(
-                                              userId: message.userId,
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                      behavior: HitTestBehavior.opaque,
-                                      child: Text(
-                                        message.username,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          color: BleyaTheme.primaryDark,
-                                          fontWeight: FontWeight.bold,
-                                          decoration: TextDecoration.underline,
-                                        ),
-                                      ),
-                                    ),
-                                  if (!isCurrentUser &&
-                                      message.username.isNotEmpty)
-                                    const SizedBox(height: 4),
-                                  Text(
-                                    message.text,
-                                    style: TextStyle(
-                                      color: isCurrentUser
-                                          ? Colors.white
-                                          : BleyaTheme.foreground87,
-                                    ),
-                                  ),
-                                  if (message.replyCount > 0) ...[
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isCurrentUser
-                                            ? BleyaTheme.primaryDark
-                                            : BleyaTheme.greyBorder,
-                                        borderRadius: BorderRadius.circular(12),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Icon(
-                                            Icons.chat_bubble_outline,
-                                            size: 14,
-                                            color: isCurrentUser
-                                                ? Colors.white
-                                                : BleyaTheme.foreground54,
-                                          ),
-                                          const SizedBox(width: 4),
-                                          Text(
-                                            '${message.replyCount} ${message.replyCount == 1 ? 'reply' : 'replies'}',
-                                            style: TextStyle(
-                                              fontSize: 12,
-                                              color: isCurrentUser
-                                                  ? Colors.white
-                                                  : BleyaTheme.foreground54,
-                                              fontWeight: FontWeight.w500,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ],
+                      return MessageBubble(
+                        messageText: message.text,
+                        isCurrentUser: isCurrentUser,
+                        username: message.username,
+                        replyCount: message.replyCount,
+                        onTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => ThreadViewPage(
+                                parentMessage: message,
+                                room: widget.room,
                               ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
+                        onUsernameTap: () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => UserDetailsPage(
+                                userId: message.userId,
+                              ),
+                            ),
+                          );
+                        },
                       );
                     },
                   ),
           ),
-          Container(
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: BleyaTheme.greyText.withValues(alpha: 0.2),
-                  spreadRadius: 1,
-                  blurRadius: 5,
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _messageController,
-                    decoration: InputDecoration(
-                      hintText: 'Type a message...',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                    ),
-                    onSubmitted: (_) => _sendMessage(),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  icon: const Icon(Icons.send),
-                  onPressed: _sendMessage,
-                  color: BleyaTheme.primary,
-                ),
-              ],
-            ),
+          MessageInputField(
+            controller: _messageController,
+            hintText: 'Type a message...',
+            onSend: _sendMessage,
           ),
         ],
       ),

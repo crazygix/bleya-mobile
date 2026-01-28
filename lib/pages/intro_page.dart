@@ -1,9 +1,9 @@
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/theme.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/liquid_glass_background.dart';
 import 'authorisation_page.dart';
 
 class IntroPage extends StatelessWidget {
@@ -19,55 +19,8 @@ class IntroPage extends StatelessWidget {
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // Liquid Glass Background - Subtle gradients
-          Positioned(
-            top: -100,
-            right: -60,
-            child: Container(
-              width: 500,
-              height: 500,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: BleyaTheme.primary.withValues(alpha: 0.08),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: -60,
-            left: -40,
-            child: Container(
-              width: 450,
-              height: 450,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: BleyaTheme.secondary.withValues(alpha: 0.06),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 90, sigmaY: 90),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
-          Positioned(
-            top: mediaQuery.size.height * 0.4,
-            left: mediaQuery.size.width * 0.3,
-            child: Container(
-              width: 300,
-              height: 300,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: BleyaTheme.accent.withValues(alpha: 0.05),
-              ),
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
-                child: Container(color: Colors.transparent),
-              ),
-            ),
-          ),
+          // Liquid Glass Background
+          LiquidGlassBackground(),
 
           // Main Content - Scrollable
           SingleChildScrollView(

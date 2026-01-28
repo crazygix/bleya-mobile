@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -6,6 +7,9 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/error_state.dart';
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   @override
@@ -106,7 +110,11 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 data: (joinedRooms) => roomsAsync.when(
                   data: (rooms) {
                     if (rooms.isEmpty) {
-                      return const Center(child: Text('No rooms available'));
+                      return EmptyState(
+                        icon: CupertinoIcons.chat_bubble,
+                        title: 'No rooms available',
+                        description: 'Check back later for new rooms',
+                      );
                     }
 
                     // Filter out already joined rooms
@@ -118,24 +126,12 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                     if (availableRooms.isEmpty) {
                       final publicRoomCount =
                           joinedRooms.where((r) => r.type == 'public').length;
-                      return Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text('You have joined all available rooms'),
-                            if (publicRoomCount >= 5)
-                              Padding(
-                                padding: const EdgeInsets.only(top: 8.0),
-                                child: Text(
-                                  'You have reached the limit of 5 group chats',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: BleyaTheme.greyText,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
+                      return EmptyState(
+                        icon: CupertinoIcons.checkmark_circle,
+                        title: 'You have joined all available rooms',
+                        description: publicRoomCount >= 5
+                            ? 'You have reached the limit of 5 group chats'
+                            : 'Check back later for new rooms',
                       );
                     }
 
@@ -146,8 +142,12 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                         final room = availableRooms[index];
                         final isJoiningThis = _isJoining;
                         return ListTile(
-                          leading: CircleAvatar(
-                            child: Text(room.name[0].toUpperCase()),
+                          leading: ProfileAvatar(
+                            imageUrl: null,
+                            size: 40,
+                            backgroundColor: BleyaTheme.primaryLight,
+                            fallbackIcon: CupertinoIcons.person_2_fill,
+                            fallbackIconColor: BleyaTheme.primaryDark,
                           ),
                           title: Text(room.name),
                           trailing: isJoiningThis
@@ -172,32 +172,12 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                     }
                     return Padding(
                       padding: const EdgeInsets.all(16.0),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(Icons.error_outline,
-                              color: BleyaTheme.error, size: 48),
-                          const SizedBox(height: 16),
-                          Text(
-                            'Error loading rooms',
-                            style: TextStyle(
-                                fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            error.toString(),
-                            style: TextStyle(
-                                fontSize: 12, color: BleyaTheme.greyText),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 16),
-                          ElevatedButton(
-                            onPressed: () {
-                              ref.invalidate(availableRoomsProvider);
-                            },
-                            child: Text('Retry'),
-                          ),
-                        ],
+                      child: ErrorState(
+                        title: 'Error loading rooms',
+                        description: error.toString(),
+                        onRetry: () {
+                          ref.invalidate(availableRoomsProvider);
+                        },
                       ),
                     );
                   },

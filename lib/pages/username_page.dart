@@ -1,5 +1,4 @@
 import 'dart:io';
-import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,6 +8,9 @@ import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
+import '../widgets/liquid_glass_background.dart';
+import '../widgets/app_navigation_bar.dart';
+import '../widgets/form_field.dart' as bleya;
 
 class UsernamePage extends ConsumerStatefulWidget {
   const UsernamePage({super.key});
@@ -91,6 +93,20 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     return '?';
   }
 
+  String? _getErrorMessage(dynamic usernameState, String username,
+      bool isUnavailable, bool showError) {
+    if (usernameState.errorMessage != null) {
+      return usernameState.errorMessage;
+    } else if (isUnavailable) {
+      return "That username's taken. Try another one?";
+    } else if (showError) {
+      return username.length < 3
+          ? 'Keep it simple: at least 3 characters, just letters, numbers, and underscores.'
+          : 'Just letters, numbers, and underscores.';
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final usernameState = ref.watch(usernameControllerProvider);
@@ -117,76 +133,19 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
         body: Stack(
           children: [
             // Liquid Glass Background
-            Positioned(
-              top: -80,
-              right: -60,
-              child: Container(
-                width: 500,
-                height: 500,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BleyaTheme.primary.withValues(alpha: 0.06),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 120, sigmaY: 120),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
-            Positioned(
-              bottom: -40,
-              left: -60,
-              child: Container(
-                width: 400,
-                height: 400,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: BleyaTheme.secondary.withValues(alpha: 0.05),
-                ),
-                child: BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 100, sigmaY: 100),
-                  child: Container(color: Colors.transparent),
-                ),
-              ),
-            ),
+            LiquidGlassBackground(),
 
             // Main Content
             SafeArea(
               bottom: false,
               child: Column(
                 children: [
-                  // iOS-style Navigation Bar (44pt height per HIG)
-                  Container(
-                    height: 44.0, // HIG standard navigation bar height
-                    padding: EdgeInsets.symmetric(
-                      horizontal: BleyaTheme.contentPadding,
-                    ),
-                    child: Row(
-                      children: [
-                        // Back button with proper touch target (44x44pt minimum)
-                        SizedBox(
-                          width: BleyaTheme
-                              .iconContainerSize, // 44pt minimum touch target
-                          height: BleyaTheme.iconContainerSize,
-                          child: CupertinoButton(
-                            padding: EdgeInsets.zero,
-                            minimumSize: Size.zero,
-                            onPressed: () async {
-                              final authManager = ref.read(authManagerProvider);
-                              await authManager.logout();
-                            },
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: Icon(
-                                CupertinoIcons.chevron_left,
-                                color: BleyaTheme.mutedForeground,
-                                size: 28,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                  // iOS-style Navigation Bar
+                  AppNavigationBar(
+                    onBackPressed: () async {
+                      final authManager = ref.read(authManagerProvider);
+                      await authManager.logout();
+                    },
                   ),
 
                   // Content
@@ -214,169 +173,27 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                           const SizedBox(height: 48),
 
                           // Username Input
-                          Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: const EdgeInsets.only(left: 8.0),
-                                child: Text(
-                                  'Username',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.w600,
-                                    color: BleyaTheme.foreground,
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: BleyaTheme.glassSurface
-                                      .withValues(alpha: 0.8),
-                                  borderRadius: BorderRadius.circular(
-                                      BleyaTheme.radiusLarge),
-                                  border: Border.all(
-                                    color: usernameState.errorMessage != null ||
-                                            showError ||
-                                            isUnavailable
-                                        ? BleyaTheme.errorBorder
-                                        : BleyaTheme.border,
-                                    width: 1,
-                                  ),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: BleyaTheme.foreground
-                                          .withValues(alpha: 0.04),
-                                      blurRadius: 8,
-                                      offset: Offset(0, 2),
-                                    ),
-                                  ],
-                                ),
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(
-                                      BleyaTheme.radiusLarge),
-                                  child: BackdropFilter(
-                                    filter: ImageFilter.blur(
-                                        sigmaX: 20, sigmaY: 20),
-                                    child: Row(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.center,
-                                      children: [
-                                        Expanded(
-                                          child: CupertinoTextField(
-                                            controller: _usernameController,
-                                            focusNode: _usernameFocusNode,
-                                            placeholder: '@username',
-                                            keyboardType: TextInputType.text,
-                                            textCapitalization:
-                                                TextCapitalization.none,
-                                            autocorrect: false,
-                                            style: TextStyle(
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.w500,
-                                              color: BleyaTheme.foreground,
-                                            ),
-                                            placeholderStyle: TextStyle(
-                                              color: BleyaTheme.mutedForeground
-                                                  .withValues(alpha: 0.8),
-                                            ),
-                                            decoration: BoxDecoration(
-                                                color: Colors.transparent),
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 16,
-                                              vertical: 18,
-                                            ),
-                                            onChanged: (_) {
-                                              // Handled by _onUsernameChanged listener
-                                            },
-                                          ),
-                                        ),
-                                        if (usernameState.isChecking)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                                right: 16),
-                                            child: SizedBox(
-                                              width: 16,
-                                              height: 16,
-                                              child: CupertinoActivityIndicator(
-                                                radius: 8,
-                                              ),
-                                            ),
-                                          )
-                                        else if (usernameState.isValid)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                                right: 16),
-                                            child: Icon(
-                                              CupertinoIcons.check_mark_circled,
-                                              color: BleyaTheme.success,
-                                              size: 20,
-                                            ),
-                                          )
-                                        else if (isUnavailable)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                                right: 16),
-                                            child: Icon(
-                                              CupertinoIcons.xmark_circle_fill,
-                                              color: BleyaTheme.error,
-                                              size: 20,
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                height: 20,
-                                child: Builder(
-                                  builder: (context) {
-                                    String? helperText;
-                                    Color helperColor =
-                                        BleyaTheme.mutedForeground;
-
-                                    if (usernameState.errorMessage != null) {
-                                      helperText = usernameState.errorMessage;
-                                      helperColor = BleyaTheme.error;
-                                    } else if (isUnavailable) {
-                                      helperText =
-                                          "That username's taken. Try another one?";
-                                      helperColor = BleyaTheme.error;
-                                    } else if (showError) {
-                                      helperText = username.length < 3
-                                          ? 'Keep it simple: at least 3 characters, just letters, numbers, and underscores.'
-                                          : 'Just letters, numbers, and underscores.';
-                                      helperColor = BleyaTheme.mutedForeground;
-                                    } else if (usernameState.isValid &&
-                                        username.isNotEmpty) {
-                                      helperText = 'Looks good!';
-                                      helperColor = BleyaTheme.success;
-                                    }
-
-                                    if (helperText == null) {
-                                      return const SizedBox.shrink();
-                                    }
-
-                                    return Padding(
-                                      padding: const EdgeInsets.only(left: 8.0),
-                                      child: Text(
-                                        helperText,
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight:
-                                              helperColor == BleyaTheme.success
-                                                  ? FontWeight.w500
-                                                  : FontWeight.normal,
-                                          color: helperColor,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                              ),
-                            ],
+                          bleya.FormField(
+                            controller: _usernameController,
+                            focusNode: _usernameFocusNode,
+                            placeholder: '@username',
+                            label: 'Username',
+                            keyboardType: TextInputType.text,
+                            textInputAction: TextInputAction.done,
+                            errorMessage: _getErrorMessage(
+                              usernameState,
+                              username,
+                              isUnavailable,
+                              showError,
+                            ),
+                            showSuccess:
+                                usernameState.isValid && username.isNotEmpty,
+                            successMessage: 'Looks good!',
+                            helperText: !usernameState.isValid &&
+                                    !_isTouched &&
+                                    username.isEmpty
+                                ? 'At least 3 characters, just letters, numbers, and underscores'
+                                : null,
                           ),
 
                           const SizedBox(height: 48),

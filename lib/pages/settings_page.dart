@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -7,6 +7,8 @@ import '../providers/auth_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/primary_button.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -219,29 +221,29 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                       Builder(
                         builder: (context) {
                           final imageUrl = _getImageUrl();
-                          final hasImage = imageUrl != null;
 
-                          return CircleAvatar(
-                            radius: 60,
-                            backgroundColor: BleyaTheme.greyBorder,
-                            backgroundImage: hasImage
-                                ? (_selectedImage != null
-                                    ? FileImage(_selectedImage!)
-                                    : NetworkImage(imageUrl) as ImageProvider)
-                                : null,
-                            onBackgroundImageError: hasImage
-                                ? (exception, stackTrace) {
-                                    // Handle image loading errors (e.g., network issues, invalid URL)
-                                    if (kDebugMode) {
-                                      print(
-                                          'Error loading profile image: $exception');
-                                    }
-                                  }
-                                : null,
-                            child: !hasImage
-                                ? Icon(Icons.person,
-                                    size: 60, color: BleyaTheme.greyText)
-                                : null,
+                          // Show selected file image
+                          if (_selectedImage != null) {
+                            return Container(
+                              width: 120,
+                              height: 120,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                image: DecorationImage(
+                                  image: FileImage(_selectedImage!),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            );
+                          }
+
+                          // Show network image or fallback
+                          return ProfileAvatar(
+                            imageUrl: imageUrl,
+                            size: 120,
+                            backgroundColor: BleyaTheme.greyLight,
+                            fallbackIcon: CupertinoIcons.person_fill,
+                            fallbackIconColor: BleyaTheme.mutedForeground,
                           );
                         },
                       ),
@@ -255,7 +257,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             shape: BoxShape.circle,
                           ),
                           child: const Icon(
-                            Icons.camera_alt,
+                            CupertinoIcons.camera_fill,
                             color: Colors.white,
                             size: 20,
                           ),
@@ -298,18 +300,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
               ),
               const SizedBox(height: 30),
               // Save Button
-              ElevatedButton(
-                onPressed: _isLoading ? null : _saveProfile,
-                style: ElevatedButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                ),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Save Profile'),
+              PrimaryButton(
+                text: 'Save Profile',
+                onPressed: _saveProfile,
+                isLoading: _isLoading,
               ),
             ],
           ),
