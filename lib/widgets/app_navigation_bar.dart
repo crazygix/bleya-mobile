@@ -10,8 +10,9 @@ import '../constants/theme.dart';
 /// - Back button with proper 44x44pt touch target
 /// - Optional title and trailing actions
 /// - Uses design system colors and spacing
+/// - Supports async callbacks for back button
 class AppNavigationBar extends StatelessWidget {
-  final VoidCallback? onBackPressed;
+  final Future<void> Function()? onBackPressed;
   final String? title;
   final Widget? trailing;
   final bool showBackButton;
@@ -41,12 +42,13 @@ class AppNavigationBar extends StatelessWidget {
               child: CupertinoButton(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
-                onPressed: onBackPressed ??
-                    () {
-                      if (Navigator.of(context).canPop()) {
-                        Navigator.of(context).pop();
-                      }
-                    },
+                onPressed: onBackPressed != null
+                    ? () async => await onBackPressed!()
+                    : () {
+                        if (Navigator.of(context).canPop()) {
+                          Navigator.of(context).pop();
+                        }
+                      },
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Icon(

@@ -74,7 +74,7 @@ class MessageBubble extends StatelessWidget {
                   messageText,
                   style: TextStyle(
                     color: isCurrentUser
-                        ? BleyaTheme.background
+                        ? CupertinoColors.white
                         : BleyaTheme.foreground87,
                   ),
                 ),
@@ -99,7 +99,7 @@ class MessageBubble extends StatelessWidget {
                           CupertinoIcons.chat_bubble_text,
                           size: 14,
                           color: isCurrentUser
-                              ? BleyaTheme.background
+                              ? CupertinoColors.white
                               : BleyaTheme.foreground54,
                         ),
                         const SizedBox(width: 4),
@@ -108,7 +108,7 @@ class MessageBubble extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 12,
                             color: isCurrentUser
-                                ? BleyaTheme.background
+                                ? CupertinoColors.white
                                 : BleyaTheme.foreground54,
                             fontWeight: FontWeight.w500,
                           ),

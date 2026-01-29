@@ -1,14 +1,14 @@
-import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:image_picker/image_picker.dart';
+import '../constants/theme.dart';
+import '../widgets/liquid_glass_background.dart';
+import '../widgets/profile_avatar.dart';
+import '../widgets/settings_menu_item.dart';
 import '../providers/auth_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
-import '../constants/theme.dart';
-import '../widgets/profile_avatar.dart';
-import '../widgets/primary_button.dart';
+import 'edit_profile_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -16,14 +16,10 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  final _usernameController = TextEditingController();
-  final _bioController = TextEditingController();
-  final _formKey = GlobalKey<FormState>();
-
-  bool _isLoading = false;
   bool _isLoadingProfile = true;
+  String? _username;
+  String? _bio;
   String? _profileImageUrl;
-  File? _selectedImage;
 
   @override
   void initState() {
@@ -38,8 +34,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final profile = await getProfileUseCase();
 
       setState(() {
-        _usernameController.text = profile['username'] ?? '';
-        _bioController.text = profile['bio'] ?? '';
+        _username = profile['username'];
+        _bio = profile['bio'];
         _profileImageUrl = profile['profileImageUrl'];
         _isLoadingProfile = false;
       });
@@ -59,115 +55,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  Future<void> _pickImage() async {
-    try {
-      final ImagePicker picker = ImagePicker();
-      final XFile? image = await picker.pickImage(
-        source: ImageSource.gallery,
-        maxWidth: 1024,
-        maxHeight: 1024,
-        imageQuality: 85,
-      );
-
-      if (image != null) {
-        setState(() {
-          _selectedImage = File(image.path);
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        // Image picker errors are usually not AppErrors, so show generic message
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Couldn't pick that image. Try another one?")),
-        );
-      }
-    }
-  }
-
-  String? _getImageUrl() {
-    if (_selectedImage != null) {
-      return _selectedImage!.path;
-    }
-    if (_profileImageUrl != null &&
-        _profileImageUrl!.isNotEmpty &&
-        _profileImageUrl!.startsWith('https://')) {
-      return _profileImageUrl;
-    }
-    return null;
-  }
-
-  Future<void> _saveProfile() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final uploadImageUseCase = ref.read(uploadProfileImageUseCaseProvider);
-      final updateProfileUseCase = ref.read(updateProfileUseCaseProvider);
-
-      // Upload image first if selected
-      if (_selectedImage != null) {
-        await uploadImageUseCase(_selectedImage!);
-      }
-
-      // Update profile
-      await updateProfileUseCase(
-        username: _usernameController.text.trim(),
-        bio: _bioController.text.trim(),
-      );
-
-      // Reload profile to get updated data
-      await _loadProfile();
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
-        );
-        setState(() => _selectedImage = null);
-      }
-    } catch (e) {
-      if (mounted) {
-        String errorMessage;
-        if (e is AppError) {
-          errorMessage = e.getUserMessage();
-        } else {
-          errorMessage = "Couldn't update your profile. Try again?";
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  void dispose() {
-    _usernameController.dispose();
-    _bioController.dispose();
-    super.dispose();
-  }
-
   Future<void> _handleLogout() async {
-    final shouldLogout = await showDialog<bool>(
+    final shouldLogout = await showCupertinoDialog<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Are you sure you want to logout?'),
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Log out'),
+        content: const Text('Are you sure you want to log out?'),
         actions: [
-          TextButton(
+          CupertinoDialogAction(
             onPressed: () => Navigator.of(context).pop(false),
             child: const Text('Cancel'),
           ),
-          TextButton(
+          CupertinoDialogAction(
+            isDestructiveAction: true,
             onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Logout'),
+            child: const Text('Log out'),
           ),
         ],
       ),
@@ -179,135 +81,206 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    if (_isLoadingProfile) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Settings'),
-          automaticallyImplyLeading: false,
-        ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
-    }
+  Future<void> _navigateToEditProfile() async {
+    await Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => EditProfilePage(),
+      ),
+    );
+    // Reload profile when coming back
+    _loadProfile();
+  }
 
-    return Scaffold(
-      backgroundColor: BleyaTheme.background,
-      appBar: AppBar(
-        title: const Text('Settings'),
-        automaticallyImplyLeading: false,
+  void _showComingSoon(String feature) {
+    showCupertinoDialog(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text(feature),
+        content: const Text('Coming soon!'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: _handleLogout,
-            tooltip: 'Logout',
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('OK'),
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              const SizedBox(height: 20),
-              // Profile Image
-              Center(
-                child: GestureDetector(
-                  onTap: _pickImage,
-                  child: Stack(
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final mediaQuery = MediaQuery.of(context);
+    final padding = mediaQuery.padding;
+
+    return Scaffold(
+      backgroundColor: BleyaTheme.background,
+      body: Stack(
+        children: [
+          const LiquidGlassBackground(),
+          SafeArea(
+            child: Column(
+              children: [
+                // Header
+                Padding(
+                  padding: EdgeInsets.only(
+                    left: BleyaTheme.contentPadding,
+                    right: BleyaTheme.contentPadding,
+                    top: BleyaTheme.spacingMD,
+                    bottom: BleyaTheme.spacingLG,
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Builder(
-                        builder: (context) {
-                          final imageUrl = _getImageUrl();
-
-                          // Show selected file image
-                          if (_selectedImage != null) {
-                            return Container(
-                              width: 120,
-                              height: 120,
-                              decoration: BoxDecoration(
-                                shape: BoxShape.circle,
-                                image: DecorationImage(
-                                  image: FileImage(_selectedImage!),
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
-                            );
-                          }
-
-                          // Show network image or fallback
-                          return ProfileAvatar(
-                            imageUrl: imageUrl,
-                            size: 120,
-                            backgroundColor: BleyaTheme.greyLight,
-                            fallbackIcon: CupertinoIcons.person_fill,
-                            fallbackIconColor: BleyaTheme.mutedForeground,
-                          );
-                        },
-                      ),
-                      Positioned(
-                        bottom: 0,
-                        right: 0,
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: const BoxDecoration(
-                            color: BleyaTheme.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            CupertinoIcons.camera_fill,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
+                      Text(
+                        'Settings',
+                        style: BleyaTheme.headingMedium.copyWith(fontSize: 34),
                       ),
                     ],
                   ),
                 ),
-              ),
-              const SizedBox(height: 40),
-              // Username Field
-              TextFormField(
-                controller: _usernameController,
-                decoration: const InputDecoration(
-                  labelText: 'Username',
-                  hintText: 'Enter your username',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.person),
+                // Content
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: BleyaTheme.contentPadding,
+                    ),
+                    child: Column(
+                      children: [
+                        // Profile Section
+                        GestureDetector(
+                          onTap: _navigateToEditProfile,
+                          child: Container(
+                            padding: const EdgeInsets.all(BleyaTheme.spacingLG),
+                            decoration: BoxDecoration(
+                              color: BleyaTheme.glassSurface
+                                  .withValues(alpha: BleyaTheme.glassOpacity),
+                              borderRadius: BorderRadius.circular(
+                                  BleyaTheme.radiusMedium),
+                              border: Border.all(
+                                color: BleyaTheme.border,
+                                width: 1,
+                              ),
+                              boxShadow: BleyaTheme.glassShadow,
+                            ),
+                            child: Row(
+                              children: [
+                                // Avatar
+                                _isLoadingProfile
+                                    ? Container(
+                                        width: 64,
+                                        height: 64,
+                                        decoration: BoxDecoration(
+                                          color: BleyaTheme.greyLight,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Center(
+                                          child: CupertinoActivityIndicator(),
+                                        ),
+                                      )
+                                    : ProfileAvatar(
+                                        imageUrl: _profileImageUrl,
+                                        size: 64,
+                                        backgroundColor: BleyaTheme.greyLight,
+                                        fallbackIcon:
+                                            CupertinoIcons.person_fill,
+                                        fallbackIconColor:
+                                            BleyaTheme.mutedForeground,
+                                      ),
+                                const SizedBox(width: BleyaTheme.spacingLG),
+                                // Username and bio
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _isLoadingProfile
+                                            ? 'Loading...'
+                                            : (_username ?? 'Username'),
+                                        style:
+                                            BleyaTheme.headingMedium.copyWith(
+                                          fontSize: 20,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(
+                                          height: BleyaTheme.spacingXS),
+                                      Text(
+                                        _isLoadingProfile
+                                            ? ''
+                                            : (_bio ?? 'Tap to edit profile'),
+                                        style: BleyaTheme.bodyMedium.copyWith(
+                                          fontSize: 14,
+                                          color: BleyaTheme.mutedForeground,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: BleyaTheme.spacingSM),
+                                // Chevron
+                                Icon(
+                                  CupertinoIcons.chevron_right,
+                                  size: 20,
+                                  color: BleyaTheme.mutedForeground,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: BleyaTheme.spacing2XL),
+                        // Menu Items
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.shield,
+                          iconColor: Color(0xFF3B82F6), // Blue
+                          label: 'Privacy',
+                          onTap: () => _showComingSoon('Privacy'),
+                        ),
+                        const SizedBox(height: BleyaTheme.spacingMD),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.bell,
+                          iconColor: Color(0xFFEF4444), // Red
+                          label: 'Notifications',
+                          onTap: () => _showComingSoon('Notifications'),
+                        ),
+                        const SizedBox(height: BleyaTheme.spacingMD),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.question_circle,
+                          iconColor: BleyaTheme.primary,
+                          label: 'Help',
+                          onTap: () => _showComingSoon('Help'),
+                        ),
+                        const SizedBox(height: BleyaTheme.spacingMD),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.circle,
+                          iconColor: Color(0xFFF97316), // Orange
+                          label: 'Tell a Friend',
+                          onTap: () => _showComingSoon('Tell a Friend'),
+                        ),
+                        const SizedBox(height: BleyaTheme.spacing2XL),
+                        // Log Out
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.arrow_right_square,
+                          iconColor: BleyaTheme.error,
+                          iconBackgroundColor:
+                              BleyaTheme.error.withValues(alpha: 0.1),
+                          label: 'Log Out',
+                          labelColor: BleyaTheme.error,
+                          onTap: _handleLogout,
+                          showChevron: false,
+                        ),
+                        SizedBox(
+                            height: padding.bottom + BleyaTheme.spacing2XL),
+                      ],
+                    ),
+                  ),
                 ),
-                textCapitalization: TextCapitalization.none,
-                validator: (value) {
-                  if (value == null || value.trim().isEmpty) {
-                    return 'Please enter a username';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 20),
-              // Bio Field
-              TextFormField(
-                controller: _bioController,
-                decoration: const InputDecoration(
-                  labelText: 'About Me',
-                  hintText: 'Tell us something about yourself',
-                  border: OutlineInputBorder(),
-                  prefixIcon: Icon(Icons.info),
-                ),
-                maxLines: 4,
-                textCapitalization: TextCapitalization.sentences,
-              ),
-              const SizedBox(height: 30),
-              // Save Button
-              PrimaryButton(
-                text: 'Save Profile',
-                onPressed: _saveProfile,
-                isLoading: _isLoading,
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       ),
     );
   }

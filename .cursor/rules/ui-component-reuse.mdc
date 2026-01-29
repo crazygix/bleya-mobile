@@ -31,6 +31,7 @@ The following widgets are available in `lib/widgets/`:
 - `ProfileAvatar` - User avatar with fallback
 - `EmptyState` - Empty state with icon and message
 - `ErrorState` - Error state with retry action
+- `SettingsMenuItem` - Settings menu item with icon, label, and chevron
 
 ## Process
 
