@@ -10,6 +10,9 @@ import '../constants/theme.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
+import '../widgets/primary_button.dart';
+
+enum JoinRoomStep { initial, searching, results }
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   @override
@@ -18,6 +21,7 @@ class JoinRoomDialog extends ConsumerStatefulWidget {
 
 class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   bool _isJoining = false;
+  JoinRoomStep _step = JoinRoomStep.initial;
 
   @override
   void initState() {
@@ -25,6 +29,16 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     // Refresh rooms when dialog opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(availableRoomsProvider);
+    });
+  }
+
+  void _handleShareLocation() {
+    setState(() => _step = JoinRoomStep.searching);
+
+    Future.delayed(Duration(milliseconds: 1500), () {
+      if (mounted) {
+        setState(() => _step = JoinRoomStep.results);
+      }
     });
   }
 
@@ -80,116 +94,292 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
   @override
   Widget build(BuildContext context) {
-    final roomsAsync = ref.watch(availableRoomsProvider);
-    final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
+    final mediaQuery = MediaQuery.of(context);
 
-    return Dialog(
-      child: Container(
-        width: double.maxFinite,
-        padding: const EdgeInsets.all(16),
+    return Container(
+      height: mediaQuery.size.height * 0.75,
+      decoration: BoxDecoration(
+        color: BleyaTheme.background,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
         child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'Join a Room',
-                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Flexible(
-              child: joinedRoomsAsync.when(
-                data: (joinedRooms) => roomsAsync.when(
-                  data: (rooms) {
-                    if (rooms.isEmpty) {
-                      return EmptyState(
-                        icon: CupertinoIcons.chat_bubble,
-                        title: 'No rooms available',
-                        description: 'Check back later for new rooms',
-                      );
-                    }
-
-                    // Filter out already joined rooms
-                    final availableRooms = rooms
-                        .where((room) =>
-                            !joinedRooms.any((jr) => jr.id == room.id))
-                        .toList();
-
-                    if (availableRooms.isEmpty) {
-                      final publicRoomCount =
-                          joinedRooms.where((r) => r.type == 'public').length;
-                      return EmptyState(
-                        icon: CupertinoIcons.checkmark_circle,
-                        title: 'You have joined all available rooms',
-                        description: publicRoomCount >= 5
-                            ? 'You have reached the limit of 5 group chats'
-                            : 'Check back later for new rooms',
-                      );
-                    }
-
-                    return ListView.builder(
-                      shrinkWrap: true,
-                      itemCount: availableRooms.length,
-                      itemBuilder: (context, index) {
-                        final room = availableRooms[index];
-                        final isJoiningThis = _isJoining;
-                        return ListTile(
-                          leading: ProfileAvatar(
-                            imageUrl: null,
-                            size: 40,
-                            backgroundColor: BleyaTheme.primaryLight,
-                            fallbackIcon: CupertinoIcons.person_2_fill,
-                            fallbackIconColor: BleyaTheme.primaryDark,
-                          ),
-                          title: Text(room.name),
-                          trailing: isJoiningThis
-                              ? const SizedBox(
-                                  width: 20,
-                                  height: 20,
-                                  child:
-                                      CircularProgressIndicator(strokeWidth: 2),
-                                )
-                              : null,
-                          onTap: isJoiningThis ? null : () => _joinRoom(room),
-                        );
-                      },
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (error, stack) {
-                    if (kDebugMode) {
-                      print('Error fetching rooms: $error');
-                      print('Stack: $stack');
-                    }
-                    return Padding(
-                      padding: const EdgeInsets.all(16.0),
-                      child: ErrorState(
-                        title: 'Error loading rooms',
-                        description: error.toString(),
-                        onRetry: () {
-                          ref.invalidate(availableRoomsProvider);
-                        },
+            // Header
+            Padding(
+              padding: EdgeInsets.all(BleyaTheme.contentPadding),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Join a room',
+                    style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
+                  ),
+                  GestureDetector(
+                    onTap: () => Navigator.pop(context),
+                    child: Container(
+                      width: 32,
+                      height: 32,
+                      decoration: BoxDecoration(
+                        color: BleyaTheme.glassSurface
+                            .withValues(alpha: BleyaTheme.glassOpacity),
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: BleyaTheme.border,
+                          width: 1,
+                        ),
                       ),
-                    );
-                  },
-                ),
-                loading: () => const Center(child: CircularProgressIndicator()),
-                error: (error, stack) =>
-                    const Center(child: Text('Error loading joined rooms')),
+                      child: Icon(
+                        CupertinoIcons.xmark,
+                        size: 16,
+                        color: BleyaTheme.mutedForeground,
+                      ),
+                    ),
+                  ),
+                ],
               ),
+            ),
+            Divider(height: 1, color: BleyaTheme.border),
+            // Content
+            Expanded(
+              child: _buildStepContent(),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildStepContent() {
+    switch (_step) {
+      case JoinRoomStep.initial:
+        return _buildInitialStep();
+      case JoinRoomStep.searching:
+        return _buildSearchingStep();
+      case JoinRoomStep.results:
+        return _buildResultsStep();
+    }
+  }
+
+  Widget _buildInitialStep() {
+    return Padding(
+      padding: EdgeInsets.all(BleyaTheme.contentPadding),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 120,
+            height: 120,
+            decoration: BoxDecoration(
+              color: BleyaTheme.primaryLight,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              CupertinoIcons.location_fill,
+              size: 56,
+              color: BleyaTheme.primary,
+            ),
+          ),
+          SizedBox(height: BleyaTheme.spacing2XL),
+          Text(
+            'Discovery mode',
+            style: BleyaTheme.headingMedium.copyWith(fontSize: 28),
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: BleyaTheme.spacingMD),
+          Text(
+            'Share your location to find active chat rooms in your current city.',
+            style: BleyaTheme.bodyLarge,
+            textAlign: TextAlign.center,
+          ),
+          SizedBox(height: BleyaTheme.spacing3XL),
+          PrimaryButton(
+            text: 'Share location',
+            onPressed: _handleShareLocation,
+            trailingIcon: Icon(
+              CupertinoIcons.location_fill,
+              color: Colors.white,
+              size: 20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchingStep() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          CupertinoActivityIndicator(radius: 20),
+          SizedBox(height: BleyaTheme.spacing2XL),
+          Text(
+            'Scanning for nearby rooms...',
+            style: BleyaTheme.bodyLarge,
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsStep() {
+    final roomsAsync = ref.watch(availableRoomsProvider);
+    final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: EdgeInsets.all(BleyaTheme.contentPadding),
+          child: Row(
+            children: [
+              Icon(
+                CupertinoIcons.location_solid,
+                size: 20,
+                color: BleyaTheme.primary,
+              ),
+              SizedBox(width: BleyaTheme.spacingSM),
+              Text(
+                'Nearby you',
+                style: BleyaTheme.headingMedium.copyWith(fontSize: 20),
+              ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: joinedRoomsAsync.when(
+            data: (joinedRooms) => roomsAsync.when(
+              data: (rooms) {
+                if (rooms.isEmpty) {
+                  return EmptyState(
+                    icon: CupertinoIcons.chat_bubble,
+                    title: 'No rooms available',
+                    description: 'Check back later for new rooms',
+                  );
+                }
+
+                // Filter out already joined rooms
+                final availableRooms = rooms
+                    .where((room) => !joinedRooms.any((jr) => jr.id == room.id))
+                    .toList();
+
+                if (availableRooms.isEmpty) {
+                  final publicRoomCount =
+                      joinedRooms.where((r) => r.type == 'public').length;
+                  return EmptyState(
+                    icon: CupertinoIcons.checkmark_circle,
+                    title: 'You joined all available rooms',
+                    description: publicRoomCount >= 5
+                        ? 'You reached the limit of 5 group chats'
+                        : 'Check back later for new rooms',
+                  );
+                }
+
+                return ListView.builder(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: BleyaTheme.contentPadding,
+                  ),
+                  itemCount: availableRooms.length,
+                  itemBuilder: (context, index) {
+                    final room = availableRooms[index];
+                    final isJoiningThis = _isJoining;
+
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: BleyaTheme.spacingMD),
+                      child: GestureDetector(
+                        onTap: isJoiningThis ? null : () => _joinRoom(room),
+                        child: Container(
+                          padding: EdgeInsets.all(BleyaTheme.spacingLG),
+                          decoration: BoxDecoration(
+                            color:
+                                BleyaTheme.glassSurface.withValues(alpha: 0.6),
+                            borderRadius:
+                                BorderRadius.circular(BleyaTheme.radiusMedium),
+                            border: Border.all(
+                              color: BleyaTheme.border,
+                              width: 1,
+                            ),
+                            boxShadow: BleyaTheme.glassShadow,
+                          ),
+                          child: Row(
+                            children: [
+                              ProfileAvatar(
+                                imageUrl: null,
+                                size: 48,
+                                backgroundColor: BleyaTheme.primaryLight,
+                                fallbackIcon: CupertinoIcons.person_2_fill,
+                                fallbackIconColor: BleyaTheme.primaryDark,
+                              ),
+                              SizedBox(width: BleyaTheme.spacingLG),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      room.name,
+                                      style: BleyaTheme.headingMedium.copyWith(
+                                        fontSize: 17,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    SizedBox(height: BleyaTheme.spacingXS),
+                                    Text(
+                                      '128 active travelers',
+                                      style: BleyaTheme.bodyMedium.copyWith(
+                                        fontSize: 14,
+                                        color: BleyaTheme.mutedForeground,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              if (isJoiningThis)
+                                SizedBox(
+                                  width: 20,
+                                  height: 20,
+                                  child: CupertinoActivityIndicator(),
+                                )
+                              else
+                                Icon(
+                                  CupertinoIcons.chevron_right,
+                                  size: 20,
+                                  color: BleyaTheme.mutedForeground,
+                                ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+              loading: () => Center(child: CupertinoActivityIndicator()),
+              error: (error, stack) {
+                if (kDebugMode) {
+                  print('Error fetching rooms: $error');
+                  print('Stack: $stack');
+                }
+                return Padding(
+                  padding: EdgeInsets.all(BleyaTheme.contentPadding),
+                  child: ErrorState(
+                    title: 'Error loading rooms',
+                    description: error.toString(),
+                    onRetry: () {
+                      ref.invalidate(availableRoomsProvider);
+                    },
+                  ),
+                );
+              },
+            ),
+            loading: () => Center(child: CupertinoActivityIndicator()),
+            error: (error, stack) => Center(
+              child: Text('Error loading joined rooms'),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

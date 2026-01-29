@@ -4,7 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'pages/initial_page.dart';
-import 'pages/home_page.dart';
+import 'pages/dashboard_page.dart';
 import 'pages/username_page.dart';
 import 'config/environment.dart';
 import 'providers/auth_providers.dart';
@@ -58,7 +58,7 @@ class MyApp extends ConsumerWidget {
       },
       routes: {
         '/': (context) => InitialPage(),
-        '/home': (context) => HomePage(),
+        '/home': (context) => DashboardPage(),
       },
       onGenerateRoute: (settings) {
         // Handle username page route if needed
