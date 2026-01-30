@@ -1,13 +1,14 @@
 import 'dart:io';
+import '../entities/user_profile.dart';
 
 /// Domain repository interface for user operations
 /// Use cases depend on this interface, not concrete implementations
 abstract class UserRepository {
-  Future<Map<String, dynamic>> getProfile();
-  Future<Map<String, dynamic>> updateProfile({
+  Future<UserProfile> getProfile();
+  Future<UserProfile> updateProfile({
     String? username,
     String? bio,
   });
-  Future<Map<String, dynamic>> uploadProfileImage(File imageFile);
-  Future<Map<String, dynamic>> getUserById(String userId);
+  Future<UserProfile> uploadProfileImage(File imageFile);
+  Future<UserProfile> getUserById(String userId);
 }
