@@ -34,9 +34,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final profile = await getProfileUseCase();
 
       setState(() {
-        _username = profile['username'];
-        _bio = profile['bio'];
-        _profileImageUrl = profile['profileImageUrl'];
+        _username = profile.username;
+        _bio = profile.bio;
+        _profileImageUrl = profile.profileImageUrl;
         _isLoadingProfile = false;
       });
     } catch (e) {

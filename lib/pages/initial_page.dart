@@ -44,8 +44,7 @@ class _InitialPageState extends ConsumerState<InitialPage> {
       try {
         final getProfileUseCase = ref.read(getProfileUseCaseProvider);
         final profile = await getProfileUseCase();
-        final username = profile['username'] as String?;
-        final hasUsername = username != null && username.trim().isNotEmpty;
+        final hasUsername = profile.username != null && profile.username!.trim().isNotEmpty;
 
         if (!mounted) return;
 

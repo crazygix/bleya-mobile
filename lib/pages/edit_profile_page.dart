@@ -38,9 +38,9 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       final profile = await getProfileUseCase();
 
       setState(() {
-        _usernameController.text = profile['username'] ?? '';
-        _bioController.text = profile['bio'] ?? '';
-        _profileImageUrl = profile['profileImageUrl'];
+        _usernameController.text = profile.username ?? '';
+        _bioController.text = profile.bio ?? '';
+        _profileImageUrl = profile.profileImageUrl;
         _isLoadingProfile = false;
       });
     } catch (e) {

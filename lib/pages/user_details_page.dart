@@ -8,6 +8,7 @@ import '../utils/app_errors.dart';
 import '../constants/theme.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/primary_button.dart';
+import '../domain/entities/user_profile.dart';
 import 'chat_room_page.dart';
 
 class UserDetailsPage extends ConsumerStatefulWidget {
@@ -25,12 +26,14 @@ class UserDetailsPage extends ConsumerStatefulWidget {
 class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
   bool _isLoading = true;
   bool _isCreatingChat = false;
-  Map<String, dynamic>? _userData;
+  UserProfile? _userData;
 
   @override
   void initState() {
     super.initState();
-    _loadUserData();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _loadUserData();
+    });
   }
 
   Future<void> _loadUserData() async {
@@ -39,13 +42,15 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
       final getUserByIdUseCase = ref.read(getUserByIdUseCaseProvider);
       final user = await getUserByIdUseCase(widget.userId);
 
-      setState(() {
-        _userData = user;
-        _isLoading = false;
-      });
-    } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() {
+          _userData = user;
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
         String errorMessage;
         if (e is AppError) {
           errorMessage = e.getUserMessage();
@@ -114,7 +119,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                       const SizedBox(height: 20),
                       // Profile Image
                       ProfileAvatar(
-                        imageUrl: _userData!['profileImageUrl']?.toString(),
+                        imageUrl: _userData!.profileImageUrl,
                         size: 120,
                         backgroundColor: BleyaTheme.greyLight,
                         fallbackIcon: CupertinoIcons.person_fill,
@@ -123,8 +128,8 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                       const SizedBox(height: 24),
                       // Username
                       Text(
-                        (_userData!['username']?.toString() ?? '').isNotEmpty
-                            ? _userData!['username']
+                        _userData!.username?.isNotEmpty == true
+                            ? _userData!.username!
                             : 'No username',
                         style:
                             Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -146,8 +151,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                         ),
                       const SizedBox(height: 32),
                       // Bio Section
-                      if (_userData!['bio'] != null &&
-                          _userData!['bio'].toString().isNotEmpty) ...[
+                      if (_userData!.bio?.isNotEmpty == true) ...[
                         Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(16),
@@ -169,7 +173,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                _userData!['bio'],
+                                _userData!.bio!,
                                 style: Theme.of(context).textTheme.bodyMedium,
                               ),
                             ],
@@ -198,18 +202,18 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                   ),
                             ),
                             const SizedBox(height: 12),
-                            if (_userData!['createdAt'] != null)
+                            if (_userData!.createdAt != null)
                               _buildInfoRow(
                                 context,
                                 'Member since',
-                                _formatDate(_userData!['createdAt']),
+                                _formatDate(_userData!.createdAt),
                               ),
-                            if (_userData!['lastLogin'] != null) ...[
+                            if (_userData!.lastLogin != null) ...[
                               const SizedBox(height: 8),
                               _buildInfoRow(
                                 context,
                                 'Last login',
-                                _formatDate(_userData!['lastLogin']),
+                                _formatDate(_userData!.lastLogin),
                               ),
                             ],
                           ],
@@ -241,17 +245,8 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     );
   }
 
-  String _formatDate(dynamic date) {
+  String _formatDate(DateTime? date) {
     if (date == null) return 'N/A';
-    try {
-      final dateTime = date is int
-          ? DateTime.fromMillisecondsSinceEpoch(date)
-          : (date is String
-              ? DateTime.fromMillisecondsSinceEpoch(int.parse(date))
-              : date as DateTime);
-      return '${dateTime.day}/${dateTime.month}/${dateTime.year}';
-    } catch (e) {
-      return 'N/A';
-    }
+    return '${date.day}/${date.month}/${date.year}';
   }
 }
