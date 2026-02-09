@@ -3,15 +3,16 @@ import '../constants/theme.dart';
 
 /// Message Bubble Component
 ///
-/// A reusable message bubble component for chat interfaces.
+/// A refined message bubble component for chat interfaces following
+/// the ChatFlow_v2 design system.
 ///
 /// Features:
-/// - Different colors for current user vs others
+/// - Refined colors and styling for current user vs others
 /// - Optional username display with tap action
-/// - Optional reply count badge
+/// - Optional reply count badge with icon
 /// - Optional tap action for the whole bubble
 /// - Max width of 75% of screen
-/// - Uses design system colors and typography
+/// - Improved visual hierarchy and spacing
 class MessageBubble extends StatelessWidget {
   final String messageText;
   final bool isCurrentUser;
@@ -19,6 +20,7 @@ class MessageBubble extends StatelessWidget {
   final int replyCount;
   final VoidCallback? onTap;
   final VoidCallback? onUsernameTap;
+  final String? profileImageUrl;
 
   const MessageBubble({
     super.key,
@@ -28,99 +30,135 @@ class MessageBubble extends StatelessWidget {
     this.replyCount = 0,
     this.onTap,
     this.onUsernameTap,
+    this.profileImageUrl,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Align(
-        alignment: isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Container(
-            constraints: BoxConstraints(
-              maxWidth: MediaQuery.of(context).size.width * 0.75,
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        mainAxisAlignment:
+            isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          if (!isCurrentUser) ...[
+            Container(
+              width: 28,
+              height: 28,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: BleyaTheme.greyLight,
+              ),
+              child: Icon(
+                CupertinoIcons.person_fill,
+                size: 16,
+                color: BleyaTheme.mutedForeground,
+              ),
             ),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: isCurrentUser
-                  ? BleyaTheme.primaryDark
-                  : BleyaTheme.greyMedium,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Username (for other users only)
-                if (!isCurrentUser && username != null && username!.isNotEmpty)
-                  GestureDetector(
-                    onTap: onUsernameTap,
-                    behavior: HitTestBehavior.opaque,
-                    child: Text(
-                      username!,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: BleyaTheme.primaryDark,
-                        fontWeight: FontWeight.bold,
-                        decoration: TextDecoration.underline,
-                      ),
-                    ),
-                  ),
-                if (!isCurrentUser && username != null && username!.isNotEmpty)
-                  const SizedBox(height: 4),
-                // Message text
-                Text(
-                  messageText,
-                  style: TextStyle(
-                    color: isCurrentUser
-                        ? CupertinoColors.white
-                        : BleyaTheme.foreground87,
-                  ),
+            const SizedBox(width: 8),
+          ],
+          GestureDetector(
+            onTap: onTap,
+            child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.65,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color:
+                    isCurrentUser ? BleyaTheme.primary : BleyaTheme.greyLight,
+                borderRadius: BorderRadius.only(
+                  topLeft: Radius.circular(18),
+                  topRight: Radius.circular(18),
+                  bottomLeft: Radius.circular(isCurrentUser ? 18 : 4),
+                  bottomRight: Radius.circular(isCurrentUser ? 4 : 18),
                 ),
-                // Reply count badge
-                if (replyCount > 0) ...[
-                  const SizedBox(height: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isCurrentUser
-                          ? BleyaTheme.primaryDark
-                          : BleyaTheme.greyBorder,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          CupertinoIcons.chat_bubble_text,
-                          size: 14,
-                          color: isCurrentUser
-                              ? CupertinoColors.white
-                              : BleyaTheme.foreground54,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '$replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isCurrentUser
-                                ? CupertinoColors.white
-                                : BleyaTheme.foreground54,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
+                boxShadow: [
+                  BoxShadow(
+                    color: CupertinoColors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: Offset(0, 1),
                   ),
                 ],
-              ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (!isCurrentUser &&
+                      username != null &&
+                      username!.isNotEmpty)
+                    GestureDetector(
+                      onTap: onUsernameTap,
+                      behavior: HitTestBehavior.opaque,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 4),
+                        child: Text(
+                          username!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: BleyaTheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ),
+                  Text(
+                    messageText,
+                    style: TextStyle(
+                      fontSize: 16,
+                      color: isCurrentUser
+                          ? CupertinoColors.white
+                          : BleyaTheme.foreground,
+                      height: 1.4,
+                    ),
+                  ),
+                  if (replyCount > 0) ...[
+                    const SizedBox(height: 6),
+                    GestureDetector(
+                      onTap: onTap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isCurrentUser
+                              ? CupertinoColors.white.withValues(alpha: 0.2)
+                              : BleyaTheme.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              CupertinoIcons.chat_bubble_text_fill,
+                              size: 12,
+                              color: isCurrentUser
+                                  ? CupertinoColors.white
+                                  : BleyaTheme.primary,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              '$replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: isCurrentUser
+                                    ? CupertinoColors.white
+                                    : BleyaTheme.primary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }

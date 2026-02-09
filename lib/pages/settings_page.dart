@@ -29,10 +29,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _loadProfile() async {
     try {
+      if (!mounted) return;
       setState(() => _isLoadingProfile = true);
+      
       final getProfileUseCase = ref.read(getProfileUseCaseProvider);
       final profile = await getProfileUseCase();
 
+      if (!mounted) return;
       setState(() {
         _username = profile.username;
         _bio = profile.bio;
@@ -40,7 +43,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         _isLoadingProfile = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoadingProfile = false);
+      
       if (mounted) {
         String errorMessage;
         if (e is AppError) {

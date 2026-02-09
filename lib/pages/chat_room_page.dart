@@ -1,10 +1,14 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
+import '../constants/theme.dart';
 import '../widgets/message_bubble.dart';
 import '../widgets/message_input_field.dart';
+import '../widgets/glass_header.dart';
+import '../widgets/liquid_glass_background.dart';
 import 'user_details_page.dart';
 import 'room_details_page.dart';
 import 'thread_view_page.dart';
@@ -93,86 +97,176 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(widget.room.name),
-        actions: [
-          if (widget.room.isPrivate && widget.room.otherUserId != null)
-            IconButton(
-              icon: const Icon(Icons.person),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => UserDetailsPage(
-                      userId: widget.room.otherUserId!,
-                    ),
-                  ),
-                );
-              },
-              tooltip: 'View profile',
-            )
-          else
-            IconButton(
-              icon: const Icon(Icons.info_outline),
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    builder: (context) => RoomDetailsPage(
-                      roomId: widget.room.id,
-                      roomName: widget.room.name,
-                    ),
-                  ),
-                );
-              },
-            ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Expanded(
-            child: messages.isEmpty
-                ? Center(child: Text('No messages yet'))
-                : ListView.builder(
-                    controller: _scrollController,
-                    padding: const EdgeInsets.all(16),
-                    itemCount: messages.length,
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final isCurrentUser = currentUserId != null &&
-                          message.userId == currentUserId;
+    final subtitle = widget.room.isPrivate
+        ? null
+        : '${widget.room.participants.length} Members Online';
 
-                      return MessageBubble(
-                        messageText: message.text,
-                        isCurrentUser: isCurrentUser,
-                        username: message.username,
-                        replyCount: message.replyCount,
-                        onTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => ThreadViewPage(
-                                parentMessage: message,
-                                room: widget.room,
-                              ),
-                            ),
-                          );
-                        },
-                        onUsernameTap: () {
-                          Navigator.of(context).push(
-                            MaterialPageRoute(
-                              builder: (context) => UserDetailsPage(
-                                userId: message.userId,
-                              ),
-                            ),
-                          );
-                        },
-                      );
-                    },
+    return Scaffold(
+      backgroundColor: BleyaTheme.background,
+      extendBodyBehindAppBar: true,
+      body: Stack(
+        children: [
+          const LiquidGlassBackground(),
+          Column(
+            children: [
+              GlassHeader(
+                leftAction: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        CupertinoIcons.chevron_left,
+                        size: 28,
+                        color: BleyaTheme.primary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Chats',
+                        style: TextStyle(
+                          fontSize: 17,
+                          color: BleyaTheme.primary,
+                        ),
+                      ),
+                    ],
                   ),
-          ),
-          MessageInputField(
-            controller: _messageController,
-            hintText: 'Type a message...',
-            onSend: _sendMessage,
+                ),
+                title: widget.room.name,
+                subtitle: subtitle,
+                rightAction: GestureDetector(
+                  onTap: () {
+                    if (widget.room.isPrivate &&
+                        widget.room.otherUserId != null) {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => UserDetailsPage(
+                            userId: widget.room.otherUserId!,
+                          ),
+                        ),
+                      );
+                    } else {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => RoomDetailsPage(
+                            roomId: widget.room.id,
+                            roomName: widget.room.name,
+                          ),
+                        ),
+                      );
+                    }
+                  },
+                  child: Container(
+                    width: 36,
+                    height: 36,
+                    decoration: BoxDecoration(
+                      color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: BleyaTheme.border.withValues(alpha: 0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: Icon(
+                      CupertinoIcons.info,
+                      size: 20,
+                      color: BleyaTheme.foreground,
+                    ),
+                  ),
+                ),
+              ),
+              Expanded(
+                child: messages.isEmpty
+                    ? Center(
+                        child: Text(
+                          'No messages yet',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: BleyaTheme.mutedForeground,
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: EdgeInsets.only(
+                          left: 16,
+                          right: 16,
+                          top: 16,
+                          bottom: 16,
+                        ),
+                        itemCount: messages.length + 1,
+                        itemBuilder: (context, index) {
+                          if (index == 0) {
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 16),
+                              child: Center(
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: BleyaTheme.glassSurface
+                                        .withValues(alpha: 0.7),
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: BleyaTheme.border
+                                          .withValues(alpha: 0.2),
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    'Today',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: BleyaTheme.mutedForeground,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }
+
+                          final message = messages[index - 1];
+                          final isCurrentUser = currentUserId != null &&
+                              message.userId == currentUserId;
+
+                          return MessageBubble(
+                            messageText: message.text,
+                            isCurrentUser: isCurrentUser,
+                            username: message.username,
+                            replyCount: message.replyCount,
+                            onTap: message.replyCount > 0
+                                ? () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => ThreadViewPage(
+                                          parentMessage: message,
+                                          room: widget.room,
+                                        ),
+                                      ),
+                                    );
+                                  }
+                                : null,
+                            onUsernameTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => UserDetailsPage(
+                                    userId: message.userId,
+                                  ),
+                                ),
+                              );
+                            },
+                          );
+                        },
+                      ),
+              ),
+              MessageInputField(
+                controller: _messageController,
+                hintText: 'Type a message...',
+                onSend: _sendMessage,
+              ),
+            ],
           ),
         ],
       ),
