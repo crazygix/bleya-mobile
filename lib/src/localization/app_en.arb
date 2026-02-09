@@ -1,7 +1,0 @@
-{
-  "@@locale": "en",
-  "appTitle": "Bleya",
-  "@appTitle": {
-    "description": "The application title"
-  }
-}

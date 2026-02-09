@@ -386,6 +386,15 @@ class BleyaTheme {
         fontFamily: '.SF Pro Text', // SF Pro on iOS
       );
 
+  // List item title style (for chat/room names in lists)
+  static TextStyle get listTitle => TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: foreground,
+        letterSpacing: -0.2,
+        fontFamily: '.SF Pro Text', // SF Pro on iOS
+      );
+
   // Button text style (SF Pro - HIG compliant)
   static TextStyle get buttonText => TextStyle(
         fontSize: 18,

@@ -6,7 +6,9 @@ import '../widgets/liquid_glass_background.dart';
 import '../widgets/room_card.dart';
 import '../widgets/empty_state.dart';
 import '../providers/chat_providers.dart';
+import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
+import '../utils/time_formatter.dart';
 import 'chat_room_page.dart';
 import 'settings_page.dart';
 import 'join_room_dialog.dart';
@@ -245,6 +247,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
   Widget _buildChatTab() {
     final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    final currentUserId = currentUser?['id'] as String?;
 
     return joinedRoomsAsync.when(
       data: (rooms) {
@@ -268,12 +272,29 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           itemCount: rooms.length,
           itemBuilder: (context, index) {
             final room = rooms[index];
+            final isPrivate = room.isPrivate;
+            final hasLastMessage = room.lastMessageText != null;
+
+            String subtitle;
+            if (hasLastMessage) {
+              String prefix = '';
+              if (!isPrivate && room.lastMessageUserId != null) {
+                final isCurrentUser = room.lastMessageUserId == currentUserId;
+                prefix = isCurrentUser ? 'You: ' : '${room.lastMessageUsername ?? 'Unknown'}: ';
+              }
+              subtitle = '$prefix${room.lastMessageText}';
+            } else {
+              subtitle = isPrivate ? 'Private chat' : 'Tap to join the conversation';
+            }
+
+            final time = room.lastMessageTime != null
+                ? formatRelativeTime(room.lastMessageTime!)
+                : 'Now';
+
             return RoomCard(
               room: room,
-              subtitle: room.isPrivate
-                  ? 'Private chat'
-                  : 'Tap to join the conversation',
-              time: 'Now',
+              subtitle: subtitle,
+              time: time,
               unreadCount: 0,
               onTap: () {
                 Navigator.of(context).push(

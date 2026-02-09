@@ -69,62 +69,67 @@ class RoomCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      room.name,
-                      style: BleyaTheme.headingMedium.copyWith(
-                        fontSize: 17,
-                        fontWeight: FontWeight.w700,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            room.name,
+                            style: BleyaTheme.listTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: BleyaTheme.spacingSM),
+                        Text(
+                          time,
+                          style: BleyaTheme.bodySmall.copyWith(
+                            fontSize: 12,
+                            color: BleyaTheme.mutedForeground,
+                          ),
+                        ),
+                      ],
                     ),
                     SizedBox(height: BleyaTheme.spacingXS),
-                    Text(
-                      subtitle,
-                      style: BleyaTheme.bodyMedium.copyWith(
-                        fontSize: 14,
-                        color: BleyaTheme.mutedForeground,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            subtitle,
+                            style: BleyaTheme.bodyMedium.copyWith(
+                              fontSize: 14,
+                              color: BleyaTheme.mutedForeground,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        if (unreadCount > 0) ...[
+                          SizedBox(width: BleyaTheme.spacingSM),
+                          Container(
+                            padding: EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: BleyaTheme.primary,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              '$unreadCount',
+                              style: BleyaTheme.bodySmall.copyWith(
+                                color: CupertinoColors.white,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),
-              ),
-              SizedBox(width: BleyaTheme.spacingSM),
-              // Right info (time + unread badge)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    time,
-                    style: BleyaTheme.bodySmall.copyWith(
-                      fontSize: 12,
-                      color: BleyaTheme.mutedForeground,
-                    ),
-                  ),
-                  if (unreadCount > 0) ...[
-                    SizedBox(height: BleyaTheme.spacingXS),
-                    Container(
-                      padding: EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: BleyaTheme.primary,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        '$unreadCount',
-                        style: BleyaTheme.bodySmall.copyWith(
-                          color: CupertinoColors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
               ),
             ],
           ),
