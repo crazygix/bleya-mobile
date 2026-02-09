@@ -63,10 +63,23 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ),
                     child: Row(
                       children: [
-                        Text(
-                          'Bleya.',
-                          style:
-                              BleyaTheme.headingMedium.copyWith(fontSize: 34),
+                        RichText(
+                          text: TextSpan(
+                            children: [
+                              TextSpan(
+                                text: 'Bleya',
+                                style: BleyaTheme.headingMedium
+                                    .copyWith(fontSize: 34),
+                              ),
+                              TextSpan(
+                                text: '.',
+                                style: BleyaTheme.headingMedium.copyWith(
+                                  fontSize: 34,
+                                  color: BleyaTheme.accent,
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
                         Spacer(),
                         GestureDetector(

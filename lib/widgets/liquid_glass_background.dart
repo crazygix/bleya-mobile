@@ -54,6 +54,23 @@ class LiquidGlassBackground extends StatelessWidget {
             ),
           ),
         ),
+        // Center-right orb (Orange/Accent - Soft Sand)
+        Positioned(
+          top: 200,
+          right: -80,
+          child: Container(
+            width: 450,
+            height: 450,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: BleyaTheme.accent.withValues(alpha: 0.08),
+            ),
+            child: BackdropFilter(
+              filter: ImageFilter.blur(sigmaX: 110, sigmaY: 110),
+              child: Container(color: Colors.transparent),
+            ),
+          ),
+        ),
       ],
     );
   }

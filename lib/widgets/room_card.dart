@@ -33,17 +33,16 @@ class RoomCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: EdgeInsets.only(bottom: BleyaTheme.spacingMD),
+      padding: EdgeInsets.only(bottom: BleyaTheme.spacingSM),
       child: GestureDetector(
         onTap: onTap,
         child: Container(
-          padding: EdgeInsets.all(BleyaTheme.spacingLG),
+          padding: EdgeInsets.all(BleyaTheme.radiusSmall),
           decoration: BoxDecoration(
-            color: BleyaTheme.glassSurface
-                .withValues(alpha: BleyaTheme.glassOpacity),
-            borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
+            color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
             border: Border.all(
-              color: BleyaTheme.border,
+              color: BleyaTheme.border.withValues(alpha: 0.3),
               width: 1,
             ),
             boxShadow: BleyaTheme.glassShadow,
@@ -53,7 +52,7 @@ class RoomCard extends StatelessWidget {
               // Avatar
               ProfileAvatar(
                 imageUrl: null,
-                size: 56,
+                size: 48,
                 backgroundColor: room.isPrivate
                     ? BleyaTheme.privateRoomLight
                     : BleyaTheme.primaryLight,
@@ -64,7 +63,7 @@ class RoomCard extends StatelessWidget {
                     ? BleyaTheme.privateRoomDark
                     : BleyaTheme.primaryDark,
               ),
-              SizedBox(width: BleyaTheme.spacingLG),
+              SizedBox(width: BleyaTheme.spacingMD),
               // Content
               Expanded(
                 child: Column(
@@ -100,13 +99,12 @@ class RoomCard extends StatelessWidget {
                   Text(
                     time,
                     style: BleyaTheme.bodySmall.copyWith(
-                      color: unreadCount > 0
-                          ? BleyaTheme.primary
-                          : BleyaTheme.mutedForeground.withValues(alpha: 0.4),
+                      fontSize: 12,
+                      color: BleyaTheme.mutedForeground,
                     ),
                   ),
-                  SizedBox(height: BleyaTheme.spacingXS),
-                  if (unreadCount > 0)
+                  if (unreadCount > 0) ...[
+                    SizedBox(height: BleyaTheme.spacingXS),
                     Container(
                       padding: EdgeInsets.symmetric(
                         horizontal: 8,
@@ -124,13 +122,8 @@ class RoomCard extends StatelessWidget {
                           fontSize: 12,
                         ),
                       ),
-                    )
-                  else
-                    Icon(
-                      CupertinoIcons.chevron_right,
-                      size: 16,
-                      color: BleyaTheme.mutedForeground.withValues(alpha: 0.3),
                     ),
+                  ],
                 ],
               ),
             ],
