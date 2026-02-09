@@ -2,10 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
+import '../providers/auth_providers.dart';
 import '../constants/theme.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import '../widgets/profile_avatar.dart';
+import '../utils/time_formatter.dart';
 import 'chat_room_page.dart';
 
 class ChatsPage extends ConsumerWidget {
@@ -19,6 +21,8 @@ class ChatsPage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
+    final currentUser = ref.watch(currentUserProvider);
+    final currentUserId = currentUser?['id'] as String?;
 
     return joinedRoomsAsync.when(
       data: (joinedRooms) {
@@ -45,6 +49,19 @@ class ChatsPage extends ConsumerWidget {
             itemBuilder: (context, index) {
               final room = joinedRooms[index];
               final isPrivate = room.isPrivate;
+              final hasLastMessage = room.lastMessageText != null;
+
+              String subtitle;
+              if (hasLastMessage) {
+                String prefix = '';
+                if (isPrivate && room.lastMessageUserId != null) {
+                  final isCurrentUser = room.lastMessageUserId == currentUserId;
+                  prefix = isCurrentUser ? 'You: ' : '${room.lastMessageUsername ?? 'Unknown'}: ';
+                }
+                subtitle = '$prefix${room.lastMessageText}';
+              } else {
+                subtitle = isPrivate ? 'Direct message' : 'Group chat';
+              }
 
               return ListTile(
                 leading: isPrivate
@@ -64,12 +81,23 @@ class ChatsPage extends ConsumerWidget {
                       ),
                 title: Text(room.name),
                 subtitle: Text(
-                  isPrivate ? 'Direct message' : 'Group chat',
+                  subtitle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                     fontSize: 12,
                     color: BleyaTheme.greyText,
                   ),
                 ),
+                trailing: room.lastMessageTime != null
+                    ? Text(
+                        formatRelativeTime(room.lastMessageTime!),
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: BleyaTheme.greyText,
+                        ),
+                      )
+                    : null,
                 onTap: () {
                   Navigator.push(
                     context,
