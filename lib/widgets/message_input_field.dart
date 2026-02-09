@@ -110,7 +110,7 @@ class _MessageInputFieldState extends State<MessageInputField> {
                         ),
                       ),
                       child: Icon(
-                        CupertinoIcons.camera_fill,
+                        CupertinoIcons.camera,
                         size: 18,
                         color: BleyaTheme.primary,
                       ),

@@ -187,7 +187,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                         size: 64,
                                         backgroundColor: BleyaTheme.greyLight,
                                         fallbackIcon:
-                                            CupertinoIcons.person_fill,
+                                            CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       ),

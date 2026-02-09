@@ -285,7 +285,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                             ],
                                           ),
                                           child: Icon(
-                                            CupertinoIcons.camera_fill,
+                                            CupertinoIcons.camera,
                                             color: BleyaTheme.mutedForeground,
                                             size: 20,
                                           ),

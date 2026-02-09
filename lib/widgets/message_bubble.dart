@@ -51,7 +51,7 @@ class MessageBubble extends StatelessWidget {
                 color: BleyaTheme.greyLight,
               ),
               child: Icon(
-                CupertinoIcons.person_fill,
+                CupertinoIcons.person,
                 size: 16,
                 color: BleyaTheme.mutedForeground,
               ),
@@ -132,7 +132,7 @@ class MessageBubble extends StatelessWidget {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
-                              CupertinoIcons.chat_bubble_text_fill,
+                              CupertinoIcons.chat_bubble_text,
                               size: 12,
                               color: isCurrentUser
                                   ? CupertinoColors.white

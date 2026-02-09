@@ -175,7 +175,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
               shape: BoxShape.circle,
             ),
             child: Icon(
-              CupertinoIcons.location_fill,
+              CupertinoIcons.location,
               size: 56,
               color: BleyaTheme.primary,
             ),
@@ -197,7 +197,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
             text: 'Share location',
             onPressed: _handleShareLocation,
             trailingIcon: Icon(
-              CupertinoIcons.location_fill,
+              CupertinoIcons.location,
               color: Colors.white,
               size: 20,
             ),
@@ -309,7 +309,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                                 imageUrl: null,
                                 size: 48,
                                 backgroundColor: BleyaTheme.primaryLight,
-                                fallbackIcon: CupertinoIcons.person_2_fill,
+                                fallbackIcon: CupertinoIcons.person_2,
                                 fallbackIconColor: BleyaTheme.primaryDark,
                               ),
                               SizedBox(width: BleyaTheme.spacingLG),

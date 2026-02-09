@@ -158,7 +158,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    CupertinoIcons.chat_bubble_fill,
+                                    CupertinoIcons.chat_bubble,
                                     color: _selectedIndex == 0
                                         ? BleyaTheme.primary
                                         : BleyaTheme.mutedForeground

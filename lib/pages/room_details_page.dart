@@ -277,7 +277,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                                         size: 48,
                                         backgroundColor: BleyaTheme.greyLight,
                                         fallbackIcon:
-                                            CupertinoIcons.person_fill,
+                                            CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       ),

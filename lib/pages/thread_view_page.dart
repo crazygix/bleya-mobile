@@ -202,7 +202,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
                                     Icon(
-                                      CupertinoIcons.chat_bubble_text_fill,
+                                      CupertinoIcons.chat_bubble_text,
                                       size: 14,
                                       color: BleyaTheme.primary,
                                     ),

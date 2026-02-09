@@ -28,7 +28,7 @@ class ProfileAvatar extends StatefulWidget {
     this.backgroundColor,
     this.borderColor,
     this.borderWidth = 0.0,
-    this.fallbackIcon = CupertinoIcons.person_fill,
+    this.fallbackIcon = CupertinoIcons.person,
     this.fallbackIconColor,
   });
 

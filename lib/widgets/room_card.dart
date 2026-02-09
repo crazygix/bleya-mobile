@@ -57,8 +57,8 @@ class RoomCard extends StatelessWidget {
                     ? BleyaTheme.privateRoomLight
                     : BleyaTheme.primaryLight,
                 fallbackIcon: room.isPrivate
-                    ? CupertinoIcons.person_fill
-                    : CupertinoIcons.person_2_fill,
+                    ? CupertinoIcons.person
+                    : CupertinoIcons.person_2,
                 fallbackIconColor: room.isPrivate
                     ? BleyaTheme.privateRoomDark
                     : BleyaTheme.primaryDark,

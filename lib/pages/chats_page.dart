@@ -52,14 +52,14 @@ class ChatsPage extends ConsumerWidget {
                         imageUrl: null,
                         size: 40,
                         backgroundColor: BleyaTheme.privateRoomLight,
-                        fallbackIcon: CupertinoIcons.person_fill,
+                        fallbackIcon: CupertinoIcons.person,
                         fallbackIconColor: BleyaTheme.privateRoomDark,
                       )
                     : ProfileAvatar(
                         imageUrl: null,
                         size: 40,
                         backgroundColor: BleyaTheme.primaryLight,
-                        fallbackIcon: CupertinoIcons.person_2_fill,
+                        fallbackIcon: CupertinoIcons.person_2,
                         fallbackIconColor: BleyaTheme.primaryDark,
                       ),
                 title: Text(room.name),

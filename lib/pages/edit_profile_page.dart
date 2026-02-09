@@ -281,7 +281,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                         size: 120,
                                         backgroundColor: BleyaTheme.greyLight,
                                         fallbackIcon:
-                                            CupertinoIcons.person_fill,
+                                            CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       );
@@ -297,7 +297,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                         shape: BoxShape.circle,
                                       ),
                                       child: const Icon(
-                                        CupertinoIcons.camera_fill,
+                                        CupertinoIcons.camera,
                                         color: Colors.white,
                                         size: 20,
                                       ),

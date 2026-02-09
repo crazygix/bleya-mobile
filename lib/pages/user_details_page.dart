@@ -166,7 +166,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                         size: 100,
                                         backgroundColor: BleyaTheme.greyLight,
                                         fallbackIcon:
-                                            CupertinoIcons.person_fill,
+                                            CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       ),
@@ -190,7 +190,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                           onPressed: _startChat,
                                           isLoading: _isCreatingChat,
                                           trailingIcon: Icon(
-                                            CupertinoIcons.chat_bubble_fill,
+                                            CupertinoIcons.chat_bubble,
                                             color: Colors.white,
                                             size: 20,
                                           ),
