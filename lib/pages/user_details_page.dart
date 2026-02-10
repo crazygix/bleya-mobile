@@ -42,7 +42,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     try {
       if (!mounted) return;
       setState(() => _isLoading = true);
-      
+
       final getUserByIdUseCase = ref.read(getUserByIdUseCaseProvider);
       final user = await getUserByIdUseCase(widget.userId);
 
@@ -54,7 +54,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoading = false);
-      
+
       if (mounted) {
         String errorMessage;
         if (e is AppError) {
@@ -89,7 +89,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isCreatingChat = false);
-      
+
       if (mounted) {
         String errorMessage;
         if (e is AppError) {
@@ -165,8 +165,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                         imageUrl: _userData!.profileImageUrl,
                                         size: 100,
                                         backgroundColor: BleyaTheme.greyLight,
-                                        fallbackIcon:
-                                            CupertinoIcons.person,
+                                        fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       ),

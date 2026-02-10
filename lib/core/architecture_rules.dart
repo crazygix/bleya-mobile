@@ -12,9 +12,10 @@
 // DEPENDENCY RULE (CRITICAL):
 // - Domain layer MUST NOT import from data/use_cases/controllers/pages
 // - Use cases MUST only import from domain/ (interfaces and entities)
-// - Data layer MUST only import from domain/ (to implement interfaces)
-// - Controllers MUST only import from use_cases/ and domain/entities
-// - Pages MUST only import from controllers/ and widgets/
+// - Data layer MAY import domain/ plus core/ and data/dtos for mapping and error handling
+// - Controllers MUST import use_cases/ and domain/entities; shared app-level error types are allowed
+// - Pages are presentation layer and MAY import controllers/providers/widgets/constants/utils/services/domain entities
+// - Pages MUST NOT import from data/ or use_cases/ directly
 //
 // LAYER SEPARATION:
 // - Domain: Pure business logic, no external dependencies (no Dio, no JSON)

@@ -4,6 +4,7 @@ import '../entities/message.dart';
 class RoomMessagesPage {
   final List<Message> messages;
   final bool hasMore;
+
   /// Cursor representing the timestamp (milliseconds since epoch) of the oldest
   /// message in this page. Pass this as `before` to load older history.
   final int? nextCursor;

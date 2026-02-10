@@ -276,8 +276,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                                         imageUrl: member.profileImageUrl,
                                         size: 48,
                                         backgroundColor: BleyaTheme.greyLight,
-                                        fallbackIcon:
-                                            CupertinoIcons.person,
+                                        fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       ),

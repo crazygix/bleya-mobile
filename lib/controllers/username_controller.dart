@@ -34,7 +34,8 @@ class UsernameState {
     return UsernameState(
       isValid: isValid ?? this.isValid,
       isChecking: isChecking ?? this.isChecking,
-      hasCheckedAvailability: hasCheckedAvailability ?? this.hasCheckedAvailability,
+      hasCheckedAvailability:
+          hasCheckedAvailability ?? this.hasCheckedAvailability,
       errorMessage: errorMessage,
       selectedImage: selectedImage ?? this.selectedImage,
       isLoading: isLoading ?? this.isLoading,
@@ -97,7 +98,8 @@ class UsernameController extends StateNotifier<UsernameState> {
       }
 
       try {
-        final isAvailable = await _checkUsernameUseCase(username: currentUsername);
+        final isAvailable =
+            await _checkUsernameUseCase(username: currentUsername);
         state = state.copyWith(
           isValid: isAvailable,
           isChecking: false,
@@ -157,7 +159,9 @@ class UsernameController extends StateNotifier<UsernameState> {
 
       await _setUsernameUseCase(username: trimmed);
     } catch (e) {
-      final errorMessage = e is AppError ? e.getUserMessage() : "Something went wrong. Let's try that again.";
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Something went wrong. Let's try that again.";
       state = state.copyWith(
         errorMessage: errorMessage,
         isLoading: false,

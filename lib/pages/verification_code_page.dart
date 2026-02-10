@@ -14,8 +14,7 @@ import 'username_page.dart';
 
 class VerificationCodePage extends ConsumerStatefulWidget {
   final String phoneNumber;
-  final dynamic
-      codeSentAt; // Accepts int (timestamp) or String (for backward compatibility)
+  final int? codeSentAt;
 
   const VerificationCodePage({
     super.key,
@@ -42,12 +41,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   void initState() {
     super.initState();
     if (widget.codeSentAt != null) {
-      final timestamp = widget.codeSentAt is int
-          ? widget.codeSentAt as int
-          : (widget.codeSentAt is String
-              ? int.tryParse(widget.codeSentAt)
-              : null);
-      _updateCodeSentTime(timestamp);
+      _updateCodeSentTime(widget.codeSentAt);
     } else {
       _codeSentAt = DateTime.now();
       _resendRemainingSeconds = 60;
@@ -192,8 +186,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
       setState(() => _isResending = true);
       final controller = ref.read(authControllerProvider.notifier);
       final result = await controller.resendCode(widget.phoneNumber);
-      final codeSentAt = result['codeSentAt'];
-      _updateCodeSentTime(codeSentAt is int ? codeSentAt : null);
+      _updateCodeSentTime(result.codeSentAt);
       if (mounted) {
         setState(() => _isResending = false);
       }
@@ -214,13 +207,11 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
         code: code,
       );
 
-      if (result.isNotEmpty && mounted) {
+      if (result != null && mounted) {
         // Update token provider state so interceptor starts injecting Authorization
-        final token = result['token'] as String;
-        final requiresUsername = result['requiresUsername'] as bool? ?? false;
-        ref.read(tokenProvider.notifier).state = token;
+        ref.read(tokenProvider.notifier).state = result.token;
 
-        if (requiresUsername) {
+        if (result.requiresUsername) {
           Navigator.of(context).pushReplacement(
             CupertinoPageRoute(
               builder: (context) => UsernamePage(),

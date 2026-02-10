@@ -1,3 +1,4 @@
+import '../../domain/entities/auth_result.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 class VerifyCodeUseCase {
@@ -5,7 +6,7 @@ class VerifyCodeUseCase {
 
   VerifyCodeUseCase(this._authRepository);
 
-  Future<Map<String, dynamic>> call({
+  Future<VerifyCodeResult> call({
     required String phone,
     required String code,
   }) async {

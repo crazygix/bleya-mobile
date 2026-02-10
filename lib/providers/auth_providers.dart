@@ -198,7 +198,6 @@ final dioProvider = Provider<Dio>((ref) {
   return dio;
 });
 
-
 // Current user info derived from JWT (no network call)
 final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
   final token = ref.watch(tokenProvider);

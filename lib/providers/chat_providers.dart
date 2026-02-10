@@ -594,9 +594,16 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       // Ignore events if this controller has been disposed
       if (_disposed) return;
 
-      final errorMsg = data['message'] ?? 'An error occurred';
+      final rawError = data['error'];
+      final errorMap =
+          rawError is Map ? Map<String, dynamic>.from(rawError) : null;
+      final errorCode = errorMap?['code']?.toString();
+      final errorMsg = errorMap?['message']?.toString() ??
+          data['message']?.toString() ??
+          'An error occurred';
       if (kDebugMode) {
-        print('Socket error: $errorMsg');
+        print(
+            'Socket error${errorCode != null ? ' [$errorCode]' : ''}: $errorMsg');
       }
 
       // If "Not in a room" error, try to rejoin

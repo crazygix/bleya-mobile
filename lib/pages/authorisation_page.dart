@@ -119,12 +119,12 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
 
     try {
       final result = await controller.requestCode(phoneNumber);
-      if (mounted && result.isNotEmpty) {
+      if (mounted && result != null) {
         Navigator.of(context).push(
           CupertinoPageRoute(
             builder: (context) => VerificationCodePage(
               phoneNumber: phoneNumber,
-              codeSentAt: result['codeSentAt'],
+              codeSentAt: result.codeSentAt,
             ),
           ),
         );

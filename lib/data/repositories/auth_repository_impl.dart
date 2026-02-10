@@ -2,6 +2,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/errors/api_error_mapper.dart';
+import '../dtos/user_profile_dto.dart';
+import '../../domain/entities/auth_result.dart';
+import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/auth_repository.dart';
 
 /// Data layer implementation of AuthRepository
@@ -12,8 +15,14 @@ class AuthRepositoryImpl implements AuthRepository {
 
   AuthRepositoryImpl(this._dio, this._secureStorage);
 
+  int? _parseNullableTimestamp(dynamic value) {
+    if (value is int) return value;
+    if (value is String) return int.tryParse(value);
+    return null;
+  }
+
   @override
-  Future<Map<String, dynamic>> requestCode({required String phone}) async {
+  Future<CodeRequestResult> requestCode({required String phone}) async {
     try {
       final response = await _dio.post(
         '/auth/request-code',
@@ -22,9 +31,9 @@ class AuthRepositoryImpl implements AuthRepository {
       if (kDebugMode) {
         print("Code sent: ${response.data["code"]}");
       }
-      return {
-        'codeSentAt': response.data['codeSentAt'] as int?,
-      };
+      return CodeRequestResult(
+        codeSentAt: _parseNullableTimestamp(response.data['codeSentAt']),
+      );
     } on DioException catch (e) {
       if (kDebugMode) {
         print('Auth repository error: $e');
@@ -34,7 +43,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> resendCode({required String phone}) async {
+  Future<CodeRequestResult> resendCode({required String phone}) async {
     try {
       final response = await _dio.post(
         '/auth/resend-code',
@@ -43,16 +52,16 @@ class AuthRepositoryImpl implements AuthRepository {
       if (kDebugMode) {
         print("Code resent: ${response.data["code"]}");
       }
-      return {
-        'codeSentAt': response.data['codeSentAt'] as int?,
-      };
+      return CodeRequestResult(
+        codeSentAt: _parseNullableTimestamp(response.data['codeSentAt']),
+      );
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
   }
 
   @override
-  Future<Map<String, dynamic>> verifyCode({
+  Future<VerifyCodeResult> verifyCode({
     required String phone,
     required String code,
   }) async {
@@ -67,10 +76,10 @@ class AuthRepositoryImpl implements AuthRepository {
       final String token = response.data['token'];
       final bool requiresUsername = response.data['requiresUsername'] ?? false;
       await _secureStorage.write(key: 'auth_token', value: token);
-      return {
-        'token': token,
-        'requiresUsername': requiresUsername,
-      };
+      return VerifyCodeResult(
+        token: token,
+        requiresUsername: requiresUsername,
+      );
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
@@ -85,10 +94,11 @@ class AuthRepositoryImpl implements AuthRepository {
       );
       return response.data['available'] as bool? ?? false;
     } on DioException catch (e) {
-      if (e.response?.statusCode == 400) {
+      final statusCode = e.response?.statusCode;
+      if (statusCode == 400 || statusCode == 409) {
         return false;
       }
-      return false;
+      throw ApiErrorMapper.mapDioError(e);
     }
   }
 
@@ -105,10 +115,10 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<Map<String, dynamic>> getMyInfo() async {
+  Future<UserProfile> getMyInfo() async {
     try {
       final response = await _dio.get('/auth/me');
-      return response.data;
+      return UserProfileDto.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }

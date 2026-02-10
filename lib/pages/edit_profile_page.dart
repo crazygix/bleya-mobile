@@ -291,8 +291,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                         imageUrl: imageUrl,
                                         size: 120,
                                         backgroundColor: BleyaTheme.greyLight,
-                                        fallbackIcon:
-                                            CupertinoIcons.person,
+                                        fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       );
@@ -326,8 +325,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             padding: const EdgeInsets.all(16),
                             enabled: false,
                             decoration: BoxDecoration(
-                              color: BleyaTheme.glassSurface
-                                  .withValues(alpha: BleyaTheme.glassOpacity * 0.5),
+                              color: BleyaTheme.glassSurface.withValues(
+                                  alpha: BleyaTheme.glassOpacity * 0.5),
                               borderRadius: BorderRadius.circular(
                                   BleyaTheme.radiusMedium),
                               border: Border.all(

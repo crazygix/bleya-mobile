@@ -1,8 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../domain/entities/auth_result.dart';
 import '../use_cases/auth/request_code_use_case.dart';
 import '../use_cases/auth/resend_code_use_case.dart';
 import '../use_cases/auth/verify_code_use_case.dart';
-import '../utils/app_errors.dart';
 
 class AuthState {
   final bool isLoading;
@@ -35,10 +35,21 @@ class AuthController extends StateNotifier<AuthState> {
     this._verifyCodeUseCase,
   ) : super(AuthState());
 
-  Future<Map<String, dynamic>> requestCode(String phone) async {
+  String _resolveErrorMessage(Object error) {
+    final rawMessage = error.toString();
+    final message = rawMessage.startsWith('Exception: ')
+        ? rawMessage.substring('Exception: '.length)
+        : rawMessage;
+    if (message.isNotEmpty && message != 'Exception') {
+      return message;
+    }
+    return "Something went wrong. Let's try that again.";
+  }
+
+  Future<CodeRequestResult?> requestCode(String phone) async {
     if (phone.isEmpty) {
       state = state.copyWith(errorMessage: "What's your number?");
-      return {};
+      return null;
     }
 
     state = state.copyWith(
@@ -54,16 +65,15 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
-      final errorMessage = e is AppError ? e.getUserMessage() : "Something went wrong. Let's try that again.";
       state = state.copyWith(
         isLoading: false,
-        errorMessage: errorMessage,
+        errorMessage: _resolveErrorMessage(e),
       );
       rethrow;
     }
   }
 
-  Future<Map<String, dynamic>> resendCode(String phone) async {
+  Future<CodeRequestResult> resendCode(String phone) async {
     state = state.copyWith(
       errorMessage: null,
       isLoading: true,
@@ -77,16 +87,15 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
-      final errorMessage = e is AppError ? e.getUserMessage() : "Something went wrong. Let's try that again.";
       state = state.copyWith(
         isLoading: false,
-        errorMessage: errorMessage,
+        errorMessage: _resolveErrorMessage(e),
       );
       rethrow;
     }
   }
 
-  Future<Map<String, dynamic>> verifyCode({
+  Future<VerifyCodeResult?> verifyCode({
     required String phone,
     required String code,
   }) async {
@@ -94,7 +103,7 @@ class AuthController extends StateNotifier<AuthState> {
       state = state.copyWith(
         errorMessage: "That code doesn't look complete. Try again?",
       );
-      return {};
+      return null;
     }
 
     state = state.copyWith(
@@ -110,10 +119,9 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
-      final errorMessage = e is AppError ? e.getUserMessage() : "Something went wrong. Let's try that again.";
       state = state.copyWith(
         isLoading: false,
-        errorMessage: errorMessage,
+        errorMessage: _resolveErrorMessage(e),
       );
       rethrow;
     }

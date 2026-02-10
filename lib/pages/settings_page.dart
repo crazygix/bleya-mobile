@@ -216,8 +216,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                             height: BleyaTheme.spacingXS),
                                         Text(
                                           _bio!,
-                                          style:
-                                              BleyaTheme.bodyMedium.copyWith(
+                                          style: BleyaTheme.bodyMedium.copyWith(
                                             fontSize: 14,
                                             color: BleyaTheme.mutedForeground,
                                           ),

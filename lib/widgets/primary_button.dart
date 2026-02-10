@@ -3,10 +3,10 @@ import 'package:flutter/material.dart';
 import '../constants/theme.dart';
 
 /// Primary Button Component
-/// 
+///
 /// A reusable button component following Apple's Human Interface Guidelines
 /// and the Bleya Design System.
-/// 
+///
 /// Features:
 /// - 56px height (HIG standard for primary buttons)
 /// - 10px border radius (HIG standard for interactive elements)

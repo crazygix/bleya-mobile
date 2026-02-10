@@ -14,7 +14,7 @@ Keep views modular, break down components into smaller reusable elements, and fo
 Each widget should do ONE thing well. If a widget has multiple responsibilities, split it.
 
 ### 2. Small, Focused Widgets
-Keep widgets under 200 lines. Extract sections into smaller widgets.
+Keep reusable widgets under 200 lines where practical. Page/screen files should be gradually split and kept under ~700 lines during migration.
 
 ### 3. Composition Over Complexity
 Build complex UIs by composing simple widgets, not by creating complex ones.
@@ -257,7 +257,8 @@ final cachedMessages = _getCachedMessages(maxAge: Duration(minutes: 5));
 
 ## Checklist for Every Widget/Page
 
-- [ ] Widget is under 200 lines (extract if larger)
+- [ ] Reusable widget is under 200 lines (extract if larger)
+- [ ] Page/screen file is under ~700 lines (split sections into widgets over time)
 - [ ] One clear responsibility
 - [ ] Complex sections extracted to smaller widgets
 - [ ] Logic extracted from build method

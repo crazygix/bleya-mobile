@@ -105,8 +105,8 @@ class BadRequestError extends AppError {
   }) : super(
           code: AppErrorCode.badRequest,
           message: message ?? 'Bad request',
-          userMessage:
-              userMessage ?? "Something's not quite right. Check your input and try again?",
+          userMessage: userMessage ??
+              "Something's not quite right. Check your input and try again?",
         );
 }
 
@@ -119,8 +119,7 @@ class UnauthorizedError extends AppError {
   }) : super(
           code: AppErrorCode.unauthorized,
           message: message ?? 'Unauthorized',
-          userMessage:
-              userMessage ?? "Your session expired. Sign in again?",
+          userMessage: userMessage ?? "Your session expired. Sign in again?",
         );
 }
 
@@ -146,8 +145,8 @@ class ServerError extends AppError {
   }) : super(
           code: AppErrorCode.serverError,
           message: message ?? 'Server error',
-          userMessage:
-              userMessage ?? "Something went wrong on our end. Try again in a bit?",
+          userMessage: userMessage ??
+              "Something went wrong on our end. Try again in a bit?",
         );
 }
 
@@ -174,8 +173,7 @@ class ForbiddenError extends AppError {
   }) : super(
           code: AppErrorCode.forbidden,
           message: message ?? 'Forbidden',
-          userMessage: userMessage ??
-              "You don't have permission to do that.",
+          userMessage: userMessage ?? "You don't have permission to do that.",
         );
 }
 
@@ -203,7 +201,7 @@ class ServiceUnavailableError extends AppError {
   }) : super(
           code: AppErrorCode.serviceUnavailable,
           message: message ?? 'Service unavailable',
-          userMessage: userMessage ??
-              "We're temporarily unavailable. Try again soon?",
+          userMessage:
+              userMessage ?? "We're temporarily unavailable. Try again soon?",
         );
 }

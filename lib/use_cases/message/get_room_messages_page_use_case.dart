@@ -27,4 +27,3 @@ class MarkRoomAsReadUseCase {
     return _messageRepository.markRoomAsRead(roomId);
   }
 }
-

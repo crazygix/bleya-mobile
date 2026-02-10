@@ -85,8 +85,7 @@ final getRoomMessagesPageUseCaseProvider =
   return GetRoomMessagesPageUseCase(repository);
 });
 
-final markRoomAsReadUseCaseProvider =
-    Provider<MarkRoomAsReadUseCase>((ref) {
+final markRoomAsReadUseCaseProvider = Provider<MarkRoomAsReadUseCase>((ref) {
   final repository = ref.watch(messageRepositoryProvider);
   return MarkRoomAsReadUseCase(repository);
 });

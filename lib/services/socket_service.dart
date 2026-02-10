@@ -189,8 +189,8 @@ class SocketService {
           // socket_io_client allows updating option maps dynamically.
           // Ensure we keep a Map for auth and update token in-place.
           final ioManager = _socket!.io;
-          final Map<String, dynamic> opts =
-              Map<String, dynamic>.from(ioManager.options ?? const <String, dynamic>{});
+          final Map<String, dynamic> opts = Map<String, dynamic>.from(
+              ioManager.options ?? const <String, dynamic>{});
 
           final existingAuth = opts['auth'];
           final Map<String, dynamic> authMap = existingAuth is Map
@@ -327,9 +327,19 @@ class SocketService {
   // Store registered handlers so we can remove specific ones
   final Map<String, List<dynamic>> _eventHandlers = {};
 
+  Map<String, dynamic> _normalizePayload(dynamic data) {
+    if (data is Map<String, dynamic>) {
+      return data;
+    }
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return {'message': data?.toString() ?? ''};
+  }
+
   void onRoomJoined(Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
-      callback(data as Map<String, dynamic>);
+      callback(_normalizePayload(data));
     }
 
     _socket?.on('room_joined', handler);
@@ -338,7 +348,7 @@ class SocketService {
 
   void onNewMessage(Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
-      callback(data as Map<String, dynamic>);
+      callback(_normalizePayload(data));
     }
 
     _socket?.on('new_message', handler);
@@ -347,7 +357,7 @@ class SocketService {
 
   void onError(Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
-      callback(data as Map<String, dynamic>);
+      callback(_normalizePayload(data));
     }
 
     _socket?.on('error', handler);
@@ -356,7 +366,7 @@ class SocketService {
 
   void onUserJoined(Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
-      callback(data as Map<String, dynamic>);
+      callback(_normalizePayload(data));
     }
 
     _socket?.on('user_joined', handler);
@@ -365,7 +375,7 @@ class SocketService {
 
   void onUserLeft(Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
-      callback(data as Map<String, dynamic>);
+      callback(_normalizePayload(data));
     }
 
     _socket?.on('user_left', handler);
@@ -376,7 +386,7 @@ class SocketService {
   /// Returns the handler that was registered, which should be stored and passed back to removeListener.
   dynamic addListener(String event, Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
-      callback(data as Map<String, dynamic>);
+      callback(_normalizePayload(data));
     }
 
     _socket?.on(event, handler);

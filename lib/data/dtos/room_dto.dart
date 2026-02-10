@@ -2,11 +2,21 @@ import '../../domain/entities/room.dart';
 
 /// Data Transfer Object for Room - handles JSON parsing
 class RoomDto {
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value is int) {
+      return DateTime.fromMillisecondsSinceEpoch(value);
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return DateTime.fromMillisecondsSinceEpoch(parsed);
+      }
+    }
+    return null;
+  }
+
   static Room fromJson(Map<String, dynamic> json) {
-    final lastMessageTimeStr = json['lastMessageTime'] as String?;
-    final lastMessageTime = lastMessageTimeStr != null
-        ? DateTime.parse(lastMessageTimeStr)
-        : null;
+    final lastMessageTime = _parseTimestamp(json['lastMessageTime']);
 
     return Room(
       id: json['id'] as String,
