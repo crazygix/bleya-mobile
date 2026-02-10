@@ -3,7 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
-import '../providers/use_case_providers.dart';
+import '../providers/profile_providers.dart';
+import '../widgets/app_spinner.dart';
 import 'username_page.dart';
 import 'intro_page.dart';
 
@@ -42,8 +43,7 @@ class _InitialPageState extends ConsumerState<InitialPage> {
 
       // Check if user has username
       try {
-        final getProfileUseCase = ref.read(getProfileUseCaseProvider);
-        final profile = await getProfileUseCase();
+        final profile = await ref.read(profileProvider.notifier).fetchProfile();
         final hasUsername =
             profile.username != null && profile.username!.trim().isNotEmpty;
 
@@ -77,11 +77,11 @@ class _InitialPageState extends ConsumerState<InitialPage> {
         // If authenticated, show loading while navigating (navigation happens in _checkAuthAndNavigate)
         // If not authenticated, show intro page
         return isAuthenticated
-            ? const Scaffold(body: Center(child: CircularProgressIndicator()))
+            ? const Scaffold(body: Center(child: AppSpinner(size: 24)))
             : IntroPage();
       },
       loading: () => const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+        body: Center(child: AppSpinner(size: 24)),
       ),
       error: (_, __) => IntroPage(),
     );

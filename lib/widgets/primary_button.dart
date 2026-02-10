@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
+import 'app_spinner.dart';
 
 /// Primary Button Component
 ///
@@ -56,7 +57,7 @@ class PrimaryButton extends StatelessWidget {
                 ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CupertinoActivityIndicator(
+                    child: AppSpinner(
                       color: Colors.white,
                     ),
                   )

@@ -5,6 +5,7 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/danger_button.dart';
 import '../widgets/error_state.dart';
@@ -34,6 +35,68 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(roomMembersProvider(widget.roomId));
     });
+  }
+
+  Widget _buildMembersLoadingSkeleton() {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        const AppSkeleton(
+          height: 200,
+          borderRadius: BorderRadius.all(
+            Radius.circular(BleyaTheme.radiusLarge),
+          ),
+        ),
+        const SizedBox(height: 20),
+        const AppSkeleton(
+          height: BleyaTheme.buttonHeight,
+          borderRadius: BorderRadius.all(
+            Radius.circular(BleyaTheme.radiusSmall),
+          ),
+        ),
+        const SizedBox(height: 24),
+        const AppSkeleton(
+          width: 180,
+          height: 22,
+        ),
+        const SizedBox(height: 12),
+        ...List.generate(
+          5,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: BleyaTheme.glassSurface.withValues(alpha: 0.7),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: BleyaTheme.border.withValues(alpha: 0.2),
+                  width: 1,
+                ),
+              ),
+              child: const Row(
+                children: [
+                  AppSkeleton.circle(size: 48),
+                  SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        AppSkeleton(width: 170, height: 16),
+                        SizedBox(height: 6),
+                        AppSkeleton(width: 120, height: 12),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8),
+                  AppSkeleton(width: 16, height: 16),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -367,9 +430,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                       ],
                     );
                   },
-                  loading: () => const Center(
-                    child: CupertinoActivityIndicator(),
-                  ),
+                  loading: _buildMembersLoadingSkeleton,
                   error: (error, stack) => Center(
                     child: ErrorState(
                       title: 'Error loading members',

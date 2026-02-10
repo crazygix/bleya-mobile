@@ -6,6 +6,7 @@ import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
 import '../constants/theme.dart';
 import '../utils/time_formatter.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
@@ -415,6 +416,65 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     return items;
   }
 
+  Widget _buildChatLoadingSkeleton() {
+    return ListView(
+      padding: EdgeInsets.only(
+        left: BleyaTheme.contentPadding,
+        right: BleyaTheme.contentPadding,
+        top: BleyaTheme.spacingLG,
+        bottom: BleyaTheme.spacingLG,
+      ),
+      children: [
+        Align(
+          alignment: Alignment.center,
+          child: AppSkeleton(
+            width: 96,
+            height: 28,
+            borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
+          ),
+        ),
+        SizedBox(height: BleyaTheme.spacingLG),
+        ...List.generate(
+          7,
+          (index) {
+            final isCurrentUserBubble = index.isEven;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: BleyaTheme.spacingMD),
+              child: Align(
+                alignment: isCurrentUserBubble
+                    ? Alignment.centerRight
+                    : Alignment.centerLeft,
+                child: Container(
+                  constraints: const BoxConstraints(maxWidth: 280),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: isCurrentUserBubble
+                        ? BleyaTheme.primary.withValues(alpha: 0.08)
+                        : BleyaTheme.glassSurface.withValues(alpha: 0.72),
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(
+                      color: BleyaTheme.border.withValues(alpha: 0.25),
+                    ),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppSkeleton(width: 90, height: 12),
+                      SizedBox(height: 8),
+                      AppSkeleton(height: 14),
+                      SizedBox(height: 8),
+                      AppSkeleton(width: 60, height: 11),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatRoomControllerProvider(widget.room));
@@ -484,9 +544,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               ),
               Expanded(
                 child: messages.isEmpty && chatState.isInitialLoading
-                    ? const Center(
-                        child: CupertinoActivityIndicator(),
-                      )
+                    ? _buildChatLoadingSkeleton()
                     : messages.isEmpty
                         ? Center(
                             child: Text(

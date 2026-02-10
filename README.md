@@ -43,6 +43,17 @@ Without `--dart-define=FLUTTER_ENV=prod`:
 
 **Note:** Ensure your Railway CI/CD (or other CI/CD) includes `--dart-define=FLUTTER_ENV=prod` in build commands for production releases.
 
+## Loading UI policy
+
+Use the shared loading system across the app:
+
+- `lib/widgets/app_spinner.dart` for action-level loading
+- `lib/widgets/app_skeleton.dart` for content loading
+
+Full policy and usage rules:
+
+- `LOADING_UI_RULES.md`
+
 ## Assets
 
 The `assets` directory houses images, fonts, and any other files you want to

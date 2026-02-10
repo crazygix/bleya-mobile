@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/room_card.dart';
 import '../widgets/empty_state.dart';
@@ -269,9 +270,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           },
         );
       },
-      loading: () => Center(
-        child: CupertinoActivityIndicator(),
-      ),
+      loading: _buildRoomsSkeleton,
       error: (error, stack) {
         String errorMessage;
         if (error is AppError) {
@@ -286,6 +285,66 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               errorMessage,
               style: BleyaTheme.bodyLarge,
               textAlign: TextAlign.center,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildRoomsSkeleton() {
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(
+        horizontal: BleyaTheme.contentPadding,
+      ).copyWith(
+        bottom: 100,
+      ),
+      itemCount: 6,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
+          child: Container(
+            padding: const EdgeInsets.all(BleyaTheme.radiusSmall),
+            decoration: BoxDecoration(
+              color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
+              borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
+              border: Border.all(
+                color: BleyaTheme.border.withValues(alpha: 0.3),
+                width: 1,
+              ),
+              boxShadow: BleyaTheme.glassShadow,
+            ),
+            child: Row(
+              children: [
+                const AppSkeleton.circle(size: 48),
+                const SizedBox(width: BleyaTheme.spacingMD),
+                const Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: AppSkeleton(
+                              height: 16,
+                            ),
+                          ),
+                          SizedBox(width: BleyaTheme.spacingSM),
+                          AppSkeleton(
+                            width: 40,
+                            height: 12,
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: BleyaTheme.spacingXS),
+                      AppSkeleton(
+                        width: 180,
+                        height: 14,
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         );

@@ -2,11 +2,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/settings_menu_item.dart';
 import '../providers/auth_providers.dart';
-import '../providers/use_case_providers.dart';
+import '../providers/profile_providers.dart';
 import '../utils/app_errors.dart';
 import 'edit_profile_page.dart';
 
@@ -16,50 +17,6 @@ class SettingsPage extends ConsumerStatefulWidget {
 }
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
-  bool _isLoadingProfile = true;
-  String? _username;
-  String? _bio;
-  String? _profileImageUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadProfile();
-  }
-
-  Future<void> _loadProfile() async {
-    try {
-      if (!mounted) return;
-      setState(() => _isLoadingProfile = true);
-
-      final getProfileUseCase = ref.read(getProfileUseCaseProvider);
-      final profile = await getProfileUseCase();
-
-      if (!mounted) return;
-      setState(() {
-        _username = profile.username;
-        _bio = profile.bio;
-        _profileImageUrl = profile.profileImageUrl;
-        _isLoadingProfile = false;
-      });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() => _isLoadingProfile = false);
-
-      if (mounted) {
-        String errorMessage;
-        if (e is AppError) {
-          errorMessage = e.getUserMessage();
-        } else {
-          errorMessage = "Couldn't load your profile. Try again?";
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
-      }
-    }
-  }
-
   Future<void> _handleLogout() async {
     final shouldLogout = await showCupertinoDialog<bool>(
       context: context,
@@ -92,8 +49,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         builder: (context) => EditProfilePage(),
       ),
     );
-    // Reload profile when coming back
-    _loadProfile();
   }
 
   void _showComingSoon(String feature) {
@@ -116,8 +71,31 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final padding = mediaQuery.padding;
-    final hasBio =
-        !_isLoadingProfile && _bio != null && _bio!.trim().isNotEmpty;
+
+    final profileAsync = ref.watch(profileProvider);
+    final profile = profileAsync.valueOrNull;
+    final isLoadingProfile = profile == null && profileAsync.isLoading;
+    final username = profile?.username;
+    final bio = profile?.bio;
+    final profileImageUrl = profile?.profileImageUrl;
+    final hasBio = bio != null && bio.trim().isNotEmpty;
+
+    ref.listen(profileProvider, (previous, next) {
+      final isNewError =
+          next.hasError && (previous == null || !previous.hasError);
+      if (!isNewError || !mounted) {
+        return;
+      }
+
+      final error = next.error;
+      final errorMessage = error is AppError
+          ? error.getUserMessage()
+          : "Couldn't load your profile. Try again?";
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    });
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -171,20 +149,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             child: Row(
                               children: [
                                 // Avatar
-                                _isLoadingProfile
-                                    ? Container(
-                                        width: 64,
-                                        height: 64,
-                                        decoration: BoxDecoration(
-                                          color: BleyaTheme.primaryLight,
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: const Center(
-                                          child: CupertinoActivityIndicator(),
-                                        ),
-                                      )
+                                isLoadingProfile
+                                    ? const AppSkeleton.circle(size: 64)
                                     : ProfileAvatar(
-                                        imageUrl: _profileImageUrl,
+                                        imageUrl: profileImageUrl,
                                         size: 64,
                                         backgroundColor:
                                             BleyaTheme.primaryLight,
@@ -202,28 +170,42 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                         ? MainAxisAlignment.start
                                         : MainAxisAlignment.center,
                                     children: [
-                                      Text(
-                                        _isLoadingProfile
-                                            ? 'Loading...'
-                                            : (_username ?? 'Username'),
-                                        style:
-                                            BleyaTheme.headingMedium.copyWith(
-                                          fontSize: 20,
-                                          fontWeight: FontWeight.w700,
+                                      if (isLoadingProfile) ...[
+                                        const AppSkeleton(
+                                          width: 140,
+                                          height: 20,
                                         ),
-                                      ),
-                                      if (hasBio) ...[
                                         const SizedBox(
-                                            height: BleyaTheme.spacingXS),
-                                        Text(
-                                          _bio!,
-                                          style: BleyaTheme.bodyMedium.copyWith(
-                                            fontSize: 14,
-                                            color: BleyaTheme.mutedForeground,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                          height: BleyaTheme.spacingXS,
                                         ),
+                                        const AppSkeleton(
+                                          width: 180,
+                                          height: 14,
+                                        ),
+                                      ] else ...[
+                                        Text(
+                                          username ?? 'Username',
+                                          style:
+                                              BleyaTheme.headingMedium.copyWith(
+                                            fontSize: 20,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                        if (hasBio) ...[
+                                          const SizedBox(
+                                            height: BleyaTheme.spacingXS,
+                                          ),
+                                          Text(
+                                            bio,
+                                            style:
+                                                BleyaTheme.bodyMedium.copyWith(
+                                              fontSize: 14,
+                                              color: BleyaTheme.mutedForeground,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ],
                                       ],
                                     ],
                                   ),

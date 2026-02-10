@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
@@ -96,6 +97,97 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
         );
       },
       showReplyBadge: false,
+    );
+  }
+
+  Widget _buildThreadLoadingSkeleton() {
+    return ListView(
+      padding: const EdgeInsets.symmetric(
+        horizontal: BleyaTheme.contentPadding,
+        vertical: BleyaTheme.spacingLG,
+      ),
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: Container(
+            constraints: const BoxConstraints(maxWidth: 280),
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: BleyaTheme.primary.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSkeleton(width: 120, height: 14),
+                SizedBox(height: 8),
+                AppSkeleton(height: 14),
+                SizedBox(height: 8),
+                AppSkeleton(width: 80, height: 12),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: BleyaTheme.spacing2XL),
+        Row(
+          children: [
+            Expanded(
+              child: Container(
+                height: 1,
+                color: BleyaTheme.foreground.withValues(alpha: 0.2),
+              ),
+            ),
+            const SizedBox(width: BleyaTheme.spacingLG),
+            Text(
+              'Replies',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: BleyaTheme.mutedForeground,
+              ),
+            ),
+            const SizedBox(width: BleyaTheme.spacingLG),
+            Expanded(
+              child: Container(
+                height: 1,
+                color: BleyaTheme.foreground.withValues(alpha: 0.2),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: BleyaTheme.spacing2XL),
+        ...List.generate(
+          3,
+          (index) => Padding(
+            padding: const EdgeInsets.only(bottom: BleyaTheme.spacingLG),
+            child: Align(
+              alignment:
+                  index.isEven ? Alignment.centerLeft : Alignment.centerRight,
+              child: Container(
+                constraints: const BoxConstraints(maxWidth: 260),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: BleyaTheme.glassSurface.withValues(alpha: 0.65),
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(
+                    color: BleyaTheme.border.withValues(alpha: 0.25),
+                  ),
+                ),
+                child: const Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    AppSkeleton(width: 100, height: 14),
+                    SizedBox(height: 8),
+                    AppSkeleton(height: 14),
+                    SizedBox(height: 8),
+                    AppSkeleton(width: 72, height: 12),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -201,9 +293,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                       },
                     );
                   },
-                  loading: () => const Center(
-                    child: CupertinoActivityIndicator(),
-                  ),
+                  loading: _buildThreadLoadingSkeleton,
                   error: (error, stack) => Center(
                     child: Padding(
                       padding: const EdgeInsets.all(24),

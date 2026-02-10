@@ -6,6 +6,7 @@ import '../providers/chat_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/glass_header.dart';
@@ -104,6 +105,67 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     }
   }
 
+  Widget _buildUserDetailsSkeleton() {
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(20.0),
+      child: Column(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: BleyaTheme.glassSurface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: BleyaTheme.border.withValues(alpha: 0.2),
+                width: 1,
+              ),
+              boxShadow: BleyaTheme.glassShadow,
+            ),
+            child: const Column(
+              children: [
+                AppSkeleton.circle(size: 100),
+                SizedBox(height: 20),
+                AppSkeleton(width: 170, height: 24),
+                SizedBox(height: 20),
+                AppSkeleton(
+                  height: BleyaTheme.buttonHeight,
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(BleyaTheme.radiusSmall),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 20),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: BleyaTheme.glassSurface.withValues(alpha: 0.9),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: BleyaTheme.border.withValues(alpha: 0.2),
+                width: 1,
+              ),
+            ),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                AppSkeleton(width: 80, height: 16),
+                SizedBox(height: 12),
+                AppSkeleton(height: 14),
+                SizedBox(height: 8),
+                AppSkeleton(height: 14),
+                SizedBox(height: 8),
+                AppSkeleton(width: 120, height: 14),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final currentUser = ref.watch(currentUserProvider);
@@ -131,7 +193,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
               ),
               Expanded(
                 child: _isLoading
-                    ? const Center(child: CupertinoActivityIndicator())
+                    ? _buildUserDetailsSkeleton()
                     : _userData == null
                         ? Center(
                             child: Text(

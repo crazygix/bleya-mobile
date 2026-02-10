@@ -3,9 +3,12 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
+import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
+import '../domain/entities/user_profile.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
@@ -32,7 +35,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   void initState() {
     super.initState();
     _bioController.addListener(_updateBioCharCount);
-    _loadProfile();
+    _hydrateProfileFromCache();
+    if (_isLoadingProfile) {
+      _loadProfile();
+    }
   }
 
   void _updateBioCharCount() {
@@ -41,32 +47,61 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     });
   }
 
-  Future<void> _loadProfile() async {
-    try {
-      setState(() => _isLoadingProfile = true);
-      final getProfileUseCase = ref.read(getProfileUseCaseProvider);
-      final profile = await getProfileUseCase();
+  void _hydrateProfileFromCache() {
+    final cachedProfile = ref.read(profileProvider).valueOrNull;
+    if (cachedProfile == null) {
+      return;
+    }
 
-      setState(() {
-        _usernameController.text = profile.username ?? '';
-        _bioController.text = profile.bio ?? '';
-        _bioCharCount = _bioController.text.length;
-        _profileImageUrl = profile.profileImageUrl;
-        _isLoadingProfile = false;
-      });
-    } catch (e) {
-      setState(() => _isLoadingProfile = false);
-      if (mounted) {
-        String errorMessage;
-        if (e is AppError) {
-          errorMessage = e.getUserMessage();
-        } else {
-          errorMessage = "Couldn't load your profile. Try again?";
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
+    _usernameController.text = cachedProfile.username ?? '';
+    _bioController.text = cachedProfile.bio ?? '';
+    _bioCharCount = _bioController.text.length;
+    _profileImageUrl = cachedProfile.profileImageUrl;
+    _isLoadingProfile = false;
+  }
+
+  void _applyProfile(UserProfile profile, {bool clearSelectedImage = false}) {
+    _usernameController.text = profile.username ?? '';
+    _bioController.text = profile.bio ?? '';
+    _bioCharCount = _bioController.text.length;
+
+    setState(() {
+      _profileImageUrl = profile.profileImageUrl;
+      _isLoadingProfile = false;
+      if (clearSelectedImage) {
+        _selectedImage = null;
       }
+    });
+  }
+
+  Future<void> _loadProfile({bool forceRefresh = false}) async {
+    final cachedProfile = ref.read(profileProvider).valueOrNull;
+    if (!forceRefresh && cachedProfile != null) {
+      _applyProfile(cachedProfile);
+      return;
+    }
+
+    setState(() => _isLoadingProfile = true);
+
+    try {
+      final profile = await ref
+          .read(profileProvider.notifier)
+          .fetchProfile(forceRefresh: forceRefresh);
+
+      if (!mounted) return;
+      _applyProfile(profile);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingProfile = false);
+      String errorMessage;
+      if (e is AppError) {
+        errorMessage = e.getUserMessage();
+      } else {
+        errorMessage = "Couldn't load your profile. Try again?";
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
     }
   }
 
@@ -124,18 +159,17 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       }
 
       // Update profile (username is read-only, only update bio)
-      await updateProfileUseCase(
+      final updatedProfile = await updateProfileUseCase(
         bio: _bioController.text.trim(),
       );
 
-      // Reload profile to get updated data
-      await _loadProfile();
+      ref.read(profileProvider.notifier).setProfile(updatedProfile);
 
       if (mounted) {
+        _applyProfile(updatedProfile, clearSelectedImage: true);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Profile updated successfully')),
         );
-        setState(() => _selectedImage = null);
       }
     } catch (e) {
       if (mounted) {
@@ -162,6 +196,54 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     _usernameController.dispose();
     _bioController.dispose();
     super.dispose();
+  }
+
+  Widget _buildProfileLoadingSkeleton() {
+    return Expanded(
+      child: SingleChildScrollView(
+        padding: EdgeInsets.all(BleyaTheme.contentPadding),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(height: 20),
+            Center(
+              child: AppSkeleton.circle(size: 120),
+            ),
+            SizedBox(height: 24),
+            AppSkeleton(
+              width: 120,
+              height: 14,
+            ),
+            SizedBox(height: 8),
+            AppSkeleton(
+              height: 56,
+              borderRadius: BorderRadius.all(
+                Radius.circular(BleyaTheme.radiusMedium),
+              ),
+            ),
+            SizedBox(height: 24),
+            AppSkeleton(
+              width: 80,
+              height: 14,
+            ),
+            SizedBox(height: 8),
+            AppSkeleton(
+              height: 120,
+              borderRadius: BorderRadius.all(
+                Radius.circular(BleyaTheme.radiusMedium),
+              ),
+            ),
+            SizedBox(height: 28),
+            AppSkeleton(
+              height: BleyaTheme.buttonHeight,
+              borderRadius: BorderRadius.all(
+                Radius.circular(BleyaTheme.radiusSmall),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   @override
@@ -203,9 +285,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                       ],
                     ),
                   ),
-                  const Expanded(
-                    child: Center(child: CupertinoActivityIndicator()),
-                  ),
+                  _buildProfileLoadingSkeleton(),
                 ],
               ),
             ),

@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
+import 'app_spinner.dart';
 
 /// Danger Button Component
 ///
@@ -63,7 +64,7 @@ class DangerButton extends StatelessWidget {
                 ? SizedBox(
                     width: 20,
                     height: 20,
-                    child: CupertinoActivityIndicator(
+                    child: AppSpinner(
                       color: Colors.white,
                     ),
                   )

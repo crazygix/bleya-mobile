@@ -250,7 +250,28 @@
 // └── widgets/         # Reusable UI
 //
 // ========================================
-// 11. TESTING GUIDELINES
+// 11. LOADING UI POLICY
+// ========================================
+//
+// RULE: All loading UI MUST use the shared loading system.
+//
+// MUST:
+// - Use AppSkeleton for content loading where layout is known
+// - Use AppSpinner for action-level loading (buttons, inline operations, short transitions)
+// - Ensure meaningful async loads have error + retry handling
+//
+// NEVER:
+// - Use CupertinoActivityIndicator directly in pages/widgets
+// - Use CircularProgressIndicator directly in pages/widgets
+// - Use full-screen spinners for content-heavy screens where skeletons are applicable
+//
+// Source of truth:
+// - LOADING_UI_RULES.md
+// - lib/widgets/app_spinner.dart
+// - lib/widgets/app_skeleton.dart
+//
+// ========================================
+// 12. TESTING GUIDELINES
 // ========================================
 //
 // RULE: Test use cases with mocked repository interfaces
@@ -277,7 +298,7 @@
 // ```
 //
 // ========================================
-// 12. FORBIDDEN PATTERNS
+// 13. FORBIDDEN PATTERNS
 // ========================================
 //
 // ❌ NEVER:
@@ -290,10 +311,11 @@
 // - Put business logic in pages (use controllers)
 // - Return Map<String, dynamic> from domain repositories (use entities)
 // - Treat DTOs as domain entities (DTOs are boundary/contract objects only)
+// - Use CupertinoActivityIndicator/CircularProgressIndicator directly in UI screens
 // - Mix concerns (e.g., network + business logic in same class)
 //
 // ========================================
-// 13. MIGRATION CHECKLIST
+// 14. MIGRATION CHECKLIST
 // ========================================
 //
 // When adding new features:
@@ -307,7 +329,7 @@
 // 8. ✅ Create page/widget
 //
 // ========================================
-// 14. CODE REVIEW CHECKLIST
+// 15. CODE REVIEW CHECKLIST
 // ========================================
 //
 // Before submitting PR:
@@ -319,6 +341,8 @@
 // - [ ] Error handling uses ApiErrorMapper
 // - [ ] Naming follows conventions
 // - [ ] Files in correct folders
+// - [ ] Loading states follow LOADING_UI_RULES.md
+// - [ ] No direct spinner widget usage outside app_spinner.dart
 //
 // ========================================
 // END OF ARCHITECTURE RULES

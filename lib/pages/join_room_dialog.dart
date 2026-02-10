@@ -7,6 +7,8 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
+import '../widgets/app_skeleton.dart';
+import '../widgets/app_spinner.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
@@ -215,7 +217,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          CupertinoActivityIndicator(radius: 20),
+          AppSpinner(radius: 20),
           SizedBox(height: BleyaTheme.spacing2XL),
           Text(
             'Scanning for nearby rooms...',
@@ -224,6 +226,59 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildRoomListSkeleton() {
+    return ListView.builder(
+      padding: EdgeInsets.symmetric(
+        horizontal: BleyaTheme.contentPadding,
+      ),
+      itemCount: 5,
+      itemBuilder: (context, index) {
+        return Padding(
+          padding: EdgeInsets.only(bottom: BleyaTheme.spacingMD),
+          child: Container(
+            padding: EdgeInsets.all(BleyaTheme.spacingLG),
+            decoration: BoxDecoration(
+              color: BleyaTheme.glassSurface.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
+              border: Border.all(
+                color: BleyaTheme.border,
+                width: 1,
+              ),
+              boxShadow: BleyaTheme.glassShadow,
+            ),
+            child: const Row(
+              children: [
+                AppSkeleton.circle(size: 48),
+                SizedBox(width: BleyaTheme.spacingLG),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      AppSkeleton(
+                        width: 160,
+                        height: 16,
+                      ),
+                      SizedBox(height: BleyaTheme.spacingXS),
+                      AppSkeleton(
+                        width: 120,
+                        height: 14,
+                      ),
+                    ],
+                  ),
+                ),
+                SizedBox(width: BleyaTheme.spacingSM),
+                AppSkeleton(
+                  width: 20,
+                  height: 20,
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -342,7 +397,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                                 SizedBox(
                                   width: 20,
                                   height: 20,
-                                  child: CupertinoActivityIndicator(),
+                                  child: AppSpinner(size: 20),
                                 )
                               else
                                 Icon(
@@ -358,7 +413,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                   },
                 );
               },
-              loading: () => Center(child: CupertinoActivityIndicator()),
+              loading: _buildRoomListSkeleton,
               error: (error, stack) {
                 if (kDebugMode) {
                   print('Error fetching rooms: $error');
@@ -376,7 +431,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 );
               },
             ),
-            loading: () => Center(child: CupertinoActivityIndicator()),
+            loading: _buildRoomListSkeleton,
             error: (error, stack) => Center(
               child: Text('Error loading joined rooms'),
             ),
