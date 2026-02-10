@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../constants/theme.dart';
 import '../domain/entities/message.dart';
-import '../utils/time_formatter.dart';
 import 'message_bubble.dart';
 
 class SwipeableMessageBubble extends StatefulWidget {
@@ -9,6 +9,7 @@ class SwipeableMessageBubble extends StatefulWidget {
   final bool isCurrentUser;
   final VoidCallback? onTap;
   final VoidCallback? onUsernameTap;
+  final bool showReplyBadge;
 
   const SwipeableMessageBubble({
     super.key,
@@ -16,6 +17,7 @@ class SwipeableMessageBubble extends StatefulWidget {
     required this.isCurrentUser,
     this.onTap,
     this.onUsernameTap,
+    this.showReplyBadge = true,
   });
 
   @override
@@ -89,7 +91,12 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
 
   @override
   Widget build(BuildContext context) {
-    final timeLabel = formatAbsoluteTime(widget.message.createdAt);
+    final locale = Localizations.localeOf(context).toLanguageTag();
+    final use24Hour = MediaQuery.of(context).alwaysUse24HourFormat;
+
+    final dateFormat =
+        use24Hour ? DateFormat.Hm(locale) : DateFormat.jm(locale);
+    final timeLabel = dateFormat.format(widget.message.createdAt);
     final revealProgress =
         (_dragOffsetX.abs() / _maxDragDistance).clamp(0.0, 1.0);
 
@@ -134,7 +141,7 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
               messageText: widget.message.text,
               isCurrentUser: widget.isCurrentUser,
               username: widget.message.username,
-              replyCount: widget.message.replyCount,
+              replyCount: widget.showReplyBadge ? widget.message.replyCount : 0,
               onTap: widget.onTap,
               onUsernameTap: widget.onUsernameTap,
             ),

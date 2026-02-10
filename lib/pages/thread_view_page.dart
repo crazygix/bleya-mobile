@@ -95,6 +95,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
           ),
         );
       },
+      showReplyBadge: false,
     );
   }
 

@@ -189,7 +189,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           child: Icon(
                             CupertinoIcons.chevron_left,
                             size: 28,
-                            color: BleyaTheme.foreground,
+                            color: BleyaTheme.primary,
                           ),
                         ),
                         const Spacer(),
@@ -239,7 +239,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           child: Icon(
                             CupertinoIcons.chevron_left,
                             size: 28,
-                            color: BleyaTheme.foreground,
+                            color: BleyaTheme.primary,
                           ),
                         ),
                         const Spacer(),

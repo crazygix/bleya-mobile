@@ -53,7 +53,7 @@ class AppNavigationBar extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   child: Icon(
                     CupertinoIcons.chevron_left,
-                    color: BleyaTheme.mutedForeground,
+                    color: BleyaTheme.primary,
                     size: 28,
                   ),
                 ),
