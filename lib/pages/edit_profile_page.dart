@@ -24,11 +24,21 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   bool _isLoadingProfile = true;
   String? _profileImageUrl;
   File? _selectedImage;
+  int _bioCharCount = 0;
+  bool _bioFieldTouched = false;
+  static const int _maxBioLength = 160;
 
   @override
   void initState() {
     super.initState();
+    _bioController.addListener(_updateBioCharCount);
     _loadProfile();
+  }
+
+  void _updateBioCharCount() {
+    setState(() {
+      _bioCharCount = _bioController.text.length;
+    });
   }
 
   Future<void> _loadProfile() async {
@@ -40,6 +50,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       setState(() {
         _usernameController.text = profile.username ?? '';
         _bioController.text = profile.bio ?? '';
+        _bioCharCount = _bioController.text.length;
         _profileImageUrl = profile.profileImageUrl;
         _isLoadingProfile = false;
       });
@@ -112,9 +123,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         await uploadImageUseCase(_selectedImage!);
       }
 
-      // Update profile
+      // Update profile (username is read-only, only update bio)
       await updateProfileUseCase(
-        username: _usernameController.text.trim(),
         bio: _bioController.text.trim(),
       );
 
@@ -148,6 +158,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
   @override
   void dispose() {
+    _bioController.removeListener(_updateBioCharCount);
     _usernameController.dispose();
     _bioController.dispose();
     super.dispose();
@@ -308,29 +319,39 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                             ),
                           ),
                           const SizedBox(height: 40),
-                          // Username Field
+                          // Username Field (Read-only)
                           CupertinoTextField(
                             controller: _usernameController,
                             placeholder: 'Username',
                             padding: const EdgeInsets.all(16),
+                            enabled: false,
                             decoration: BoxDecoration(
                               color: BleyaTheme.glassSurface
-                                  .withValues(alpha: BleyaTheme.glassOpacity),
+                                  .withValues(alpha: BleyaTheme.glassOpacity * 0.5),
                               borderRadius: BorderRadius.circular(
                                   BleyaTheme.radiusMedium),
                               border: Border.all(
-                                color: BleyaTheme.border,
+                                color: BleyaTheme.border.withValues(alpha: 0.5),
                                 width: 1,
                               ),
+                            ),
+                            style: TextStyle(
+                              color: BleyaTheme.mutedForeground,
                             ),
                           ),
                           const SizedBox(height: 20),
                           // Bio Field
                           CupertinoTextField(
                             controller: _bioController,
-                            placeholder: 'Tell us something about yourself',
+                            placeholder: 'A little about you',
                             padding: const EdgeInsets.all(16),
                             maxLines: 4,
+                            maxLength: _maxBioLength,
+                            onChanged: (value) {
+                              if (!_bioFieldTouched) {
+                                setState(() => _bioFieldTouched = true);
+                              }
+                            },
                             decoration: BoxDecoration(
                               color: BleyaTheme.glassSurface
                                   .withValues(alpha: BleyaTheme.glassOpacity),
@@ -342,15 +363,29 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 30),
-                          // Save Button
-                          PrimaryButton(
-                            text: 'Save',
-                            onPressed: _saveProfile,
-                            isLoading: _isLoading,
-                          ),
+                          if (_bioFieldTouched) ...[
+                            const SizedBox(height: 8),
+                            // Character counter
+                            Text(
+                              '${_maxBioLength - _bioCharCount} left',
+                              style: BleyaTheme.bodySmall.copyWith(
+                                color: _bioCharCount > _maxBioLength
+                                    ? BleyaTheme.error
+                                    : BleyaTheme.mutedForeground,
+                              ),
+                            ),
+                          ],
                         ],
                       ),
+                    ),
+                  ),
+                  // Save Button (Pinned to bottom)
+                  Padding(
+                    padding: EdgeInsets.all(BleyaTheme.contentPadding),
+                    child: PrimaryButton(
+                      text: 'Save',
+                      onPressed: _saveProfile,
+                      isLoading: _isLoading,
                     ),
                   ),
                 ],

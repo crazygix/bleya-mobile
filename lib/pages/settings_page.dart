@@ -31,7 +31,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     try {
       if (!mounted) return;
       setState(() => _isLoadingProfile = true);
-      
+
       final getProfileUseCase = ref.read(getProfileUseCaseProvider);
       final profile = await getProfileUseCase();
 
@@ -45,7 +45,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _isLoadingProfile = false);
-      
+
       if (mounted) {
         String errorMessage;
         if (e is AppError) {
@@ -185,8 +185,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                         imageUrl: _profileImageUrl,
                                         size: 64,
                                         backgroundColor: BleyaTheme.greyLight,
-                                        fallbackIcon:
-                                            CupertinoIcons.person,
+                                        fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
                                             BleyaTheme.mutedForeground,
                                       ),
@@ -234,7 +233,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingLG),
+                        const SizedBox(height: BleyaTheme.spacing3XL),
                         // Menu Items
                         SettingsMenuItem(
                           icon: CupertinoIcons.shield,
