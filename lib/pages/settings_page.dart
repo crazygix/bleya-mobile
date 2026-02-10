@@ -176,7 +176,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                         width: 64,
                                         height: 64,
                                         decoration: BoxDecoration(
-                                          color: BleyaTheme.greyLight,
+                                          color: BleyaTheme.primaryLight,
                                           shape: BoxShape.circle,
                                         ),
                                         child: const Center(
@@ -186,10 +186,11 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                     : ProfileAvatar(
                                         imageUrl: _profileImageUrl,
                                         size: 64,
-                                        backgroundColor: BleyaTheme.greyLight,
+                                        backgroundColor:
+                                            BleyaTheme.primaryLight,
                                         fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
-                                            BleyaTheme.mutedForeground,
+                                            BleyaTheme.primaryDark,
                                       ),
                                 const SizedBox(width: BleyaTheme.spacingLG),
                                 // Username and bio

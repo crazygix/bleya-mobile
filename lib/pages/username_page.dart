@@ -85,14 +85,6 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     }
   }
 
-  String _getAvatarText() {
-    final username = _usernameController.text.trim().toLowerCase();
-    if (username.isNotEmpty) {
-      return username[0].toUpperCase();
-    }
-    return '?';
-  }
-
   String? _getErrorMessage(dynamic usernameState, String username,
       bool isUnavailable, bool showError) {
     if (usernameState.errorMessage != null) {
@@ -212,23 +204,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                         height: 128,
                                         decoration: BoxDecoration(
                                           shape: BoxShape.circle,
-                                          gradient: username.isNotEmpty
-                                              ? BleyaTheme.skywashGradient
-                                              : null,
-                                          color: username.isEmpty
-                                              ? BleyaTheme.primaryLight
-                                              : null,
-                                          boxShadow: username.isNotEmpty
-                                              ? [
-                                                  BoxShadow(
-                                                    color: BleyaTheme.primary
-                                                        .withValues(
-                                                            alpha: 0.25),
-                                                    blurRadius: 32,
-                                                    offset: Offset(0, 8),
-                                                  ),
-                                                ]
-                                              : null,
+                                          color: BleyaTheme.primaryLight,
                                         ),
                                         child: usernameState.selectedImage !=
                                                 null
@@ -239,30 +215,21 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                                   errorBuilder: (context, error,
                                                       stackTrace) {
                                                     return Center(
-                                                      child: Text(
-                                                        _getAvatarText(),
-                                                        style: TextStyle(
-                                                          fontSize: 48,
-                                                          fontWeight:
-                                                              FontWeight.w500,
-                                                          color: Colors.white,
-                                                        ),
+                                                      child: Icon(
+                                                        CupertinoIcons.person,
+                                                        size: 48,
+                                                        color: BleyaTheme
+                                                            .primaryDark,
                                                       ),
                                                     );
                                                   },
                                                 ),
                                               )
                                             : Center(
-                                                child: Text(
-                                                  _getAvatarText(),
-                                                  style: TextStyle(
-                                                    fontSize: 48,
-                                                    fontWeight: FontWeight.w500,
-                                                    color: username.isNotEmpty
-                                                        ? Colors.white
-                                                        : BleyaTheme
-                                                            .mutedForeground,
-                                                  ),
+                                                child: Icon(
+                                                  CupertinoIcons.person,
+                                                  size: 48,
+                                                  color: BleyaTheme.primaryDark,
                                                 ),
                                               ),
                                       ),

@@ -15,8 +15,28 @@ class RoomDto {
     return null;
   }
 
+  static int _parseUnreadCount(dynamic value) {
+    if (value is int) {
+      return value < 0 ? 0 : value;
+    }
+    if (value is double) {
+      final rounded = value.round();
+      return rounded < 0 ? 0 : rounded;
+    }
+    if (value is String) {
+      final parsed = int.tryParse(value);
+      if (parsed != null) {
+        return parsed < 0 ? 0 : parsed;
+      }
+    }
+    return 0;
+  }
+
   static Room fromJson(Map<String, dynamic> json) {
     final lastMessageTime = _parseTimestamp(json['lastMessageTime']);
+    final hasUnreadCount = json.containsKey('unreadCount');
+    final unreadCount =
+        hasUnreadCount ? _parseUnreadCount(json['unreadCount']) : 0;
 
     return Room(
       id: json['id'] as String,
@@ -31,6 +51,8 @@ class RoomDto {
       lastMessageTime: lastMessageTime,
       lastMessageUserId: json['lastMessageUserId'] as String?,
       lastMessageUsername: json['lastMessageUsername'] as String?,
+      unreadCount: unreadCount,
+      hasUnreadCount: hasUnreadCount,
     );
   }
 }

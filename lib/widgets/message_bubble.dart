@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
+import 'profile_avatar.dart';
 
 /// Message Bubble Component
 ///
@@ -43,18 +44,12 @@ class MessageBubble extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
           if (!isCurrentUser) ...[
-            Container(
-              width: BleyaTheme.iconContainerSize * 0.64,
-              height: BleyaTheme.iconContainerSize * 0.64,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: BleyaTheme.greyLight,
-              ),
-              child: Icon(
-                CupertinoIcons.person,
-                size: 16,
-                color: BleyaTheme.mutedForeground,
-              ),
+            ProfileAvatar(
+              imageUrl: profileImageUrl,
+              size: BleyaTheme.iconContainerSize * 0.64,
+              backgroundColor: BleyaTheme.primaryLight,
+              fallbackIcon: CupertinoIcons.person,
+              fallbackIconColor: BleyaTheme.primaryDark,
             ),
             const SizedBox(width: BleyaTheme.spacingSM),
           ],

@@ -73,7 +73,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
           : null,
       child: CircleAvatar(
         radius: widget.size / 2,
-        backgroundColor: widget.backgroundColor ?? BleyaTheme.greyLight,
+        backgroundColor: widget.backgroundColor ?? BleyaTheme.primaryLight,
         backgroundImage: hasValidUrl && !_imageLoadFailed
             ? NetworkImage(widget.imageUrl!)
             : null,
@@ -87,7 +87,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
         child: shouldShowFallback
             ? Icon(
                 widget.fallbackIcon,
-                color: widget.fallbackIconColor ?? BleyaTheme.mutedForeground,
+                color: widget.fallbackIconColor ?? BleyaTheme.primaryDark,
                 size: widget.size * 0.5,
               )
             : null,

@@ -80,6 +80,7 @@ class RoomsListController
 
   bool _isInitialized = false;
   bool _isRefreshingRooms = false;
+  bool _hasLoggedUnreadFallback = false;
   dynamic _roomSummaryHandler;
   final Map<String, Map<String, dynamic>> _pendingRoomSummaries = {};
   final Map<String, int> _pendingUnreadIncrements = {};
@@ -110,7 +111,7 @@ class RoomsListController
           .map(
             (room) => RoomListItem(
               room: room,
-              unreadCount: 0,
+              unreadCount: _initialUnreadForRoom(room),
             ),
           )
           .toList();
@@ -142,7 +143,12 @@ class RoomsListController
     if (roomId == null || roomId.isEmpty) return;
 
     final openRoomId = ref.read(currentOpenRoomIdProvider);
-    final unreadIncrement = openRoomId == roomId ? 0 : 1;
+    final currentUser = ref.read(currentUserProvider);
+    final currentUserId = currentUser?['id']?.toString();
+    final messageUserId = data['lastMessageUserId']?.toString();
+    final isOwnMessage =
+        currentUserId != null && messageUserId == currentUserId;
+    final unreadIncrement = (openRoomId == roomId || isOwnMessage) ? 0 : 1;
 
     final current = state.value;
     if (current == null) {
@@ -193,7 +199,8 @@ class RoomsListController
           .map(
             (room) => RoomListItem(
               room: room,
-              unreadCount: existingUnreadByRoomId[room.id] ?? 0,
+              unreadCount: existingUnreadByRoomId[room.id] ??
+                  _initialUnreadForRoom(room),
             ),
           )
           .toList();
@@ -240,6 +247,28 @@ class RoomsListController
     } finally {
       _isRefreshingRooms = false;
     }
+  }
+
+  int _initialUnreadForRoom(Room room) {
+    if (room.hasUnreadCount) {
+      return room.unreadCount;
+    }
+
+    if (!_hasLoggedUnreadFallback && kDebugMode) {
+      _hasLoggedUnreadFallback = true;
+      print('rooms/joined missing unreadCount; using last-message fallback');
+    }
+
+    final currentUser = ref.read(currentUserProvider);
+    final currentUserId = currentUser?['id']?.toString();
+    final lastMessageUserId = room.lastMessageUserId;
+    final hasLastMessage = room.lastMessageText != null;
+
+    if (!hasLastMessage || lastMessageUserId == null) {
+      return 0;
+    }
+
+    return lastMessageUserId == currentUserId ? 0 : 1;
   }
 
   List<RoomListItem> _applySummaryUpdate(

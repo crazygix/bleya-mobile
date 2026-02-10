@@ -53,15 +53,11 @@ class RoomCard extends StatelessWidget {
               ProfileAvatar(
                 imageUrl: null,
                 size: 48,
-                backgroundColor: room.isPrivate
-                    ? BleyaTheme.privateRoomLight
-                    : BleyaTheme.primaryLight,
+                backgroundColor: BleyaTheme.primaryLight,
                 fallbackIcon: room.isPrivate
                     ? CupertinoIcons.person
                     : CupertinoIcons.person_2,
-                fallbackIconColor: room.isPrivate
-                    ? BleyaTheme.privateRoomDark
-                    : BleyaTheme.primaryDark,
+                fallbackIconColor: BleyaTheme.primaryDark,
               ),
               SizedBox(width: BleyaTheme.spacingMD),
               // Content

@@ -275,10 +275,11 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                                       ProfileAvatar(
                                         imageUrl: member.profileImageUrl,
                                         size: 48,
-                                        backgroundColor: BleyaTheme.greyLight,
+                                        backgroundColor:
+                                            BleyaTheme.primaryLight,
                                         fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
-                                            BleyaTheme.mutedForeground,
+                                            BleyaTheme.primaryDark,
                                       ),
                                       Positioned(
                                         right: 0,

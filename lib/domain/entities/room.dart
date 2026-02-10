@@ -9,6 +9,8 @@ class Room {
   final DateTime? lastMessageTime;
   final String? lastMessageUserId;
   final String? lastMessageUsername;
+  final int unreadCount;
+  final bool hasUnreadCount;
 
   Room({
     required this.id,
@@ -20,6 +22,8 @@ class Room {
     this.lastMessageTime,
     this.lastMessageUserId,
     this.lastMessageUsername,
+    this.unreadCount = 0,
+    this.hasUnreadCount = false,
   });
 
   bool get isPrivate => type == 'private';

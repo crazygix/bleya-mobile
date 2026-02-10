@@ -290,10 +290,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                                       return ProfileAvatar(
                                         imageUrl: imageUrl,
                                         size: 120,
-                                        backgroundColor: BleyaTheme.greyLight,
+                                        backgroundColor:
+                                            BleyaTheme.primaryLight,
                                         fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
-                                            BleyaTheme.mutedForeground,
+                                            BleyaTheme.primaryDark,
                                       );
                                     },
                                   ),

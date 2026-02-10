@@ -164,10 +164,11 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
                                       ProfileAvatar(
                                         imageUrl: _userData!.profileImageUrl,
                                         size: 100,
-                                        backgroundColor: BleyaTheme.greyLight,
+                                        backgroundColor:
+                                            BleyaTheme.primaryLight,
                                         fallbackIcon: CupertinoIcons.person,
                                         fallbackIconColor:
-                                            BleyaTheme.mutedForeground,
+                                            BleyaTheme.primaryDark,
                                       ),
                                       const SizedBox(height: 20),
                                       Text(
