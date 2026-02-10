@@ -5,6 +5,7 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
 import '../constants/theme.dart';
+import '../utils/time_formatter.dart';
 import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
@@ -12,6 +13,22 @@ import '../widgets/liquid_glass_background.dart';
 import 'user_details_page.dart';
 import 'room_details_page.dart';
 import 'thread_view_page.dart';
+
+enum _ChatItemType { dateSeparator, message }
+
+class _ChatListItem {
+  final _ChatItemType type;
+  final DateTime? date;
+  final Message? message;
+
+  const _ChatListItem.date(this.date)
+      : type = _ChatItemType.dateSeparator,
+        message = null;
+
+  const _ChatListItem.message(this.message)
+      : type = _ChatItemType.message,
+        date = null;
+}
 
 class ChatRoomPage extends ConsumerStatefulWidget {
   final Room room;
@@ -89,6 +106,29 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     super.dispose();
   }
 
+  List<_ChatListItem> _buildChatItems(List<Message> messages) {
+    final items = <_ChatListItem>[];
+    DateTime? lastDate;
+
+    for (final message in messages) {
+      final createdAt = message.createdAt;
+      final currentDate =
+          DateTime(createdAt.year, createdAt.month, createdAt.day);
+
+      if (lastDate == null ||
+          currentDate.year != lastDate.year ||
+          currentDate.month != lastDate.month ||
+          currentDate.day != lastDate.day) {
+        items.add(_ChatListItem.date(currentDate));
+        lastDate = currentDate;
+      }
+
+      items.add(_ChatListItem.message(message));
+    }
+
+    return items;
+  }
+
   @override
   Widget build(BuildContext context) {
     ref.watch(chatRoomControllerProvider(widget.room));
@@ -96,6 +136,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final messages = ref.watch(roomMessagesProvider(widget.room.id));
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
+    final chatItems = _buildChatItems(messages);
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -161,45 +202,21 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                           horizontal: BleyaTheme.contentPadding,
                           vertical: BleyaTheme.spacingLG,
                         ),
-                        itemCount: messages.length + 1,
+                        itemCount: chatItems.length,
                         itemBuilder: (context, index) {
-                          if (index == 0) {
-                            return Padding(
-                              padding: const EdgeInsets.only(bottom: 16),
-                              child: Center(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: BleyaTheme.spacingLG,
-                                    vertical: BleyaTheme.spacingSM,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: BleyaTheme.glassSurface.withValues(
-                                      alpha: BleyaTheme.glassOpacity,
-                                    ),
-                                    borderRadius: BorderRadius.circular(
-                                      BleyaTheme.radiusSmall,
-                                    ),
-                                    border: Border.all(
-                                      color: BleyaTheme.border
-                                          .withValues(alpha: 0.2),
-                                      width: 1,
-                                    ),
-                                    boxShadow: BleyaTheme.glassShadow,
-                                  ),
-                                  child: Text(
-                                    'Today',
-                                    style: BleyaTheme.bodySmall.copyWith(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: BleyaTheme.mutedForeground,
-                                    ),
-                                  ),
-                                ),
-                              ),
+                          final item = chatItems[index];
+
+                          if (item.type == _ChatItemType.dateSeparator) {
+                            final locale =
+                                Localizations.localeOf(context).toLanguageTag();
+                            final label = formatMessageDateLabel(
+                              item.date!,
+                              locale: locale,
                             );
+                            return _DateSeparatorLabel(label: label);
                           }
 
-                          final message = messages[index - 1];
+                          final message = item.message!;
                           final isCurrentUser = currentUserId != null &&
                               message.userId == currentUserId;
 
@@ -236,6 +253,48 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _DateSeparatorLabel extends StatelessWidget {
+  final String label;
+
+  const _DateSeparatorLabel({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: BleyaTheme.spacingLG,
+            vertical: BleyaTheme.spacingSM,
+          ),
+          decoration: BoxDecoration(
+            color: BleyaTheme.glassSurface.withValues(
+              alpha: BleyaTheme.glassOpacity,
+            ),
+            borderRadius: BorderRadius.circular(
+              BleyaTheme.radiusSmall,
+            ),
+            border: Border.all(
+              color: BleyaTheme.border.withValues(alpha: 0.2),
+              width: 1,
+            ),
+            boxShadow: BleyaTheme.glassShadow,
+          ),
+          child: Text(
+            label,
+            style: BleyaTheme.bodySmall.copyWith(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: BleyaTheme.mutedForeground,
+            ),
+          ),
+        ),
       ),
     );
   }

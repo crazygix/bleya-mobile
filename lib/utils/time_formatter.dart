@@ -29,3 +29,21 @@ String formatAbsoluteTime(DateTime dateTime, {String? locale}) {
   final format = DateFormat.jm(locale);
   return format.format(dateTime);
 }
+
+String formatMessageDateLabel(DateTime dateTime, {String? locale}) {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  final target = DateTime(dateTime.year, dateTime.month, dateTime.day);
+  final difference = today.difference(target).inDays;
+
+  if (difference == 0) {
+    return 'Today';
+  } else if (difference == 1) {
+    return 'Yesterday';
+  } else {
+    final format = now.year == dateTime.year
+        ? DateFormat.MMMd(locale)
+        : DateFormat.yMMMd(locale);
+    return format.format(dateTime);
+  }
+}
