@@ -22,3 +22,10 @@ String formatRelativeTime(DateTime dateTime) {
     }
   }
 }
+
+String formatAbsoluteTime(DateTime dateTime) {
+  String twoDigits(int n) => n.toString().padLeft(2, '0');
+  final hours = twoDigits(dateTime.hour);
+  final minutes = twoDigits(dateTime.minute);
+  return '$hours:$minutes';
+}

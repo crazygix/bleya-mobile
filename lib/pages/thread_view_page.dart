@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../constants/theme.dart';
-import '../widgets/message_bubble.dart';
+import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
@@ -83,10 +83,9 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   }
 
   Widget _buildMessageBubble(Message message, bool isCurrentUser) {
-    return MessageBubble(
-      messageText: message.text,
+    return SwipeableMessageBubble(
+      message: message,
       isCurrentUser: isCurrentUser,
-      username: message.username,
       onUsernameTap: () {
         Navigator.of(context).push(
           MaterialPageRoute(

@@ -5,7 +5,7 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../services/socket_service.dart';
 import '../constants/theme.dart';
-import '../widgets/message_bubble.dart';
+import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
@@ -203,11 +203,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                           final isCurrentUser = currentUserId != null &&
                               message.userId == currentUserId;
 
-                          return MessageBubble(
-                            messageText: message.text,
+                          return SwipeableMessageBubble(
+                            message: message,
                             isCurrentUser: isCurrentUser,
-                            username: message.username,
-                            replyCount: message.replyCount,
                             onTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
