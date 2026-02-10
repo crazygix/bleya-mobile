@@ -235,7 +235,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               ),
               MessageInputField(
                 controller: _messageController,
-                hintText: 'Type a message...',
                 onSend: _sendMessage,
               ),
             ],

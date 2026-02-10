@@ -25,7 +25,7 @@ class MessageInputField extends StatefulWidget {
   const MessageInputField({
     super.key,
     required this.controller,
-    this.hintText = 'Type a message...',
+    this.hintText = '',
     this.onSend,
     this.onCamera,
     this.onAttachment,

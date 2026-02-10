@@ -130,117 +130,75 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                   data: (data) {
                     final parentMessage = data['parentMessage'] as Message;
                     final replies = data['replies'] as List<Message>;
+                    final isParentCurrentUser = currentUserId != null &&
+                        parentMessage.userId == currentUserId;
 
-                    return ListView(
+                    final hasReplies = replies.isNotEmpty;
+                    final itemCount = hasReplies ? replies.length + 2 : 1;
+
+                    return ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color:
-                                BleyaTheme.glassSurface.withValues(alpha: 0.9),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: BleyaTheme.primary.withValues(alpha: 0.2),
-                              width: 1.5,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: BleyaTheme.contentPadding,
+                        vertical: BleyaTheme.spacingLG,
+                      ),
+                      itemCount: itemCount,
+                      itemBuilder: (context, index) {
+                        if (index == 0) {
+                          return _buildMessageBubble(
+                            parentMessage,
+                            isParentCurrentUser,
+                          );
+                        }
+
+                        if (hasReplies && index == 1) {
+                          return Padding(
+                            padding: const EdgeInsets.only(
+                              top: BleyaTheme.spacing2XL,
+                              bottom: BleyaTheme.spacing2XL,
                             ),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    BleyaTheme.primary.withValues(alpha: 0.1),
-                                blurRadius: 12,
-                                offset: Offset(0, 4),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (parentMessage.username.isNotEmpty)
-                                GestureDetector(
-                                  onTap: () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => UserDetailsPage(
-                                          userId: parentMessage.userId,
-                                        ),
-                                      ),
-                                    );
-                                  },
-                                  child: Text(
-                                    parentMessage.username,
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: BleyaTheme.primary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: BleyaTheme.foreground
+                                        .withValues(alpha: 0.2),
                                   ),
                                 ),
-                              if (parentMessage.username.isNotEmpty)
-                                const SizedBox(height: 8),
-                              Text(
-                                parentMessage.text,
-                                style: TextStyle(
-                                  fontSize: 17,
-                                  color: BleyaTheme.foreground,
-                                  height: 1.4,
+                                const SizedBox(
+                                  width: BleyaTheme.spacingLG,
                                 ),
-                              ),
-                              const SizedBox(height: 12),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 6,
+                                Text(
+                                  'Replies',
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: BleyaTheme.mutedForeground,
+                                  ),
                                 ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      BleyaTheme.primary.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(12),
+                                const SizedBox(
+                                  width: BleyaTheme.spacingLG,
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      CupertinoIcons.chat_bubble_text,
-                                      size: 14,
-                                      color: BleyaTheme.primary,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      '${replies.length} ${replies.length == 1 ? 'reply' : 'replies'}',
-                                      style: TextStyle(
-                                        fontSize: 13,
-                                        color: BleyaTheme.primary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ],
+                                Expanded(
+                                  child: Container(
+                                    height: 1,
+                                    color: BleyaTheme.foreground
+                                        .withValues(alpha: 0.2),
+                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (replies.isNotEmpty) ...[
-                          const SizedBox(height: 24),
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Text(
-                              'Replies',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w600,
-                                color: BleyaTheme.mutedForeground,
-                              ),
+                              ],
                             ),
-                          ),
-                          ...replies.map((reply) {
-                            final isCurrentUser = currentUserId != null &&
-                                reply.userId == currentUserId;
-                            return _buildMessageBubble(reply, isCurrentUser);
-                          }),
-                        ],
-                      ],
+                          );
+                        }
+
+                        final replyIndex = hasReplies ? index - 2 : index - 1;
+                        final reply = replies[replyIndex];
+                        final isCurrentUser = currentUserId != null &&
+                            reply.userId == currentUserId;
+
+                        return _buildMessageBubble(reply, isCurrentUser);
+                      },
                     );
                   },
                   loading: () => const Center(
@@ -291,7 +249,6 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
               ),
               MessageInputField(
                 controller: _replyController,
-                hintText: 'Reply to thread...',
                 onSend: _sendReply,
               ),
             ],
