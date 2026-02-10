@@ -208,18 +208,16 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                             isCurrentUser: isCurrentUser,
                             username: message.username,
                             replyCount: message.replyCount,
-                            onTap: message.replyCount > 0
-                                ? () {
-                                    Navigator.of(context).push(
-                                      MaterialPageRoute(
-                                        builder: (context) => ThreadViewPage(
-                                          parentMessage: message,
-                                          room: widget.room,
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                : null,
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) => ThreadViewPage(
+                                    parentMessage: message,
+                                    room: widget.room,
+                                  ),
+                                ),
+                              );
+                            },
                             onUsernameTap: () {
                               Navigator.of(context).push(
                                 MaterialPageRoute(
