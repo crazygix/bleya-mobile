@@ -26,8 +26,11 @@ class DashboardPage extends ConsumerStatefulWidget {
 
 class _DashboardPageState extends ConsumerState<DashboardPage> {
   int _selectedIndex = 0;
+  static const Duration _tabSwitchDuration = Duration(milliseconds: 260);
 
   void _onTabChanged(int index) {
+    if (index == _selectedIndex) return;
+
     setState(() {
       _selectedIndex = index;
     });
@@ -141,107 +144,54 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       ),
                       boxShadow: BleyaTheme.glassShadow,
                     ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _onTabChanged(0),
-                            child: Container(
-                              height: double.infinity,
-                              decoration: BoxDecoration(
-                                color: _selectedIndex == 0
-                                    ? CupertinoColors.white
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(28),
-                                boxShadow: _selectedIndex == 0
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.04),
-                                          blurRadius: 8,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    CupertinoIcons.chat_bubble,
-                                    color: _selectedIndex == 0
-                                        ? BleyaTheme.primary
-                                        : BleyaTheme.mutedForeground
-                                            .withValues(alpha: 0.4),
-                                    size: 24,
-                                  ),
-                                  if (_selectedIndex == 0)
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                          top: BleyaTheme.spacingXS),
-                                      child: Text(
-                                        'Chats',
-                                        style: BleyaTheme.bodySmall.copyWith(
-                                          color: BleyaTheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(32),
+                      child: Padding(
+                        padding: const EdgeInsets.all(4),
+                        child: Stack(
+                          children: [
+                            AnimatedAlign(
+                              duration: _tabSwitchDuration,
+                              curve: Curves.easeInOutCubic,
+                              alignment: _selectedIndex == 0
+                                  ? Alignment.centerLeft
+                                  : Alignment.centerRight,
+                              child: FractionallySizedBox(
+                                widthFactor: 0.5,
+                                heightFactor: 1,
+                                child: Container(
+                                  decoration: BoxDecoration(
+                                    color: CupertinoColors.white,
+                                    borderRadius: BorderRadius.circular(28),
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black
+                                            .withValues(alpha: 0.04),
+                                        blurRadius: 8,
+                                        offset: Offset(0, 2),
                                       ),
-                                    ),
-                                ],
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
-                          ),
-                        ),
-                        Expanded(
-                          child: GestureDetector(
-                            onTap: () => _onTabChanged(1),
-                            child: Container(
-                              height: double.infinity,
-                              decoration: BoxDecoration(
-                                color: _selectedIndex == 1
-                                    ? CupertinoColors.white
-                                    : Colors.transparent,
-                                borderRadius: BorderRadius.circular(28),
-                                boxShadow: _selectedIndex == 1
-                                    ? [
-                                        BoxShadow(
-                                          color: Colors.black
-                                              .withValues(alpha: 0.04),
-                                          blurRadius: 8,
-                                          offset: Offset(0, 2),
-                                        ),
-                                      ]
-                                    : null,
-                              ),
-                              child: Column(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  Icon(
-                                    CupertinoIcons.settings,
-                                    color: _selectedIndex == 1
-                                        ? BleyaTheme.primary
-                                        : BleyaTheme.mutedForeground
-                                            .withValues(alpha: 0.4),
-                                    size: 24,
-                                  ),
-                                  if (_selectedIndex == 1)
-                                    Padding(
-                                      padding: EdgeInsets.only(
-                                          top: BleyaTheme.spacingXS),
-                                      child: Text(
-                                        'Settings',
-                                        style: BleyaTheme.bodySmall.copyWith(
-                                          color: BleyaTheme.primary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
+                            Row(
+                              children: [
+                                _buildBottomNavItem(
+                                  index: 0,
+                                  icon: CupertinoIcons.chat_bubble,
+                                  label: 'Chats',
+                                ),
+                                _buildBottomNavItem(
+                                  index: 1,
+                                  icon: CupertinoIcons.settings,
+                                  label: 'Settings',
+                                ),
+                              ],
                             ),
-                          ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -289,11 +239,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               String prefix = '';
               if (!isPrivate && room.lastMessageUserId != null) {
                 final isCurrentUser = room.lastMessageUserId == currentUserId;
-                prefix = isCurrentUser ? 'You: ' : '${room.lastMessageUsername ?? 'Unknown'}: ';
+                prefix = isCurrentUser
+                    ? 'You: '
+                    : '${room.lastMessageUsername ?? 'Unknown'}: ';
               }
               subtitle = '$prefix${room.lastMessageText}';
             } else {
-              subtitle = isPrivate ? 'Private chat' : 'Tap to join the conversation';
+              subtitle =
+                  isPrivate ? 'Private chat' : 'Tap to join the conversation';
             }
 
             final time = room.lastMessageTime != null
@@ -337,6 +290,51 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildBottomNavItem({
+    required int index,
+    required IconData icon,
+    required String label,
+  }) {
+    final isSelected = _selectedIndex == index;
+    return Expanded(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _onTabChanged(index),
+        child: SizedBox(
+          height: double.infinity,
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                icon,
+                color: isSelected
+                    ? BleyaTheme.primary
+                    : BleyaTheme.mutedForeground.withValues(alpha: 0.4),
+                size: 24,
+              ),
+              AnimatedSize(
+                duration: _tabSwitchDuration,
+                curve: Curves.easeInOutCubic,
+                child: isSelected
+                    ? Padding(
+                        padding: EdgeInsets.only(top: BleyaTheme.spacingXS),
+                        child: Text(
+                          label,
+                          style: BleyaTheme.bodySmall.copyWith(
+                            color: BleyaTheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      )
+                    : const SizedBox.shrink(),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

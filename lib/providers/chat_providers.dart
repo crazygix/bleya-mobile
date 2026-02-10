@@ -79,6 +79,7 @@ class RoomsListController
   final SocketService socketService;
 
   bool _isInitialized = false;
+  bool _isRefreshingRooms = false;
   dynamic _roomSummaryHandler;
   final Map<String, Map<String, dynamic>> _pendingRoomSummaries = {};
   final Map<String, int> _pendingUnreadIncrements = {};
@@ -151,6 +152,15 @@ class RoomsListController
       return;
     }
 
+    final roomExists = current.any((item) => item.room.id == roomId);
+    if (!roomExists) {
+      _pendingRoomSummaries[roomId] = data;
+      _pendingUnreadIncrements[roomId] =
+          (_pendingUnreadIncrements[roomId] ?? 0) + unreadIncrement;
+      _refreshRoomsFromBackend();
+      return;
+    }
+
     final updated = _applySummaryUpdate(
       current,
       roomId: roomId,
@@ -160,6 +170,75 @@ class RoomsListController
 
     if (!identical(updated, current)) {
       state = AsyncValue.data(updated);
+    }
+  }
+
+  Future<void> _refreshRoomsFromBackend() async {
+    if (_isRefreshingRooms) return;
+    _isRefreshingRooms = true;
+
+    try {
+      final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
+      final rooms = await getJoinedRoomsUseCase();
+      if (rooms.isEmpty && state.value == null) {
+        return;
+      }
+
+      final existingItems = state.value ?? const <RoomListItem>[];
+      final existingUnreadByRoomId = <String, int>{
+        for (final item in existingItems) item.room.id: item.unreadCount,
+      };
+
+      var refreshedItems = rooms
+          .map(
+            (room) => RoomListItem(
+              room: room,
+              unreadCount: existingUnreadByRoomId[room.id] ?? 0,
+            ),
+          )
+          .toList();
+
+      if (_pendingRoomSummaries.isNotEmpty) {
+        final unresolvedSummaries = <String, Map<String, dynamic>>{};
+        final unresolvedUnreadIncrements = <String, int>{};
+
+        for (final entry in _pendingRoomSummaries.entries) {
+          final roomId = entry.key;
+          final unreadIncrement = _pendingUnreadIncrements[roomId] ?? 0;
+          final roomExists =
+              refreshedItems.any((item) => item.room.id == roomId);
+
+          if (!roomExists) {
+            unresolvedSummaries[roomId] = entry.value;
+            unresolvedUnreadIncrements[roomId] = unreadIncrement;
+            continue;
+          }
+
+          refreshedItems = _applySummaryUpdate(
+            refreshedItems,
+            roomId: roomId,
+            payload: entry.value,
+            unreadIncrement: unreadIncrement,
+          );
+        }
+
+        _pendingRoomSummaries
+          ..clear()
+          ..addAll(unresolvedSummaries);
+        _pendingUnreadIncrements
+          ..clear()
+          ..addAll(unresolvedUnreadIncrements);
+      }
+
+      _sortByLastMessageTime(refreshedItems);
+      state = AsyncValue.data(refreshedItems);
+    } catch (e, stack) {
+      if (kDebugMode) {
+        print('Error refreshing joined rooms for realtime updates: $e');
+        print(stack);
+      }
+    } finally {
+      _isRefreshingRooms = false;
     }
   }
 
