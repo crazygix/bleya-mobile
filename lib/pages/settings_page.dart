@@ -134,7 +134,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                     bottom: BleyaTheme.spacingLG,
                   ),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Text(
                         'Settings',
@@ -235,7 +234,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: BleyaTheme.spacing2XL),
+                        const SizedBox(height: BleyaTheme.spacingLG),
                         // Menu Items
                         SettingsMenuItem(
                           icon: CupertinoIcons.shield,
@@ -243,28 +242,28 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           label: 'Privacy',
                           onTap: () => _showComingSoon('Privacy'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingMD),
+                        const SizedBox(height: BleyaTheme.spacingSM),
                         SettingsMenuItem(
                           icon: CupertinoIcons.bell,
                           iconColor: Color(0xFFEF4444), // Red
                           label: 'Notifications',
                           onTap: () => _showComingSoon('Notifications'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingMD),
+                        const SizedBox(height: BleyaTheme.spacingSM),
                         SettingsMenuItem(
                           icon: CupertinoIcons.question_circle,
                           iconColor: BleyaTheme.primary,
                           label: 'Help',
                           onTap: () => _showComingSoon('Help'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingMD),
+                        const SizedBox(height: BleyaTheme.spacingSM),
                         SettingsMenuItem(
                           icon: CupertinoIcons.circle,
                           iconColor: Color(0xFFF97316), // Orange
                           label: 'Tell a Friend',
                           onTap: () => _showComingSoon('Tell a Friend'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacing2XL),
+                        const SizedBox(height: BleyaTheme.spacing3XL),
                         // Log Out
                         SettingsMenuItem(
                           icon: CupertinoIcons.arrow_right_square,

@@ -37,16 +37,12 @@ class SettingsMenuItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.symmetric(
-          horizontal: BleyaTheme.spacingLG,
-          vertical: BleyaTheme.spacingLG,
-        ),
+        padding: const EdgeInsets.all(BleyaTheme.radiusSmall),
         decoration: BoxDecoration(
-          color: BleyaTheme.glassSurface
-              .withValues(alpha: BleyaTheme.glassOpacity),
-          borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
+          color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
+          borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
           border: Border.all(
-            color: BleyaTheme.border,
+            color: BleyaTheme.border.withValues(alpha: 0.3),
             width: 1,
           ),
           boxShadow: BleyaTheme.glassShadow,
