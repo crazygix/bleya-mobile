@@ -69,4 +69,16 @@ class MessageRepositoryImpl implements MessageRepository {
       throw ApiErrorMapper.mapDioError(e);
     }
   }
+
+  @override
+  Future<int> markRoomAsRead(String roomId) async {
+    try {
+      final response = await _dio.post('/rooms/$roomId/read');
+      final data = response.data as Map<String, dynamic>;
+      final lastReadAt = data['lastReadAt'] as int?;
+      return lastReadAt ?? DateTime.now().millisecondsSinceEpoch;
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
 }

@@ -182,6 +182,21 @@ class RoomsListController
         .toList();
 
     state = AsyncValue.data(updated);
+
+    // Best-effort: inform backend that this room has been read so that
+    // join_room can return an accurate lastReadAt cursor next time.
+    // This is fire-and-forget; errors are logged in debug but do not
+    // affect UI state.
+    Future(() async {
+      try {
+        final markReadUseCase = ref.read(markRoomAsReadUseCaseProvider);
+        await markReadUseCase(roomId);
+      } catch (e) {
+        if (kDebugMode) {
+          print('Failed to mark room $roomId as read on backend: $e');
+        }
+      }
+    });
   }
 
   @override
@@ -216,31 +231,42 @@ class ChatRoomState {
   final bool isLoadingMore;
   final bool hasMore;
   final int? nextCursor;
+  final DateTime? lastReadAt;
+
+  // Sentinel used in copyWith so we can distinguish
+  // "parameter not provided" from "explicitly set to null".
+  static const Object _noLastReadAtProvided = Object();
 
   const ChatRoomState({
     required this.isInitialLoading,
     required this.isLoadingMore,
     required this.hasMore,
     required this.nextCursor,
+    required this.lastReadAt,
   });
 
   const ChatRoomState.initial()
       : isInitialLoading = true,
         isLoadingMore = false,
         hasMore = false,
-        nextCursor = null;
+        nextCursor = null,
+        lastReadAt = null;
 
   ChatRoomState copyWith({
     bool? isInitialLoading,
     bool? isLoadingMore,
     bool? hasMore,
     int? nextCursor,
+    Object? lastReadAt = _noLastReadAtProvided,
   }) {
     return ChatRoomState(
       isInitialLoading: isInitialLoading ?? this.isInitialLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
       nextCursor: nextCursor ?? this.nextCursor,
+      lastReadAt: identical(lastReadAt, _noLastReadAtProvided)
+          ? this.lastReadAt
+          : lastReadAt as DateTime?,
     );
   }
 }
@@ -366,11 +392,16 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
         final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
         final hasMore = pagination['hasMore'] as bool? ?? false;
         final nextCursor = pagination['nextCursor'] as int?;
+        final lastReadAtMs = data['lastReadAt'] as int?;
+        final lastReadAt = lastReadAtMs != null
+            ? DateTime.fromMillisecondsSinceEpoch(lastReadAtMs)
+            : null;
 
         state = state.copyWith(
           isInitialLoading: false,
           hasMore: hasMore,
           nextCursor: nextCursor,
+          lastReadAt: lastReadAt,
         );
       }
     });

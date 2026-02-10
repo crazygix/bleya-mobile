@@ -42,4 +42,10 @@ abstract class MessageRepository {
     int? before,
     int? limit,
   });
+
+  /// Mark all messages in a room as read for the current user.
+  ///
+  /// Backend will update the per-room read pointer and return the effective
+  /// lastReadAt timestamp (milliseconds since epoch).
+  Future<int> markRoomAsRead(String roomId);
 }

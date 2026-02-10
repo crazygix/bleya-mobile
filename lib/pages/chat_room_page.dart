@@ -46,9 +46,16 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   ProviderSubscription<List<Message>>? _messagesSubscription;
+  ProviderSubscription<ChatRoomState>? _chatStateSubscription;
   SocketService? _socketService;
+  final Map<String, GlobalKey> _messageKeys = {};
   bool _isLoadingMoreTriggered = false;
-  bool _didScrollToInitialBottom = false;
+  bool _didSetInitialPosition = false;
+  bool _didMarkRoomAsRead = false;
+  bool _isInitialPositionScheduled = false;
+  bool _isForcingInitialScroll = false;
+  bool _isForcingKeyboardScroll = false;
+  double _lastKeyboardInset = 0;
 
   @override
   void initState() {
@@ -57,11 +64,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     _socketService = ref.read(socketServiceProvider);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Mark this room as currently open and clear its unread counter.
+      // Mark this room as currently open.
       ref.read(currentOpenRoomIdProvider.notifier).state = widget.room.id;
-      final roomsListController =
-          ref.read(roomsListProvider.notifier);
-      roomsListController.markRoomAsRead(widget.room.id);
 
       // Clear any old messages for this room to ensure fresh data
       ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
@@ -69,13 +73,53 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       // Initialize controller - it will automatically set up socket listeners and join room
       ref.read(chatRoomControllerProvider(widget.room).notifier);
 
-      // Keep subscription in case we need future side effects; currently unused.
       _messagesSubscription = ref.listenManual<List<Message>>(
         roomMessagesProvider(widget.room.id),
         (previous, next) {
-          // No-op for now.
+          final previousList = previous ?? const <Message>[];
+          final nextList = next;
+
+          if (!_didSetInitialPosition) {
+            _scheduleInitialPositioning();
+          }
+
+          // Only react when a new message is appended (not when loading older history).
+          final addedNewMessage =
+              previousList.isNotEmpty && nextList.length > previousList.length;
+
+          if (!addedNewMessage) {
+            return;
+          }
+
+          if (!_scrollController.hasClients) {
+            return;
+          }
+
+          final position = _scrollController.position;
+          const threshold = 80.0;
+          final isNearBottom =
+              position.pixels >= (position.maxScrollExtent - threshold);
+
+          // Auto-scroll only if user was already near the bottom.
+          if (isNearBottom) {
+            _scrollToBottom(animated: true);
+          }
         },
       );
+
+      _chatStateSubscription = ref.listenManual<ChatRoomState>(
+        chatRoomControllerProvider(widget.room),
+        (previous, next) {
+          if (!_didSetInitialPosition && !next.isInitialLoading) {
+            _scheduleInitialPositioning();
+          }
+        },
+      );
+
+      final currentMessages = ref.read(roomMessagesProvider(widget.room.id));
+      if (!_didSetInitialPosition && currentMessages.isNotEmpty) {
+        _scheduleInitialPositioning();
+      }
 
       _scrollController.addListener(_onScroll);
     });
@@ -89,12 +133,16 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         ref.read(chatRoomControllerProvider(widget.room).notifier);
     controller.sendMessage(text);
     _messageController.clear();
+
+    // Ensure we stay at the bottom when sending a message.
+    _scrollToBottom(animated: true);
   }
 
   @override
   void dispose() {
     _socketService?.leaveRoom(widget.room.id);
     _messagesSubscription?.close();
+    _chatStateSubscription?.close();
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -102,6 +150,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   void _onScroll() async {
     if (!_scrollController.hasClients) return;
+    if (!_didSetInitialPosition) return;
 
     final position = _scrollController.position;
     // Trigger loading older messages when user scrolls near the top.
@@ -149,6 +198,186 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     });
   }
 
+  GlobalKey _messageKey(String messageId) {
+    return _messageKeys.putIfAbsent(messageId, () => GlobalKey());
+  }
+
+  Message? _findFirstUnreadMessage({
+    required List<Message> messages,
+    required DateTime? lastReadAt,
+  }) {
+    if (messages.isEmpty) return null;
+    if (lastReadAt == null) return messages.first;
+
+    final lastReadMs = lastReadAt.millisecondsSinceEpoch;
+    for (final message in messages) {
+      if (message.createdAt.millisecondsSinceEpoch > lastReadMs) {
+        return message;
+      }
+    }
+
+    return null;
+  }
+
+  void _markRoomAsReadOnce() {
+    if (_didMarkRoomAsRead) return;
+    _didMarkRoomAsRead = true;
+    ref.read(roomsListProvider.notifier).markRoomAsRead(widget.room.id);
+  }
+
+  void _scheduleInitialPositioning() {
+    if (!mounted || _didSetInitialPosition || _isInitialPositionScheduled) return;
+
+    _isInitialPositionScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _isInitialPositionScheduled = false;
+
+      if (!mounted || _didSetInitialPosition) return;
+
+      final chatState = ref.read(chatRoomControllerProvider(widget.room));
+      final messages = ref.read(roomMessagesProvider(widget.room.id));
+
+      if (chatState.isInitialLoading) {
+        _scheduleInitialPositioning();
+        return;
+      }
+
+      if (messages.isEmpty) {
+        _didSetInitialPosition = true;
+        _markRoomAsReadOnce();
+        return;
+      }
+
+      final firstUnreadMessage = _findFirstUnreadMessage(
+        messages: messages,
+        lastReadAt: chatState.lastReadAt,
+      );
+
+      if (firstUnreadMessage == null) {
+        _forceInitialScrollToBottom(onComplete: _markRoomAsReadOnce);
+        return;
+      }
+
+      if (!_scrollController.hasClients) {
+        _scheduleInitialPositioning();
+        return;
+      }
+
+      final chatItems = _buildChatItems(messages);
+      final targetItemIndex = chatItems.indexWhere(
+        (item) =>
+            item.type == _ChatItemType.message &&
+            item.message?.id == firstUnreadMessage.id,
+      );
+
+      if (targetItemIndex == -1) {
+        _scheduleInitialPositioning();
+        return;
+      }
+
+      final maxExtent = _scrollController.position.maxScrollExtent;
+      if (maxExtent > 0 && chatItems.length > 1) {
+        final ratio = targetItemIndex / (chatItems.length - 1);
+        final roughOffset = (maxExtent * ratio).clamp(0.0, maxExtent);
+        _scrollController.jumpTo(roughOffset);
+      }
+
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || _didSetInitialPosition) return;
+
+        final targetContext = _messageKey(firstUnreadMessage.id).currentContext;
+        if (targetContext == null) {
+          _scheduleInitialPositioning();
+          return;
+        }
+
+        Scrollable.ensureVisible(
+          targetContext,
+          duration: const Duration(milliseconds: 260),
+          curve: Curves.easeOut,
+          alignment: 0.12,
+        ).whenComplete(() {
+          if (!mounted) return;
+          _didSetInitialPosition = true;
+          _markRoomAsReadOnce();
+        });
+      });
+    });
+  }
+
+  void _forceInitialScrollToBottom({VoidCallback? onComplete}) {
+    if (!mounted || _didSetInitialPosition || _isForcingInitialScroll) return;
+
+    _isForcingInitialScroll = true;
+    Future(() async {
+      var performedJump = false;
+      // Retry for a short period so late layout/padding changes don't leave us
+      // above the latest message on first open.
+      for (var attempt = 0; attempt < 40; attempt++) {
+        if (!mounted) return;
+
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+        if (!_scrollController.hasClients) {
+          continue;
+        }
+
+        performedJump = true;
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+
+      if (!mounted) return;
+      _isForcingInitialScroll = false;
+      if (!performedJump) {
+        Future<void>.delayed(
+          const Duration(milliseconds: 100),
+          () => _forceInitialScrollToBottom(onComplete: onComplete),
+        );
+        return;
+      }
+
+      _didSetInitialPosition = true;
+      onComplete?.call();
+    });
+  }
+
+  void _forceScrollToBottomForKeyboard() {
+    if (!mounted || _isForcingKeyboardScroll) return;
+
+    _isForcingKeyboardScroll = true;
+    Future(() async {
+      // Keep jumping while keyboard and input field finish animating.
+      for (var attempt = 0; attempt < 35; attempt++) {
+        if (!mounted) return;
+
+        await Future<void>.delayed(const Duration(milliseconds: 16));
+        if (!_scrollController.hasClients) {
+          continue;
+        }
+
+        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+      }
+
+      if (!mounted) return;
+      _isForcingKeyboardScroll = false;
+    });
+  }
+
+  void _scrollToBottom({bool animated = true}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) return;
+      final target = _scrollController.position.maxScrollExtent;
+      if (animated) {
+        _scrollController.animateTo(
+          target,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOut,
+        );
+      } else {
+        _scrollController.jumpTo(target);
+      }
+    });
+  }
+
   List<_ChatListItem> _buildChatItems(List<Message> messages) {
     final items = <_ChatListItem>[];
     DateTime? lastDate;
@@ -180,21 +409,20 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final currentUserId = currentUser?['id'] as String?;
     final chatItems = _buildChatItems(messages);
 
-    // After initial messages load, jump once to the bottom (no animation).
-    if (!_didScrollToInitialBottom &&
-        !chatState.isInitialLoading &&
-        messages.isNotEmpty) {
+    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    if (keyboardInset != _lastKeyboardInset) {
+      _lastKeyboardInset = keyboardInset;
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!_scrollController.hasClients) return;
-        _scrollController.jumpTo(
-          _scrollController.position.maxScrollExtent,
-        );
+        if (!mounted) return;
+        if (keyboardInset > 0) {
+          _forceScrollToBottomForKeyboard();
+        }
       });
-      _didScrollToInitialBottom = true;
     }
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
+      resizeToAvoidBottomInset: false,
       extendBodyBehindAppBar: true,
       body: Stack(
         children: [
@@ -255,65 +483,73 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                               ),
                             ),
                           )
-                        : Stack(
-                            children: [
-                              ListView.builder(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: BleyaTheme.contentPadding,
-                                  vertical: BleyaTheme.spacingLG,
-                                ),
-                                itemCount: chatItems.length,
-                                itemBuilder: (context, index) {
-                                  final item = chatItems[index];
+                        : ListView.builder(
+                            controller: _scrollController,
+                            padding: EdgeInsets.only(
+                              left: BleyaTheme.contentPadding,
+                              right: BleyaTheme.contentPadding,
+                              top: BleyaTheme.spacingLG,
+                              bottom: BleyaTheme.spacingLG,
+                            ),
+                            itemCount: chatItems.length,
+                            itemBuilder: (context, index) {
+                              final item = chatItems[index];
 
-                                  if (item.type == _ChatItemType.dateSeparator) {
-                                    final locale =
-                                        Localizations.localeOf(context)
-                                            .toLanguageTag();
-                                    final label = formatMessageDateLabel(
-                                      item.date!,
-                                      locale: locale,
-                                    );
-                                    return _DateSeparatorLabel(label: label);
-                                  }
+                              if (item.type == _ChatItemType.dateSeparator) {
+                                final locale =
+                                    Localizations.localeOf(context)
+                                        .toLanguageTag();
+                                final label = formatMessageDateLabel(
+                                  item.date!,
+                                  locale: locale,
+                                );
+                                return _DateSeparatorLabel(
+                                  label: label,
+                                );
+                              }
 
-                                  final message = item.message!;
-                                  final isCurrentUser = currentUserId != null &&
+                              final message = item.message!;
+                              final isCurrentUser =
+                                  currentUserId != null &&
                                       message.userId == currentUserId;
 
-                                  return SwipeableMessageBubble(
-                                    message: message,
-                                    isCurrentUser: isCurrentUser,
-                                    onTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) => ThreadViewPage(
-                                            parentMessage: message,
-                                            room: widget.room,
-                                          ),
+                              return KeyedSubtree(
+                                key: _messageKey(message.id),
+                                child: SwipeableMessageBubble(
+                                  message: message,
+                                  isCurrentUser: isCurrentUser,
+                                  onTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => ThreadViewPage(
+                                          parentMessage: message,
+                                          room: widget.room,
                                         ),
-                                      );
-                                    },
-                                    onUsernameTap: () {
-                                      Navigator.of(context).push(
-                                        MaterialPageRoute(
-                                          builder: (context) =>
-                                              UserDetailsPage(
-                                            userId: message.userId,
-                                          ),
+                                      ),
+                                    );
+                                  },
+                                  onUsernameTap: () {
+                                    Navigator.of(context).push(
+                                      MaterialPageRoute(
+                                        builder: (context) => UserDetailsPage(
+                                          userId: message.userId,
                                         ),
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                            ],
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            },
                           ),
               ),
-              MessageInputField(
-                controller: _messageController,
-                onSend: _sendMessage,
+              AnimatedPadding(
+                duration: const Duration(milliseconds: 200),
+                curve: Curves.easeOut,
+                padding: EdgeInsets.only(bottom: keyboardInset),
+                child: MessageInputField(
+                  controller: _messageController,
+                  onSend: _sendMessage,
+                ),
               ),
             ],
           ),
