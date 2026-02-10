@@ -128,16 +128,14 @@ class MessageBubble extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: isCurrentUser
-                              ? BleyaTheme.glassSurface
-                                  .withValues(alpha: 0.6)
+                              ? BleyaTheme.glassSurface.withValues(alpha: 0.6)
                               : BleyaTheme.glassSurface
                                   .withValues(alpha: BleyaTheme.glassOpacity),
                           borderRadius: BorderRadius.circular(999),
                           border: Border.all(
                             color: isCurrentUser
                                 ? BleyaTheme.primaryLight
-                                : BleyaTheme.border
-                                    .withValues(alpha: 0.5),
+                                : BleyaTheme.border.withValues(alpha: 0.5),
                             width: 1,
                           ),
                         ),
