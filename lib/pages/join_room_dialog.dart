@@ -49,6 +49,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
     try {
       final dio = ref.read(dioProvider);
+      final messenger = ScaffoldMessenger.maybeOf(context);
       await dio.post(
         '/rooms/${room.id}/join',
         options: Options(
@@ -59,13 +60,15 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
       // Refresh joined rooms from backend
       ref.invalidate(joinedRoomsFutureProvider);
+      // Refresh dashboard room list (source used by DashboardPage)
+      ref.invalidate(roomsListProvider);
 
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Successfully joined ${room.name}')),
-        );
-      }
+      if (!mounted) return;
+
+      Navigator.of(context, rootNavigator: true).pop();
+      messenger?.showSnackBar(
+        SnackBar(content: Text('Successfully joined ${room.name}')),
+      );
     } catch (e) {
       if (mounted) {
         String errorMessage;
@@ -78,7 +81,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           errorMessage = "Something unexpected happened. Try again?";
         }
 
-        ScaffoldMessenger.of(context).showSnackBar(
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
           SnackBar(
             content: Text(errorMessage),
             backgroundColor: BleyaTheme.error,

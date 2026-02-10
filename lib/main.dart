@@ -54,7 +54,11 @@ class MyApp extends ConsumerWidget {
       ),
       debugShowCheckedModeBanner: false, // Disable default banner
       builder: (context, child) {
-        return ConnectivityBanner(child: child ?? SizedBox.shrink());
+        return GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
+          child: ConnectivityBanner(child: child ?? const SizedBox.shrink()),
+        );
       },
       routes: {
         '/': (context) => InitialPage(),

@@ -15,7 +15,7 @@ import 'glass_text_field.dart';
 ///   1. Error (red, highest priority)
 ///   2. Success (green, medium priority)
 ///   3. Helper (grey, lowest priority - informational)
-/// - Icons for each feedback state
+/// - Feedback icon shown inside the field on the right side
 /// - Consistent spacing and styling
 /// - Uses design system colors and typography
 ///
@@ -91,6 +91,8 @@ class FormField extends StatelessWidget {
           focusNode: focusNode,
           placeholder: placeholder,
           leadingIcon: leadingIcon,
+          trailingIcon: _shouldShowFeedback ? _feedbackIcon : null,
+          trailingIconColor: _shouldShowFeedback ? _feedbackColor : null,
           prefix: prefix,
           keyboardType: keyboardType,
           inputFormatters: inputFormatters,
@@ -104,26 +106,13 @@ class FormField extends StatelessWidget {
         // Feedback text below field (priority: error > success > helper)
         if (_shouldShowFeedback) ...[
           SizedBox(height: BleyaTheme.spacingSM),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(
-                _feedbackIcon,
-                size: 14,
-                color: _feedbackColor,
-              ),
-              SizedBox(width: BleyaTheme.spacingXS + 2),
-              Expanded(
-                child: Text(
-                  _feedbackText!,
-                  style: BleyaTheme.bodySmall.copyWith(
-                    color: _feedbackColor,
-                    fontWeight: FontWeight.w500,
-                    height: 1.4,
-                  ),
-                ),
-              ),
-            ],
+          Text(
+            _feedbackText!,
+            style: BleyaTheme.bodySmall.copyWith(
+              color: _feedbackColor,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
           ),
         ],
       ],

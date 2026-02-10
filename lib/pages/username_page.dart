@@ -176,8 +176,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                           bleya.FormField(
                             controller: _usernameController,
                             focusNode: _usernameFocusNode,
-                            placeholder: '@username',
-                            label: 'Username',
+                            placeholder: 'username',
                             keyboardType: TextInputType.text,
                             textInputAction: TextInputAction.done,
                             errorMessage: _getErrorMessage(
@@ -217,7 +216,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                               ? BleyaTheme.skywashGradient
                                               : null,
                                           color: username.isEmpty
-                                              ? BleyaTheme.border
+                                              ? BleyaTheme.primaryLight
                                               : null,
                                           boxShadow: username.isNotEmpty
                                               ? [
@@ -296,17 +295,12 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                                 ),
                                 const SizedBox(height: 24),
                                 Text(
-                                  '@${username.isNotEmpty ? username : "username"}',
+                                  username.isNotEmpty ? username : 'username',
                                   style: TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w600,
                                     color: BleyaTheme.foreground,
                                   ),
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  'Your digital identity',
-                                  style: BleyaTheme.bodySmall,
                                 ),
                               ],
                             ),

@@ -19,6 +19,8 @@ class GlassTextField extends StatelessWidget {
   final FocusNode focusNode;
   final String placeholder;
   final IconData? leadingIcon;
+  final IconData? trailingIcon;
+  final Color? trailingIconColor;
   final String? errorMessage;
   final TextInputType keyboardType;
   final List<TextInputFormatter>? inputFormatters;
@@ -34,6 +36,8 @@ class GlassTextField extends StatelessWidget {
     required this.focusNode,
     required this.placeholder,
     this.leadingIcon,
+    this.trailingIcon,
+    this.trailingIconColor,
     this.errorMessage,
     this.keyboardType = TextInputType.text,
     this.inputFormatters,
@@ -101,6 +105,14 @@ class GlassTextField extends StatelessWidget {
                 ),
               ),
             ),
+            if (trailingIcon != null) ...[
+              SizedBox(width: BleyaTheme.spacingMD),
+              Icon(
+                trailingIcon,
+                color: trailingIconColor ?? BleyaTheme.mutedForeground,
+                size: 18,
+              ),
+            ],
           ],
         ),
       ),

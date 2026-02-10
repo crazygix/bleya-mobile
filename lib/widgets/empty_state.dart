@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
+import 'primary_button.dart';
 
 /// Empty State Component
 ///
@@ -54,14 +55,9 @@ class EmptyState extends StatelessWidget {
             ),
             if (actionText != null && onAction != null) ...[
               SizedBox(height: BleyaTheme.spacing2XL),
-              CupertinoButton(
+              PrimaryButton(
+                text: actionText!,
                 onPressed: onAction,
-                child: Text(
-                  actionText!,
-                  style: BleyaTheme.buttonText.copyWith(
-                    color: BleyaTheme.primary,
-                  ),
-                ),
               ),
             ],
           ],
