@@ -64,13 +64,14 @@ class _MessageInputFieldState extends State<MessageInputField> {
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: MediaQuery.of(context).padding.bottom + 12,
+        left: BleyaTheme.footerPadding,
+        right: BleyaTheme.footerPadding,
+        top: BleyaTheme.spacingMD,
+        bottom: MediaQuery.of(context).padding.bottom +
+            BleyaTheme.footerBottomPadding,
       ),
       decoration: BoxDecoration(
-        color: BleyaTheme.glassSurface.withValues(alpha: 0.95),
+        color: BleyaTheme.glassSurface.withValues(alpha: 0.0),
         border: Border(
           top: BorderSide(
             color: BleyaTheme.border.withValues(alpha: 0.2),
@@ -83,9 +84,12 @@ class _MessageInputFieldState extends State<MessageInputField> {
         child: BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(
+              horizontal: BleyaTheme.spacingMD,
+              vertical: BleyaTheme.spacingSM,
+            ),
             decoration: BoxDecoration(
-              color: BleyaTheme.greyLight,
+              color: BleyaTheme.glassSurface.withValues(alpha: 0.9),
               borderRadius: BorderRadius.circular(24),
               border: Border.all(
                 color: BleyaTheme.border.withValues(alpha: 0.3),

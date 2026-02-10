@@ -97,10 +97,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
 
-    final subtitle = widget.room.isPrivate
-        ? null
-        : '${widget.room.participants.length} Members Online';
-
     return Scaffold(
       backgroundColor: BleyaTheme.background,
       extendBodyBehindAppBar: true,
@@ -112,27 +108,13 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
               GlassHeader(
                 leftAction: GestureDetector(
                   onTap: () => Navigator.of(context).pop(),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        CupertinoIcons.chevron_left,
-                        size: 28,
-                        color: BleyaTheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Chats',
-                        style: TextStyle(
-                          fontSize: 17,
-                          color: BleyaTheme.primary,
-                        ),
-                      ),
-                    ],
+                  child: Icon(
+                    CupertinoIcons.chevron_left,
+                    size: 28,
+                    color: BleyaTheme.primary,
                   ),
                 ),
                 title: widget.room.name,
-                subtitle: subtitle,
                 rightAction: GestureDetector(
                   onTap: () {
                     if (widget.room.isPrivate &&
@@ -155,22 +137,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                       );
                     }
                   },
-                  child: Container(
-                    width: 36,
-                    height: 36,
-                    decoration: BoxDecoration(
-                      color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: BleyaTheme.border.withValues(alpha: 0.2),
-                        width: 1,
-                      ),
-                    ),
-                    child: Icon(
-                      CupertinoIcons.info,
-                      size: 20,
-                      color: BleyaTheme.foreground,
-                    ),
+                  child: Icon(
+                    CupertinoIcons.info,
+                    size: 28,
+                    color: BleyaTheme.primary,
                   ),
                 ),
               ),
@@ -179,7 +149,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                     ? Center(
                         child: Text(
                           'No messages yet',
-                          style: TextStyle(
+                          style: BleyaTheme.bodyMedium.copyWith(
                             fontSize: 16,
                             color: BleyaTheme.mutedForeground,
                           ),
@@ -187,11 +157,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                       )
                     : ListView.builder(
                         controller: _scrollController,
-                        padding: EdgeInsets.only(
-                          left: 16,
-                          right: 16,
-                          top: 16,
-                          bottom: 16,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: BleyaTheme.contentPadding,
+                          vertical: BleyaTheme.spacingLG,
                         ),
                         itemCount: messages.length + 1,
                         itemBuilder: (context, index) {
@@ -201,22 +169,26 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                               child: Center(
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 6,
+                                    horizontal: BleyaTheme.spacingLG,
+                                    vertical: BleyaTheme.spacingSM,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: BleyaTheme.glassSurface
-                                        .withValues(alpha: 0.7),
-                                    borderRadius: BorderRadius.circular(12),
+                                    color: BleyaTheme.glassSurface.withValues(
+                                      alpha: BleyaTheme.glassOpacity,
+                                    ),
+                                    borderRadius: BorderRadius.circular(
+                                      BleyaTheme.radiusSmall,
+                                    ),
                                     border: Border.all(
-                                      color: BleyaTheme.border
-                                          .withValues(alpha: 0.2),
+                                      color:
+                                          BleyaTheme.border.withValues(alpha: 0.2),
                                       width: 1,
                                     ),
+                                    boxShadow: BleyaTheme.glassShadow,
                                   ),
                                   child: Text(
                                     'Today',
-                                    style: TextStyle(
+                                    style: BleyaTheme.bodySmall.copyWith(
                                       fontSize: 12,
                                       fontWeight: FontWeight.w600,
                                       color: BleyaTheme.mutedForeground,

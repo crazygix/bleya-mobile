@@ -43,7 +43,7 @@ class GlassHeader extends StatelessWidget {
             right: 16,
           ),
           decoration: BoxDecoration(
-            color: BleyaTheme.glassSurface.withValues(alpha: 0.85),
+            color: BleyaTheme.glassSurface.withValues(alpha: 0.0),
             border: Border(
               bottom: BorderSide(
                 color: BleyaTheme.border.withValues(alpha: 0.2),

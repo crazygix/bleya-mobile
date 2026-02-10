@@ -36,7 +36,7 @@ class MessageBubble extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
       child: Row(
         mainAxisAlignment:
             isCurrentUser ? MainAxisAlignment.end : MainAxisAlignment.start,
@@ -44,8 +44,8 @@ class MessageBubble extends StatelessWidget {
         children: [
           if (!isCurrentUser) ...[
             Container(
-              width: 28,
-              height: 28,
+              width: BleyaTheme.iconContainerSize * 0.64,
+              height: BleyaTheme.iconContainerSize * 0.64,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 color: BleyaTheme.greyLight,
@@ -56,31 +56,35 @@ class MessageBubble extends StatelessWidget {
                 color: BleyaTheme.mutedForeground,
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: BleyaTheme.spacingSM),
           ],
           GestureDetector(
             onTap: onTap,
             child: Container(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.65,
+                maxWidth: MediaQuery.of(context).size.width * 0.7,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              padding: const EdgeInsets.symmetric(
+                horizontal: BleyaTheme.spacingMD,
+                vertical: BleyaTheme.spacingSM,
+              ),
               decoration: BoxDecoration(
-                color:
-                    isCurrentUser ? BleyaTheme.primary : BleyaTheme.greyLight,
+                color: isCurrentUser
+                    ? BleyaTheme.primaryMedium
+                    : BleyaTheme.glassSurface
+                        .withValues(alpha: BleyaTheme.glassOpacity),
                 borderRadius: BorderRadius.only(
                   topLeft: Radius.circular(18),
                   topRight: Radius.circular(18),
                   bottomLeft: Radius.circular(isCurrentUser ? 18 : 4),
                   bottomRight: Radius.circular(isCurrentUser ? 4 : 18),
                 ),
-                boxShadow: [
-                  BoxShadow(
-                    color: CupertinoColors.black.withValues(alpha: 0.05),
-                    blurRadius: 4,
-                    offset: Offset(0, 1),
-                  ),
-                ],
+                border: Border.all(
+                  color: BleyaTheme.border
+                      .withValues(alpha: BleyaTheme.glassBorderOpacity),
+                  width: 1,
+                ),
+                boxShadow: BleyaTheme.glassShadow,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -92,12 +96,14 @@ class MessageBubble extends StatelessWidget {
                       onTap: onUsernameTap,
                       behavior: HitTestBehavior.opaque,
                       child: Padding(
-                        padding: const EdgeInsets.only(bottom: 4),
+                        padding: const EdgeInsets.only(
+                          bottom: BleyaTheme.spacingXS,
+                        ),
                         child: Text(
                           username!,
                           style: TextStyle(
                             fontSize: 12,
-                            color: BleyaTheme.primary,
+                            color: BleyaTheme.primaryDark,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -106,15 +112,13 @@ class MessageBubble extends StatelessWidget {
                   Text(
                     messageText,
                     style: TextStyle(
-                      fontSize: 16,
-                      color: isCurrentUser
-                          ? CupertinoColors.white
-                          : BleyaTheme.foreground,
+                      fontSize: 14,
+                      color: BleyaTheme.foreground,
                       height: 1.4,
                     ),
                   ),
                   if (replyCount > 0) ...[
-                    const SizedBox(height: 6),
+                    const SizedBox(height: BleyaTheme.spacingXS),
                     GestureDetector(
                       onTap: onTap,
                       child: Container(
@@ -124,8 +128,9 @@ class MessageBubble extends StatelessWidget {
                         ),
                         decoration: BoxDecoration(
                           color: isCurrentUser
-                              ? CupertinoColors.white.withValues(alpha: 0.2)
-                              : BleyaTheme.primary.withValues(alpha: 0.1),
+                              ? BleyaTheme.glassSurface
+                                  .withValues(alpha: BleyaTheme.glassOpacity)
+                              : BleyaTheme.primaryLight,
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: Row(
@@ -135,7 +140,7 @@ class MessageBubble extends StatelessWidget {
                               CupertinoIcons.chat_bubble_text,
                               size: 12,
                               color: isCurrentUser
-                                  ? CupertinoColors.white
+                                    ? BleyaTheme.primaryDark
                                   : BleyaTheme.primary,
                             ),
                             const SizedBox(width: 4),
@@ -144,7 +149,7 @@ class MessageBubble extends StatelessWidget {
                               style: TextStyle(
                                 fontSize: 11,
                                 color: isCurrentUser
-                                    ? CupertinoColors.white
+                                      ? BleyaTheme.primaryDark
                                     : BleyaTheme.primary,
                                 fontWeight: FontWeight.w600,
                               ),
