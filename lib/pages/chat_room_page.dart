@@ -139,7 +139,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                   },
                   child: Icon(
                     CupertinoIcons.info,
-                    size: 28,
+                    size: 22,
                     color: BleyaTheme.primary,
                   ),
                 ),
@@ -180,8 +180,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                       BleyaTheme.radiusSmall,
                                     ),
                                     border: Border.all(
-                                      color:
-                                          BleyaTheme.border.withValues(alpha: 0.2),
+                                      color: BleyaTheme.border
+                                          .withValues(alpha: 0.2),
                                       width: 1,
                                     ),
                                     boxShadow: BleyaTheme.glassShadow,

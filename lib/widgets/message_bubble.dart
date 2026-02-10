@@ -124,33 +124,41 @@ class MessageBubble extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
-                          vertical: 4,
+                          vertical: 3,
                         ),
                         decoration: BoxDecoration(
                           color: isCurrentUser
                               ? BleyaTheme.glassSurface
-                                  .withValues(alpha: BleyaTheme.glassOpacity)
-                              : BleyaTheme.primaryLight,
-                          borderRadius: BorderRadius.circular(12),
+                                  .withValues(alpha: 0.6)
+                              : BleyaTheme.glassSurface
+                                  .withValues(alpha: BleyaTheme.glassOpacity),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(
+                            color: isCurrentUser
+                                ? BleyaTheme.primaryLight
+                                : BleyaTheme.border
+                                    .withValues(alpha: 0.5),
+                            width: 1,
+                          ),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Icon(
                               CupertinoIcons.chat_bubble_text,
-                              size: 12,
+                              size: 11,
                               color: isCurrentUser
-                                    ? BleyaTheme.primaryDark
-                                  : BleyaTheme.primary,
+                                  ? BleyaTheme.primaryDark
+                                  : BleyaTheme.mutedForeground,
                             ),
-                            const SizedBox(width: 4),
+                            const SizedBox(width: 3),
                             Text(
                               '$replyCount ${replyCount == 1 ? 'reply' : 'replies'}',
-                              style: TextStyle(
+                              style: BleyaTheme.bodySmall.copyWith(
                                 fontSize: 11,
                                 color: isCurrentUser
-                                      ? BleyaTheme.primaryDark
-                                    : BleyaTheme.primary,
+                                    ? BleyaTheme.primaryDark
+                                    : BleyaTheme.mutedForeground,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
