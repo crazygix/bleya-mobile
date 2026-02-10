@@ -28,4 +28,45 @@ class MessageRepositoryImpl implements MessageRepository {
       throw ApiErrorMapper.mapDioError(e);
     }
   }
+
+  @override
+  Future<RoomMessagesPage> getRoomMessagesPage(
+    String roomId, {
+    int? before,
+    int? limit,
+  }) async {
+    try {
+      final queryParams = <String, dynamic>{};
+      if (before != null) {
+        queryParams['before'] = before.toString();
+      }
+      if (limit != null) {
+        queryParams['limit'] = limit.toString();
+      }
+
+      final response = await _dio.get(
+        '/rooms/$roomId/messages',
+        queryParameters: queryParams.isEmpty ? null : queryParams,
+      );
+
+      final data = response.data as Map<String, dynamic>;
+      final messagesJson = data['messages'] as List<dynamic>;
+      final paginationJson = data['pagination'] as Map<String, dynamic>? ?? {};
+
+      final messages = messagesJson
+          .map((json) => MessageDto.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      final hasMore = paginationJson['hasMore'] as bool? ?? false;
+      final nextCursor = paginationJson['nextCursor'] as int?;
+
+      return RoomMessagesPage(
+        messages: messages,
+        hasMore: hasMore,
+        nextCursor: nextCursor,
+      );
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
 }

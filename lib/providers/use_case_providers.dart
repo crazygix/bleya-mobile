@@ -13,6 +13,7 @@ import '../use_cases/room/get_joined_rooms_use_case.dart';
 import '../use_cases/room/leave_room_use_case.dart';
 import '../use_cases/room/create_direct_message_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
+import '../use_cases/message/get_room_messages_page_use_case.dart';
 import 'repository_providers.dart';
 
 final requestCodeUseCaseProvider = Provider<RequestCodeUseCase>((ref) {
@@ -76,6 +77,12 @@ final createDirectMessageUseCaseProvider =
 final getThreadUseCaseProvider = Provider<GetThreadUseCase>((ref) {
   final repository = ref.watch(messageRepositoryProvider);
   return GetThreadUseCase(repository);
+});
+
+final getRoomMessagesPageUseCaseProvider =
+    Provider<GetRoomMessagesPageUseCase>((ref) {
+  final repository = ref.watch(messageRepositoryProvider);
+  return GetRoomMessagesPageUseCase(repository);
 });
 
 final getUserByIdUseCaseProvider = Provider<GetUserByIdUseCase>((ref) {

@@ -51,6 +51,42 @@ final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
 final roomMessagesProvider =
     StateProvider.family<List<Message>, String>((ref, roomId) => []);
 
+/// UI state for a chat room, excluding the actual message list which is kept
+/// in [roomMessagesProvider] as a single source of truth for messages.
+class ChatRoomState {
+  final bool isInitialLoading;
+  final bool isLoadingMore;
+  final bool hasMore;
+  final int? nextCursor;
+
+  const ChatRoomState({
+    required this.isInitialLoading,
+    required this.isLoadingMore,
+    required this.hasMore,
+    required this.nextCursor,
+  });
+
+  const ChatRoomState.initial()
+      : isInitialLoading = true,
+        isLoadingMore = false,
+        hasMore = false,
+        nextCursor = null;
+
+  ChatRoomState copyWith({
+    bool? isInitialLoading,
+    bool? isLoadingMore,
+    bool? hasMore,
+    int? nextCursor,
+  }) {
+    return ChatRoomState(
+      isInitialLoading: isInitialLoading ?? this.isInitialLoading,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+      hasMore: hasMore ?? this.hasMore,
+      nextCursor: nextCursor ?? this.nextCursor,
+    );
+  }
+}
+
 // ThreadController manages thread state and real-time updates
 class ThreadController extends StateNotifier<AsyncValue<Map<String, dynamic>>> {
   final Ref ref;
@@ -118,8 +154,8 @@ final threadMessagesProvider = StateNotifierProvider.autoDispose
   },
 );
 
-// ChatRoomController manages socket listeners and room operations
-class ChatRoomController extends StateNotifier<AsyncValue<void>> {
+// ChatRoomController manages socket listeners, pagination, and room operations
+class ChatRoomController extends StateNotifier<ChatRoomState> {
   final Ref ref;
   final Room room;
   final SocketService socketService;
@@ -132,7 +168,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
   dynamic _errorHandler;
 
   ChatRoomController(this.ref, this.room, this.socketService)
-      : super(const AsyncValue.data(null)) {
+      : super(const ChatRoomState.initial()) {
     _initialize();
   }
 
@@ -164,9 +200,20 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
         // Confirm room join in socket service
         final joinedRoom = RoomDto.fromJson(roomData!);
         socketService.onRoomJoinedConfirmed(joinedRoom);
-        final messages =
-            (data['messages'] as List).map((m) => MessageDto.fromJson(m)).toList();
+        final messages = (data['messages'] as List)
+            .map((m) => MessageDto.fromJson(m))
+            .toList();
         ref.read(roomMessagesProvider(roomId).notifier).state = messages;
+
+        final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
+        final hasMore = pagination['hasMore'] as bool? ?? false;
+        final nextCursor = pagination['nextCursor'] as int?;
+
+        state = state.copyWith(
+          isInitialLoading: false,
+          hasMore: hasMore,
+          nextCursor: nextCursor,
+        );
       }
     });
 
@@ -179,7 +226,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
       // Only process if it's for this room
       if (message.roomId == roomId) {
         final currentMessages = ref.read(roomMessagesProvider(roomId));
-        
+
         // If this is a thread reply, update the parent message's replyCount
         if (message.parentMessageId != null) {
           final updatedMessages = currentMessages.map((msg) {
@@ -198,8 +245,9 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
             }
             return msg;
           }).toList();
-          
-          ref.read(roomMessagesProvider(roomId).notifier).state = updatedMessages;
+
+          ref.read(roomMessagesProvider(roomId).notifier).state =
+              updatedMessages;
         } else {
           // Regular top-level message - add it to the list
           ref.read(roomMessagesProvider(roomId).notifier).state = [
@@ -257,6 +305,66 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
     _joinRoom();
   }
 
+  /// Load older top-level messages using REST pagination and prepend them.
+  Future<void> loadOlderMessages({int? limit}) async {
+    if (state.isLoadingMore || !state.hasMore) {
+      return;
+    }
+
+    final currentCursor = state.nextCursor;
+    if (currentCursor == null) {
+      // No cursor available, nothing to load.
+      return;
+    }
+
+    state = state.copyWith(isLoadingMore: true);
+
+    try {
+      final useCase = ref.read(getRoomMessagesPageUseCaseProvider);
+      final page = await useCase(
+        roomId,
+        before: currentCursor,
+        limit: limit,
+      );
+
+      if (_disposed) {
+        return;
+      }
+
+      if (page.messages.isEmpty) {
+        state = state.copyWith(
+          isLoadingMore: false,
+          hasMore: false,
+        );
+        return;
+      }
+
+      final currentMessages = ref.read(roomMessagesProvider(roomId));
+      // Prepend older messages, avoiding duplicates by id just in case.
+      final existingIds = currentMessages.map((m) => m.id).toSet();
+      final newMessages = page.messages
+          .where((m) => !existingIds.contains(m.id))
+          .toList();
+
+      ref.read(roomMessagesProvider(roomId).notifier).state = [
+        ...newMessages,
+        ...currentMessages,
+      ];
+
+      state = state.copyWith(
+        isLoadingMore: false,
+        hasMore: page.hasMore,
+        nextCursor: page.nextCursor,
+      );
+    } catch (e, stack) {
+      if (kDebugMode) {
+        print('Error loading older messages for room $roomId: $e');
+        print(stack);
+      }
+      state = state.copyWith(isLoadingMore: false);
+    }
+  }
+
   @override
   void dispose() {
     _disposed = true;
@@ -283,7 +391,7 @@ class ChatRoomController extends StateNotifier<AsyncValue<void>> {
 // Provider for ChatRoomController (family provider for each room)
 // Using autoDispose so the controller is disposed when no longer watched
 final chatRoomControllerProvider = StateNotifierProvider.autoDispose
-    .family<ChatRoomController, AsyncValue<void>, Room>(
+    .family<ChatRoomController, ChatRoomState, Room>(
   (ref, room) {
     final socketService = ref.read(socketServiceProvider);
     return ChatRoomController(ref, room, socketService);

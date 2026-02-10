@@ -45,9 +45,10 @@ class ChatRoomPage extends ConsumerStatefulWidget {
 class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  int _previousMessageCount = 0;
   ProviderSubscription<List<Message>>? _messagesSubscription;
   SocketService? _socketService;
+  bool _isLoadingMoreTriggered = false;
+  bool _didScrollToInitialBottom = false;
 
   @override
   void initState() {
@@ -62,16 +63,15 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       // Initialize controller - it will automatically set up socket listeners and join room
       ref.read(chatRoomControllerProvider(widget.room).notifier);
 
-      // Listen to messages to auto-scroll
+      // Keep subscription in case we need future side effects; currently unused.
       _messagesSubscription = ref.listenManual<List<Message>>(
         roomMessagesProvider(widget.room.id),
         (previous, next) {
-          if (next.length > _previousMessageCount) {
-            _scrollToBottom();
-          }
-          _previousMessageCount = next.length;
+          // No-op for now.
         },
       );
+
+      _scrollController.addListener(_onScroll);
     });
   }
 
@@ -85,18 +85,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     _messageController.clear();
   }
 
-  void _scrollToBottom() {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
-    });
-  }
-
   @override
   void dispose() {
     _socketService?.leaveRoom(widget.room.id);
@@ -104,6 +92,55 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     _messageController.dispose();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  void _onScroll() async {
+    if (!_scrollController.hasClients) return;
+
+    final position = _scrollController.position;
+    // Trigger loading older messages when user scrolls near the top.
+    const thresholdPixels = 400.0;
+    if (position.pixels > thresholdPixels || _isLoadingMoreTriggered) {
+      return;
+    }
+
+    final state = ref.read(chatRoomControllerProvider(widget.room));
+    if (!state.hasMore || state.isLoadingMore) {
+      return;
+    }
+
+    _isLoadingMoreTriggered = true;
+
+    // Capture current scroll metrics before loading older messages so we can
+    // preserve the visible position after prepending.
+    final oldMaxExtent = position.maxScrollExtent;
+    final oldPixels = position.pixels;
+    final distanceFromBottom = oldMaxExtent - oldPixels;
+
+    final controller =
+        ref.read(chatRoomControllerProvider(widget.room).notifier);
+
+    await controller.loadOlderMessages();
+
+    if (!mounted || !_scrollController.hasClients) {
+      _isLoadingMoreTriggered = false;
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!_scrollController.hasClients) {
+        _isLoadingMoreTriggered = false;
+        return;
+      }
+
+      final newPosition = _scrollController.position;
+      final newMaxExtent = newPosition.maxScrollExtent;
+      final targetOffset =
+          (newMaxExtent - distanceFromBottom).clamp(0.0, newMaxExtent);
+
+      _scrollController.jumpTo(targetOffset);
+      _isLoadingMoreTriggered = false;
+    });
   }
 
   List<_ChatListItem> _buildChatItems(List<Message> messages) {
@@ -131,12 +168,24 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
   @override
   Widget build(BuildContext context) {
-    ref.watch(chatRoomControllerProvider(widget.room));
-
+    final chatState = ref.watch(chatRoomControllerProvider(widget.room));
     final messages = ref.watch(roomMessagesProvider(widget.room.id));
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
     final chatItems = _buildChatItems(messages);
+
+    // After initial messages load, jump once to the bottom (no animation).
+    if (!_didScrollToInitialBottom &&
+        !chatState.isInitialLoading &&
+        messages.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!_scrollController.hasClients) return;
+        _scrollController.jumpTo(
+          _scrollController.position.maxScrollExtent,
+        );
+      });
+      _didScrollToInitialBottom = true;
+    }
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -186,65 +235,75 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                 ),
               ),
               Expanded(
-                child: messages.isEmpty
-                    ? Center(
-                        child: Text(
-                          'No messages yet',
-                          style: BleyaTheme.bodyMedium.copyWith(
-                            fontSize: 16,
-                            color: BleyaTheme.mutedForeground,
-                          ),
-                        ),
+                child: messages.isEmpty && chatState.isInitialLoading
+                    ? const Center(
+                        child: CupertinoActivityIndicator(),
                       )
-                    : ListView.builder(
-                        controller: _scrollController,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: BleyaTheme.contentPadding,
-                          vertical: BleyaTheme.spacingLG,
-                        ),
-                        itemCount: chatItems.length,
-                        itemBuilder: (context, index) {
-                          final item = chatItems[index];
-
-                          if (item.type == _ChatItemType.dateSeparator) {
-                            final locale =
-                                Localizations.localeOf(context).toLanguageTag();
-                            final label = formatMessageDateLabel(
-                              item.date!,
-                              locale: locale,
-                            );
-                            return _DateSeparatorLabel(label: label);
-                          }
-
-                          final message = item.message!;
-                          final isCurrentUser = currentUserId != null &&
-                              message.userId == currentUserId;
-
-                          return SwipeableMessageBubble(
-                            message: message,
-                            isCurrentUser: isCurrentUser,
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => ThreadViewPage(
-                                    parentMessage: message,
-                                    room: widget.room,
-                                  ),
+                    : messages.isEmpty
+                        ? Center(
+                            child: Text(
+                              'No messages yet',
+                              style: BleyaTheme.bodyMedium.copyWith(
+                                fontSize: 16,
+                                color: BleyaTheme.mutedForeground,
+                              ),
+                            ),
+                          )
+                        : Stack(
+                            children: [
+                              ListView.builder(
+                                controller: _scrollController,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: BleyaTheme.contentPadding,
+                                  vertical: BleyaTheme.spacingLG,
                                 ),
-                              );
-                            },
-                            onUsernameTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => UserDetailsPage(
-                                    userId: message.userId,
-                                  ),
-                                ),
-                              );
-                            },
-                          );
-                        },
-                      ),
+                                itemCount: chatItems.length,
+                                itemBuilder: (context, index) {
+                                  final item = chatItems[index];
+
+                                  if (item.type == _ChatItemType.dateSeparator) {
+                                    final locale =
+                                        Localizations.localeOf(context)
+                                            .toLanguageTag();
+                                    final label = formatMessageDateLabel(
+                                      item.date!,
+                                      locale: locale,
+                                    );
+                                    return _DateSeparatorLabel(label: label);
+                                  }
+
+                                  final message = item.message!;
+                                  final isCurrentUser = currentUserId != null &&
+                                      message.userId == currentUserId;
+
+                                  return SwipeableMessageBubble(
+                                    message: message,
+                                    isCurrentUser: isCurrentUser,
+                                    onTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) => ThreadViewPage(
+                                            parentMessage: message,
+                                            room: widget.room,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                    onUsernameTap: () {
+                                      Navigator.of(context).push(
+                                        MaterialPageRoute(
+                                          builder: (context) =>
+                                              UserDetailsPage(
+                                            userId: message.userId,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
+                            ],
+                          ),
               ),
               MessageInputField(
                 controller: _messageController,
