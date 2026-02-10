@@ -94,8 +94,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   void dispose() {
     _socketService?.leaveRoom(widget.room.id);
-    // Clear current open room marker when leaving.
-    ref.read(currentOpenRoomIdProvider.notifier).state = null;
     _messagesSubscription?.close();
     _messageController.dispose();
     _scrollController.dispose();
