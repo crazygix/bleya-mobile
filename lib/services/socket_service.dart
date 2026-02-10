@@ -145,6 +145,20 @@ class SocketService {
     _doJoinRoom(room);
   }
 
+  /// Ensure the socket is connected using the current token without
+  /// joining any specific chat room. Used for per-user channels such
+  /// as dashboard updates.
+  Future<void> ensureConnectedForUserChannel() async {
+    if (_currentToken == null || _currentToken!.isEmpty) {
+      if (kDebugMode) {
+        print('No token available, cannot connect socket');
+      }
+      return;
+    }
+    _ensureSocketInitialized();
+    await _ensureConnected();
+  }
+
   Future<void> _ensureConnected() {
     // Single-flight: multiple joinRoom calls should share one connect attempt.
     final existing = _connecting;

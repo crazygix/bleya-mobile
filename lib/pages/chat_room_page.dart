@@ -57,6 +57,12 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     _socketService = ref.read(socketServiceProvider);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      // Mark this room as currently open and clear its unread counter.
+      ref.read(currentOpenRoomIdProvider.notifier).state = widget.room.id;
+      final roomsListController =
+          ref.read(roomsListProvider.notifier);
+      roomsListController.markRoomAsRead(widget.room.id);
+
       // Clear any old messages for this room to ensure fresh data
       ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
 
@@ -88,6 +94,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   void dispose() {
     _socketService?.leaveRoom(widget.room.id);
+    // Clear current open room marker when leaving.
+    ref.read(currentOpenRoomIdProvider.notifier).state = null;
     _messagesSubscription?.close();
     _messageController.dispose();
     _scrollController.dispose();

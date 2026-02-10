@@ -246,13 +246,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   Widget _buildChatTab() {
-    final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
+    final roomsAsync = ref.watch(roomsListProvider);
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
 
-    return joinedRoomsAsync.when(
-      data: (rooms) {
-        if (rooms.isEmpty) {
+    return roomsAsync.when(
+      data: (items) {
+        if (items.isEmpty) {
           return EmptyState(
             icon: CupertinoIcons.airplane,
             title: 'Ready for takeoff?',
@@ -269,9 +269,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           ).copyWith(
             bottom: 100,
           ),
-          itemCount: rooms.length,
+          itemCount: items.length,
           itemBuilder: (context, index) {
-            final room = rooms[index];
+            final item = items[index];
+            final room = item.room;
             final isPrivate = room.isPrivate;
             final hasLastMessage = room.lastMessageText != null;
 
@@ -295,7 +296,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
               room: room,
               subtitle: subtitle,
               time: time,
-              unreadCount: 0,
+              unreadCount: item.unreadCount,
               onTap: () {
                 Navigator.of(context).push(
                   CupertinoPageRoute(

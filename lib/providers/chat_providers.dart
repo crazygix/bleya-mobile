@@ -14,6 +14,30 @@ export '../domain/entities/room.dart';
 export '../domain/entities/message.dart';
 export '../domain/entities/room_member.dart';
 
+/// Tracks which room (if any) is currently open in the chat UI.
+final currentOpenRoomIdProvider = StateProvider<String?>((ref) => null);
+
+/// Wrapper model for a room along with its local unread count.
+class RoomListItem {
+  final Room room;
+  final int unreadCount;
+
+  const RoomListItem({
+    required this.room,
+    required this.unreadCount,
+  });
+
+  RoomListItem copyWith({
+    Room? room,
+    int? unreadCount,
+  }) {
+    return RoomListItem(
+      room: room ?? this.room,
+      unreadCount: unreadCount ?? this.unreadCount,
+    );
+  }
+}
+
 // Provider to fetch available rooms
 final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
   try {
@@ -46,6 +70,140 @@ final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
     return [];
   }
 });
+
+/// Controller for the rooms list on the dashboard, including realtime updates
+/// from the socket and per-session unread counts.
+class RoomsListController
+    extends StateNotifier<AsyncValue<List<RoomListItem>>> {
+  final Ref ref;
+  final SocketService socketService;
+
+  bool _isInitialized = false;
+  dynamic _roomSummaryHandler;
+
+  RoomsListController(this.ref, this.socketService)
+      : super(const AsyncValue.loading()) {
+    _initialize();
+  }
+
+  Future<void> _initialize() async {
+    if (_isInitialized) return;
+    _isInitialized = true;
+
+    try {
+      // Ensure socket is connected so per-user dashboard events can be received.
+      await socketService.ensureConnectedForUserChannel();
+
+      // Initial load from REST API (same data as joinedRoomsFutureProvider).
+      final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
+      final rooms = await getJoinedRoomsUseCase();
+
+      final items = rooms
+          .map(
+            (room) => RoomListItem(
+              room: room,
+              unreadCount: 0,
+            ),
+          )
+          .toList();
+
+      state = AsyncValue.data(items);
+
+      // Listen for lightweight room summary updates pushed via socket.
+      _roomSummaryHandler =
+          socketService.addListener('room_summary_updated', (data) {
+        final current = state.value;
+        if (current == null) return;
+
+        final roomId = data['roomId'] as String?;
+        if (roomId == null) return;
+
+        final index =
+            current.indexWhere((item) => item.room.id == roomId);
+        if (index == -1) return;
+
+        final openRoomId = ref.read(currentOpenRoomIdProvider);
+        final isRoomOpen = openRoomId == roomId;
+
+        final existingItem = current[index];
+        final existingRoom = existingItem.room;
+
+        final lastMessageTimeMs = data['lastMessageTime'] as int?;
+        final updatedRoom = Room(
+          id: existingRoom.id,
+          name: existingRoom.name,
+          type: existingRoom.type,
+          participants: existingRoom.participants,
+          otherUserId: existingRoom.otherUserId,
+          lastMessageText: data['lastMessageText'] as String?,
+          lastMessageTime: lastMessageTimeMs != null
+              ? DateTime.fromMillisecondsSinceEpoch(lastMessageTimeMs)
+              : existingRoom.lastMessageTime,
+          lastMessageUserId: data['lastMessageUserId'] as String?,
+          lastMessageUsername: data['lastMessageUsername'] as String?,
+        );
+
+        final updatedUnread =
+            isRoomOpen ? 0 : existingItem.unreadCount + 1;
+
+        final updatedList = [...current];
+        updatedList[index] = existingItem.copyWith(
+          room: updatedRoom,
+          unreadCount: updatedUnread,
+        );
+
+        // Sort by last message time descending so most recent chats are on top.
+        updatedList.sort((a, b) {
+          final aTime = a.room.lastMessageTime ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          final bTime = b.room.lastMessageTime ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          return bTime.compareTo(aTime);
+        });
+
+        state = AsyncValue.data(updatedList);
+      });
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  /// Mark a room as read locally (resets unread counter).
+  void markRoomAsRead(String roomId) {
+    final current = state.value;
+    if (current == null) return;
+
+    final updated = current
+        .map(
+          (item) => item.room.id == roomId
+              ? item.copyWith(unreadCount: 0)
+              : item,
+        )
+        .toList();
+
+    state = AsyncValue.data(updated);
+  }
+
+  @override
+  void dispose() {
+    if (_roomSummaryHandler != null) {
+      socketService.removeListener(
+        'room_summary_updated',
+        _roomSummaryHandler,
+      );
+    }
+    super.dispose();
+  }
+}
+
+/// Provider exposing the realtime rooms list with unread counts.
+final roomsListProvider = StateNotifierProvider<RoomsListController,
+    AsyncValue<List<RoomListItem>>>(
+  (ref) {
+    final socketService = ref.read(socketServiceProvider);
+    return RoomsListController(ref, socketService);
+  },
+);
 
 // Provider for current room messages
 final roomMessagesProvider =
