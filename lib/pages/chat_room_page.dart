@@ -47,6 +47,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   final ScrollController _scrollController = ScrollController();
   ProviderSubscription<List<Message>>? _messagesSubscription;
   ProviderSubscription<ChatRoomState>? _chatStateSubscription;
+  StateController<String?>? _openRoomIdController;
   SocketService? _socketService;
   final Map<String, GlobalKey> _messageKeys = {};
   bool _isLoadingMoreTriggered = false;
@@ -62,10 +63,13 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     super.initState();
     // Capture socket service reference immediately for dispose
     _socketService = ref.read(socketServiceProvider);
+    _openRoomIdController = ref.read(currentOpenRoomIdProvider.notifier);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+
       // Mark this room as currently open.
-      ref.read(currentOpenRoomIdProvider.notifier).state = widget.room.id;
+      _openRoomIdController?.state = widget.room.id;
 
       // Clear any old messages for this room to ensure fresh data
       ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
@@ -141,6 +145,14 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   void dispose() {
     _socketService?.leaveRoom(widget.room.id);
+    final openRoomIdController = _openRoomIdController;
+    if (openRoomIdController?.state == widget.room.id) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (openRoomIdController?.state == widget.room.id) {
+          openRoomIdController?.state = null;
+        }
+      });
+    }
     _messagesSubscription?.close();
     _chatStateSubscription?.close();
     _messageController.dispose();
@@ -226,7 +238,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   }
 
   void _scheduleInitialPositioning() {
-    if (!mounted || _didSetInitialPosition || _isInitialPositionScheduled) return;
+    if (!mounted || _didSetInitialPosition || _isInitialPositionScheduled) {
+      return;
+    }
 
     _isInitialPositionScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -496,9 +510,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                               final item = chatItems[index];
 
                               if (item.type == _ChatItemType.dateSeparator) {
-                                final locale =
-                                    Localizations.localeOf(context)
-                                        .toLanguageTag();
+                                final locale = Localizations.localeOf(context)
+                                    .toLanguageTag();
                                 final label = formatMessageDateLabel(
                                   item.date!,
                                   locale: locale,
@@ -509,9 +522,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                               }
 
                               final message = item.message!;
-                              final isCurrentUser =
-                                  currentUserId != null &&
-                                      message.userId == currentUserId;
+                              final isCurrentUser = currentUserId != null &&
+                                  message.userId == currentUserId;
 
                               return KeyedSubtree(
                                 key: _messageKey(message.id),

@@ -80,6 +80,8 @@ class RoomsListController
 
   bool _isInitialized = false;
   dynamic _roomSummaryHandler;
+  final Map<String, Map<String, dynamic>> _pendingRoomSummaries = {};
+  final Map<String, int> _pendingUnreadIncrements = {};
 
   RoomsListController(this.ref, this.socketService)
       : super(const AsyncValue.loading()) {
@@ -94,11 +96,16 @@ class RoomsListController
       // Ensure socket is connected so per-user dashboard events can be received.
       await socketService.ensureConnectedForUserChannel();
 
+      // Listen for lightweight room summary updates pushed via socket.
+      // Registering before REST fetch avoids dropping updates during initial load.
+      _roomSummaryHandler = socketService.addListener(
+          'room_summary_updated', _onRoomSummaryUpdated);
+
       // Initial load from REST API (same data as joinedRoomsFutureProvider).
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
       final rooms = await getJoinedRoomsUseCase();
 
-      final items = rooms
+      var items = rooms
           .map(
             (room) => RoomListItem(
               room: room,
@@ -107,65 +114,122 @@ class RoomsListController
           )
           .toList();
 
+      if (_pendingRoomSummaries.isNotEmpty) {
+        for (final entry in _pendingRoomSummaries.entries) {
+          final roomId = entry.key;
+          final unreadIncrement = _pendingUnreadIncrements[roomId] ?? 0;
+          items = _applySummaryUpdate(
+            items,
+            roomId: roomId,
+            payload: entry.value,
+            unreadIncrement: unreadIncrement,
+          );
+        }
+        _pendingRoomSummaries.clear();
+        _pendingUnreadIncrements.clear();
+      }
+
+      _sortByLastMessageTime(items);
       state = AsyncValue.data(items);
-
-      // Listen for lightweight room summary updates pushed via socket.
-      _roomSummaryHandler =
-          socketService.addListener('room_summary_updated', (data) {
-        final current = state.value;
-        if (current == null) return;
-
-        final roomId = data['roomId'] as String?;
-        if (roomId == null) return;
-
-        final index =
-            current.indexWhere((item) => item.room.id == roomId);
-        if (index == -1) return;
-
-        final openRoomId = ref.read(currentOpenRoomIdProvider);
-        final isRoomOpen = openRoomId == roomId;
-
-        final existingItem = current[index];
-        final existingRoom = existingItem.room;
-
-        final lastMessageTimeMs = data['lastMessageTime'] as int?;
-        final updatedRoom = Room(
-          id: existingRoom.id,
-          name: existingRoom.name,
-          type: existingRoom.type,
-          participants: existingRoom.participants,
-          otherUserId: existingRoom.otherUserId,
-          lastMessageText: data['lastMessageText'] as String?,
-          lastMessageTime: lastMessageTimeMs != null
-              ? DateTime.fromMillisecondsSinceEpoch(lastMessageTimeMs)
-              : existingRoom.lastMessageTime,
-          lastMessageUserId: data['lastMessageUserId'] as String?,
-          lastMessageUsername: data['lastMessageUsername'] as String?,
-        );
-
-        final updatedUnread =
-            isRoomOpen ? 0 : existingItem.unreadCount + 1;
-
-        final updatedList = [...current];
-        updatedList[index] = existingItem.copyWith(
-          room: updatedRoom,
-          unreadCount: updatedUnread,
-        );
-
-        // Sort by last message time descending so most recent chats are on top.
-        updatedList.sort((a, b) {
-          final aTime = a.room.lastMessageTime ??
-              DateTime.fromMillisecondsSinceEpoch(0);
-          final bTime = b.room.lastMessageTime ??
-              DateTime.fromMillisecondsSinceEpoch(0);
-          return bTime.compareTo(aTime);
-        });
-
-        state = AsyncValue.data(updatedList);
-      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
+  }
+
+  void _onRoomSummaryUpdated(Map<String, dynamic> data) {
+    final roomId = data['roomId'] as String?;
+    if (roomId == null || roomId.isEmpty) return;
+
+    final openRoomId = ref.read(currentOpenRoomIdProvider);
+    final unreadIncrement = openRoomId == roomId ? 0 : 1;
+
+    final current = state.value;
+    if (current == null) {
+      _pendingRoomSummaries[roomId] = data;
+      _pendingUnreadIncrements[roomId] =
+          (_pendingUnreadIncrements[roomId] ?? 0) + unreadIncrement;
+      return;
+    }
+
+    final updated = _applySummaryUpdate(
+      current,
+      roomId: roomId,
+      payload: data,
+      unreadIncrement: unreadIncrement,
+    );
+
+    if (!identical(updated, current)) {
+      state = AsyncValue.data(updated);
+    }
+  }
+
+  List<RoomListItem> _applySummaryUpdate(
+    List<RoomListItem> source, {
+    required String roomId,
+    required Map<String, dynamic> payload,
+    required int unreadIncrement,
+  }) {
+    final index = source.indexWhere((item) => item.room.id == roomId);
+    if (index == -1) return source;
+
+    final existingItem = source[index];
+    final existingRoom = existingItem.room;
+
+    final updatedRoom = Room(
+      id: existingRoom.id,
+      name: existingRoom.name,
+      type: existingRoom.type,
+      participants: existingRoom.participants,
+      otherUserId: existingRoom.otherUserId,
+      lastMessageText: payload['lastMessageText']?.toString() ??
+          existingRoom.lastMessageText,
+      lastMessageTime: _parseTimestamp(payload['lastMessageTime']) ??
+          existingRoom.lastMessageTime,
+      lastMessageUserId: payload['lastMessageUserId']?.toString() ??
+          existingRoom.lastMessageUserId,
+      lastMessageUsername: payload['lastMessageUsername']?.toString() ??
+          existingRoom.lastMessageUsername,
+    );
+
+    final openRoomId = ref.read(currentOpenRoomIdProvider);
+    final isRoomOpen = openRoomId == roomId;
+    final updatedUnread =
+        isRoomOpen ? 0 : existingItem.unreadCount + unreadIncrement;
+
+    final updatedList = [...source];
+    updatedList[index] = existingItem.copyWith(
+      room: updatedRoom,
+      unreadCount: updatedUnread,
+    );
+
+    _sortByLastMessageTime(updatedList);
+    return updatedList;
+  }
+
+  DateTime? _parseTimestamp(dynamic rawValue) {
+    if (rawValue is int) {
+      return DateTime.fromMillisecondsSinceEpoch(rawValue);
+    }
+    if (rawValue is double) {
+      return DateTime.fromMillisecondsSinceEpoch(rawValue.round());
+    }
+    if (rawValue is String) {
+      final parsed = int.tryParse(rawValue);
+      if (parsed != null) {
+        return DateTime.fromMillisecondsSinceEpoch(parsed);
+      }
+    }
+    return null;
+  }
+
+  void _sortByLastMessageTime(List<RoomListItem> items) {
+    items.sort((a, b) {
+      final aTime =
+          a.room.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bTime =
+          b.room.lastMessageTime ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bTime.compareTo(aTime);
+    });
   }
 
   /// Mark a room as read locally (resets unread counter).
@@ -175,9 +239,8 @@ class RoomsListController
 
     final updated = current
         .map(
-          (item) => item.room.id == roomId
-              ? item.copyWith(unreadCount: 0)
-              : item,
+          (item) =>
+              item.room.id == roomId ? item.copyWith(unreadCount: 0) : item,
         )
         .toList();
 
@@ -212,8 +275,8 @@ class RoomsListController
 }
 
 /// Provider exposing the realtime rooms list with unread counts.
-final roomsListProvider = StateNotifierProvider<RoomsListController,
-    AsyncValue<List<RoomListItem>>>(
+final roomsListProvider =
+    StateNotifierProvider<RoomsListController, AsyncValue<List<RoomListItem>>>(
   (ref) {
     final socketService = ref.read(socketServiceProvider);
     return RoomsListController(ref, socketService);
@@ -531,9 +594,8 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       final currentMessages = ref.read(roomMessagesProvider(roomId));
       // Prepend older messages, avoiding duplicates by id just in case.
       final existingIds = currentMessages.map((m) => m.id).toSet();
-      final newMessages = page.messages
-          .where((m) => !existingIds.contains(m.id))
-          .toList();
+      final newMessages =
+          page.messages.where((m) => !existingIds.contains(m.id)).toList();
 
       ref.read(roomMessagesProvider(roomId).notifier).state = [
         ...newMessages,

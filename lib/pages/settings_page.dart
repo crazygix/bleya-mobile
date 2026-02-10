@@ -116,6 +116,8 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final padding = mediaQuery.padding;
+    final hasBio =
+        !_isLoadingProfile && _bio != null && _bio!.trim().isNotEmpty;
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -195,6 +197,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
+                                    mainAxisAlignment: hasBio
+                                        ? MainAxisAlignment.start
+                                        : MainAxisAlignment.center,
                                     children: [
                                       Text(
                                         _isLoadingProfile
@@ -206,19 +211,20 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
-                                      const SizedBox(
-                                          height: BleyaTheme.spacingXS),
-                                      Text(
-                                        _isLoadingProfile
-                                            ? ''
-                                            : (_bio ?? 'Tap to edit profile'),
-                                        style: BleyaTheme.bodyMedium.copyWith(
-                                          fontSize: 14,
-                                          color: BleyaTheme.mutedForeground,
+                                      if (hasBio) ...[
+                                        const SizedBox(
+                                            height: BleyaTheme.spacingXS),
+                                        Text(
+                                          _bio!,
+                                          style:
+                                              BleyaTheme.bodyMedium.copyWith(
+                                            fontSize: 14,
+                                            color: BleyaTheme.mutedForeground,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
                                         ),
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
+                                      ],
                                     ],
                                   ),
                                 ),
