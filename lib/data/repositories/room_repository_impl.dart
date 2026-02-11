@@ -146,4 +146,27 @@ class RoomRepositoryImpl implements RoomRepository {
       rethrow;
     }
   }
+
+  @override
+  Future<Room> getRoom(String roomId) async {
+    try {
+      final response = await _dio.get('/rooms/$roomId');
+      final roomData = response.data as Map<String, dynamic>;
+
+      // The API might return { room: ... } or just the room object.
+      // Based on createDirectMessage, it returns { room: ... }.
+      // Based on getAvailableRooms, it returns List.
+      // Let's assume standard resource fetch returns the object or wrapped.
+      // If backend routes/rooms.ts has router.get('/:roomId', ...), let's check what it returns.
+
+      return RoomDto.fromJson(roomData);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching room: $e');
+      }
+      rethrow;
+    }
+  }
 }

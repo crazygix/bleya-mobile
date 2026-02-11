@@ -151,12 +151,19 @@ class SocketService {
   Future<void> ensureConnectedForUserChannel() async {
     if (_currentToken == null || _currentToken!.isEmpty) {
       if (kDebugMode) {
-        print('No token available, cannot connect socket');
+        print('⚠️ SocketService: No token available, cannot connect socket');
       }
       return;
     }
+    if (kDebugMode) {
+      print('📡 SocketService: Ensuring connection for user channel...');
+    }
     _ensureSocketInitialized();
     await _ensureConnected();
+    if (kDebugMode) {
+      print(
+          '✅ SocketService: Connected for user channel (connected=${_socket?.connected})');
+    }
   }
 
   Future<void> _ensureConnected() {
@@ -380,6 +387,26 @@ class SocketService {
 
     _socket?.on('user_left', handler);
     _eventHandlers.putIfAbsent('user_left', () => []).add(handler);
+  }
+
+  void onNewNotification(Function(Map<String, dynamic>) callback) {
+    if (kDebugMode) {
+      print(
+          '📡 SocketService: Registering onNewNotification handler (socket connected: ${_socket?.connected})');
+    }
+    void handler(dynamic data) {
+      if (kDebugMode) {
+        print(
+            '📡 SocketService: onNewNotification handler called with data: $data');
+      }
+      callback(_normalizePayload(data));
+    }
+
+    _socket?.on('new_notification', handler);
+    _eventHandlers.putIfAbsent('new_notification', () => []).add(handler);
+    if (kDebugMode) {
+      print('✅ SocketService: onNewNotification handler registered');
+    }
   }
 
   /// Remove a specific callback listener for an event.

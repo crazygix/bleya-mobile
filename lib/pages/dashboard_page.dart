@@ -13,6 +13,8 @@ import '../utils/time_formatter.dart';
 import 'chat_room_page.dart';
 import 'settings_page.dart';
 import 'join_room_dialog.dart';
+import 'notifications_page.dart';
+import '../providers/notification_provider.dart';
 
 /// Dashboard Page
 ///
@@ -56,6 +58,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final padding = mediaQuery.padding;
+
+    // Keep notification socket listener alive
+    ref.watch(notificationSocketListenerProvider);
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -123,7 +128,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                   ),
                 // Main Content
                 Expanded(
-                  child: _selectedIndex == 0 ? _buildChatTab() : SettingsPage(),
+                  child: _selectedIndex == 0
+                      ? _buildChatTab()
+                      : _selectedIndex == 1
+                          ? const NotificationsPage()
+                          : SettingsPage(),
                 ),
                 // Bottom Navigation
                 Container(
@@ -156,9 +165,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               curve: Curves.easeInOutCubic,
                               alignment: _selectedIndex == 0
                                   ? Alignment.centerLeft
-                                  : Alignment.centerRight,
+                                  : _selectedIndex == 1
+                                      ? Alignment.center
+                                      : Alignment.centerRight,
                               child: FractionallySizedBox(
-                                widthFactor: 0.5,
+                                widthFactor: 0.333,
                                 heightFactor: 1,
                                 child: Container(
                                   decoration: BoxDecoration(
@@ -169,7 +180,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                         color: Colors.black
                                             .withValues(alpha: 0.04),
                                         blurRadius: 8,
-                                        offset: Offset(0, 2),
+                                        offset: const Offset(0, 2),
                                       ),
                                     ],
                                   ),
@@ -185,6 +196,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 ),
                                 _buildBottomNavItem(
                                   index: 1,
+                                  icon: CupertinoIcons.bell,
+                                  label: 'Alerts',
+                                  showBadge: true,
+                                ),
+                                _buildBottomNavItem(
+                                  index: 2,
                                   icon: CupertinoIcons.settings,
                                   label: 'Settings',
                                 ),
@@ -356,6 +373,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     required int index,
     required IconData icon,
     required String label,
+    bool showBadge = false,
   }) {
     final isSelected = _selectedIndex == index;
     return Expanded(
@@ -367,12 +385,53 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                icon,
-                color: isSelected
-                    ? BleyaTheme.primary
-                    : BleyaTheme.mutedForeground.withValues(alpha: 0.4),
-                size: 24,
+              Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Icon(
+                    icon,
+                    color: isSelected
+                        ? BleyaTheme.primary
+                        : BleyaTheme.mutedForeground.withValues(alpha: 0.4),
+                    size: 24,
+                  ),
+                  if (showBadge && index == 1)
+                    Positioned(
+                      top: -2,
+                      right: -2,
+                      child: Consumer(
+                        builder: (context, ref, _) {
+                          final unreadCount = ref.watch(
+                            notificationStateProvider.select(
+                              (state) => state.valueOrNull?.unreadCount ?? 0,
+                            ),
+                          );
+                          if (unreadCount == 0) return const SizedBox.shrink();
+
+                          return Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(
+                              minWidth: 16,
+                              minHeight: 16,
+                            ),
+                            child: Text(
+                              unreadCount > 99 ? '99+' : unreadCount.toString(),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
               ),
               AnimatedSize(
                 duration: _tabSwitchDuration,

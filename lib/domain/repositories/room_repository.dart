@@ -9,4 +9,5 @@ abstract class RoomRepository {
   Future<List<RoomMember>> getRoomMembers(String roomId);
   Future<void> leaveRoom(String roomId);
   Future<Room> createDirectMessage(String otherUserId);
+  Future<Room> getRoom(String roomId);
 }

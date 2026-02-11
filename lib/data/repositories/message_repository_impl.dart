@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../domain/entities/message.dart';
 import '../../core/errors/api_error_mapper.dart';
 import '../../domain/repositories/message_repository.dart';
 import '../dtos/message_dto.dart';
@@ -65,6 +66,16 @@ class MessageRepositoryImpl implements MessageRepository {
         hasMore: hasMore,
         nextCursor: nextCursor,
       );
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<Message> getMessage(String messageId) async {
+    try {
+      final response = await _dio.get('/messages/$messageId');
+      return MessageDto.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }

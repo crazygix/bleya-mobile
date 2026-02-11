@@ -66,6 +66,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       // Mark this room as currently open.
       _openRoomIdController?.state = widget.room.id;
 
+      // Mark room as read locally and on backend
+      ref.read(roomsListProvider.notifier).markRoomAsRead(widget.room.id);
+
       // Clear any old messages for this room to ensure fresh data
       ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
 

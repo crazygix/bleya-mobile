@@ -31,6 +31,7 @@ class ThreadData {
 /// Use cases depend on this interface, not concrete implementations
 abstract class MessageRepository {
   Future<ThreadData> getThread(String messageId);
+  Future<Message> getMessage(String messageId);
 
   /// Load a page of top-level messages for a room.
   ///
