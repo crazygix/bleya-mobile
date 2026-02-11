@@ -37,7 +37,10 @@ class SettingsMenuItem extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding: const EdgeInsets.all(BleyaTheme.radiusSmall),
+        padding: const EdgeInsets.symmetric(
+          horizontal: BleyaTheme.spacingMD,
+          vertical: BleyaTheme.spacingSM,
+        ),
         decoration: BoxDecoration(
           color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
           borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
@@ -51,27 +54,28 @@ class SettingsMenuItem extends StatelessWidget {
           children: [
             // Icon container
             Container(
-              width: 44,
-              height: 44,
+              width: 32,
+              height: 32,
               decoration: BoxDecoration(
                 color: iconBackgroundColor ?? iconColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
+                borderRadius:
+                    BorderRadius.circular(BleyaTheme.radiusSmall * 0.8),
               ),
               child: Center(
                 child: Icon(
                   icon,
                   color: iconColor,
-                  size: 22,
+                  size: 18,
                 ),
               ),
             ),
-            const SizedBox(width: BleyaTheme.spacingLG),
+            const SizedBox(width: BleyaTheme.spacingMD),
             // Label
             Expanded(
               child: Text(
                 label,
                 style: BleyaTheme.bodyLarge.copyWith(
-                  fontSize: 17,
+                  fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: labelColor ?? BleyaTheme.foreground,
                 ),
@@ -81,7 +85,7 @@ class SettingsMenuItem extends StatelessWidget {
             if (showChevron)
               Icon(
                 CupertinoIcons.chevron_right,
-                size: 20,
+                size: 16,
                 color: BleyaTheme.mutedForeground,
               ),
           ],

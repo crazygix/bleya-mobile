@@ -11,6 +11,7 @@ class Room {
   final String? lastMessageUsername;
   final int unreadCount;
   final bool hasUnreadCount;
+  final String? imageUrl;
 
   Room({
     required this.id,
@@ -24,6 +25,7 @@ class Room {
     this.lastMessageUsername,
     this.unreadCount = 0,
     this.hasUnreadCount = false,
+    this.imageUrl,
   });
 
   bool get isPrivate => type == 'private';

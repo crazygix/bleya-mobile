@@ -51,7 +51,7 @@ class RoomCard extends StatelessWidget {
             children: [
               // Avatar
               ProfileAvatar(
-                imageUrl: null,
+                imageUrl: room.imageUrl,
                 size: 48,
                 backgroundColor: BleyaTheme.primaryLight,
                 fallbackIcon: room.isPrivate

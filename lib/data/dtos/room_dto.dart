@@ -53,6 +53,7 @@ class RoomDto {
       lastMessageUsername: json['lastMessageUsername'] as String?,
       unreadCount: unreadCount,
       hasUnreadCount: hasUnreadCount,
+      imageUrl: json['imageUrl'] as String?,
     );
   }
 }

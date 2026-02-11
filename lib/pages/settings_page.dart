@@ -229,21 +229,21 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           label: 'Privacy',
                           onTap: () => _showComingSoon('Privacy'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingSM),
+                        const SizedBox(height: 4.0),
                         SettingsMenuItem(
                           icon: CupertinoIcons.bell,
                           iconColor: Color(0xFFEF4444), // Red
                           label: 'Notifications',
                           onTap: () => _showComingSoon('Notifications'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingSM),
+                        const SizedBox(height: 4.0),
                         SettingsMenuItem(
                           icon: CupertinoIcons.question_circle,
                           iconColor: BleyaTheme.primary,
                           label: 'Help',
                           onTap: () => _showComingSoon('Help'),
                         ),
-                        const SizedBox(height: BleyaTheme.spacingSM),
+                        const SizedBox(height: 4.0),
                         SettingsMenuItem(
                           icon: CupertinoIcons.circle,
                           iconColor: Color(0xFFF97316), // Orange
