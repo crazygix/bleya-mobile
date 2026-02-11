@@ -32,13 +32,13 @@ class MessageRepositoryImpl implements MessageRepository {
   @override
   Future<RoomMessagesPage> getRoomMessagesPage(
     String roomId, {
-    int? before,
+    String? before,
     int? limit,
   }) async {
     try {
       final queryParams = <String, dynamic>{};
       if (before != null) {
-        queryParams['before'] = before.toString();
+        queryParams['before'] = before;
       }
       if (limit != null) {
         queryParams['limit'] = limit.toString();
@@ -58,7 +58,7 @@ class MessageRepositoryImpl implements MessageRepository {
           .toList();
 
       final hasMore = paginationJson['hasMore'] as bool? ?? false;
-      final nextCursor = paginationJson['nextCursor'] as int?;
+      final nextCursor = paginationJson['nextCursor'] as String?;
 
       return RoomMessagesPage(
         messages: messages,

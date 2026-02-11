@@ -401,7 +401,7 @@ class ChatRoomState {
   final bool isInitialLoading;
   final bool isLoadingMore;
   final bool hasMore;
-  final int? nextCursor;
+  final String? nextCursor;
   final DateTime? lastReadAt;
 
   // Sentinel used in copyWith so we can distinguish
@@ -427,7 +427,7 @@ class ChatRoomState {
     bool? isInitialLoading,
     bool? isLoadingMore,
     bool? hasMore,
-    int? nextCursor,
+    String? nextCursor,
     Object? lastReadAt = _noLastReadAtProvided,
   }) {
     return ChatRoomState(
@@ -562,7 +562,7 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
 
         final pagination = data['pagination'] as Map<String, dynamic>? ?? {};
         final hasMore = pagination['hasMore'] as bool? ?? false;
-        final nextCursor = pagination['nextCursor'] as int?;
+        final nextCursor = pagination['nextCursor'] as String?;
         final lastReadAtMs = data['lastReadAt'] as int?;
         final lastReadAt = lastReadAtMs != null
             ? DateTime.fromMillisecondsSinceEpoch(lastReadAtMs)

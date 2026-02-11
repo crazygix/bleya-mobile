@@ -7,7 +7,7 @@ class RoomMessagesPage {
 
   /// Cursor representing the timestamp (milliseconds since epoch) of the oldest
   /// message in this page. Pass this as `before` to load older history.
-  final int? nextCursor;
+  final String? nextCursor;
 
   RoomMessagesPage({
     required this.messages,
@@ -35,12 +35,12 @@ abstract class MessageRepository {
   /// Load a page of top-level messages for a room.
   ///
   /// - [roomId]: ID of the room.
-  /// - [before]: optional cursor (milliseconds since epoch) to load messages
-  ///   strictly older than this timestamp.
+  /// - [before]: optional cursor (compound timestamp_id) to load messages
+  ///   strictly older than this cursor.
   /// - [limit]: optional page size override (backend enforces an upper bound).
   Future<RoomMessagesPage> getRoomMessagesPage(
     String roomId, {
-    int? before,
+    String? before,
     int? limit,
   });
 

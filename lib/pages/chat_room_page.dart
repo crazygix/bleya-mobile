@@ -52,12 +52,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   SocketService? _socketService;
   final Map<String, GlobalKey> _messageKeys = {};
   bool _isLoadingMoreTriggered = false;
-  bool _didSetInitialPosition = false;
-  bool _didMarkRoomAsRead = false;
-  bool _isInitialPositionScheduled = false;
-  bool _isForcingInitialScroll = false;
-  bool _isForcingKeyboardScroll = false;
-  double _lastKeyboardInset = 0;
 
   @override
   void initState() {
@@ -81,50 +75,12 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       _messagesSubscription = ref.listenManual<List<Message>>(
         roomMessagesProvider(widget.room.id),
         (previous, next) {
-          final previousList = previous ?? const <Message>[];
-          final nextList = next;
-
-          if (!_didSetInitialPosition) {
-            _scheduleInitialPositioning();
-          }
-
-          // Only react when a new message is appended (not when loading older history).
-          final addedNewMessage =
-              previousList.isNotEmpty && nextList.length > previousList.length;
-
-          if (!addedNewMessage) {
-            return;
-          }
-
-          if (!_scrollController.hasClients) {
-            return;
-          }
-
-          final position = _scrollController.position;
-          const threshold = 80.0;
-          final isNearBottom =
-              position.pixels >= (position.maxScrollExtent - threshold);
-
-          // Auto-scroll only if user was already near the bottom.
-          if (isNearBottom) {
-            _scrollToBottom(animated: true);
-          }
+          // With reverse: true, new messages (at the end of source list)
+          // appear at the bottom (Index 0).
+          // If the user is at the bottom (offset 0), they will see the new message immediately.
+          // If they are scrolled up, they will stay at their offset.
         },
       );
-
-      _chatStateSubscription = ref.listenManual<ChatRoomState>(
-        chatRoomControllerProvider(widget.room),
-        (previous, next) {
-          if (!_didSetInitialPosition && !next.isInitialLoading) {
-            _scheduleInitialPositioning();
-          }
-        },
-      );
-
-      final currentMessages = ref.read(roomMessagesProvider(widget.room.id));
-      if (!_didSetInitialPosition && currentMessages.isNotEmpty) {
-        _scheduleInitialPositioning();
-      }
 
       _scrollController.addListener(_onScroll);
     });
@@ -161,226 +117,37 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     super.dispose();
   }
 
-  void _onScroll() async {
+  void _onScroll() {
     if (!_scrollController.hasClients) return;
-    if (!_didSetInitialPosition) return;
 
     final position = _scrollController.position;
-    // Trigger loading older messages when user scrolls near the top.
-    const thresholdPixels = 400.0;
-    if (position.pixels > thresholdPixels || _isLoadingMoreTriggered) {
-      return;
-    }
+    // With reverse: true, pixels=0 is bottom, pixels=max is top.
+    // We want to load more when user is scrolling up (increasing pixels) near the top.
+    const threshold = 200.0;
+    final distanceToTop = position.maxScrollExtent - position.pixels;
 
-    final state = ref.read(chatRoomControllerProvider(widget.room));
-    if (!state.hasMore || state.isLoadingMore) {
-      return;
-    }
-
-    _isLoadingMoreTriggered = true;
-
-    // Capture current scroll metrics before loading older messages so we can
-    // preserve the visible position after prepending.
-    final oldMaxExtent = position.maxScrollExtent;
-    final oldPixels = position.pixels;
-    final distanceFromBottom = oldMaxExtent - oldPixels;
-
-    final controller =
-        ref.read(chatRoomControllerProvider(widget.room).notifier);
-
-    await controller.loadOlderMessages();
-
-    if (!mounted || !_scrollController.hasClients) {
-      _isLoadingMoreTriggered = false;
-      return;
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!_scrollController.hasClients) {
-        _isLoadingMoreTriggered = false;
-        return;
+    if (distanceToTop < threshold && !_isLoadingMoreTriggered) {
+      final state = ref.read(chatRoomControllerProvider(widget.room));
+      if (state.hasMore && !state.isLoadingMore) {
+        _isLoadingMoreTriggered = true;
+        ref
+            .read(chatRoomControllerProvider(widget.room).notifier)
+            .loadOlderMessages()
+            .then((_) {
+          if (mounted) _isLoadingMoreTriggered = false;
+        });
       }
-
-      final newPosition = _scrollController.position;
-      final newMaxExtent = newPosition.maxScrollExtent;
-      final targetOffset =
-          (newMaxExtent - distanceFromBottom).clamp(0.0, newMaxExtent);
-
-      _scrollController.jumpTo(targetOffset);
-      _isLoadingMoreTriggered = false;
-    });
+    }
   }
 
   GlobalKey _messageKey(String messageId) {
     return _messageKeys.putIfAbsent(messageId, () => GlobalKey());
   }
 
-  Message? _findFirstUnreadMessage({
-    required List<Message> messages,
-    required DateTime? lastReadAt,
-  }) {
-    if (messages.isEmpty) return null;
-    if (lastReadAt == null) return messages.first;
-
-    final lastReadMs = lastReadAt.millisecondsSinceEpoch;
-    for (final message in messages) {
-      if (message.createdAt.millisecondsSinceEpoch > lastReadMs) {
-        return message;
-      }
-    }
-
-    return null;
-  }
-
-  void _markRoomAsReadOnce() {
-    if (_didMarkRoomAsRead) return;
-    _didMarkRoomAsRead = true;
-    ref.read(roomsListProvider.notifier).markRoomAsRead(widget.room.id);
-  }
-
-  void _scheduleInitialPositioning() {
-    if (!mounted || _didSetInitialPosition || _isInitialPositionScheduled) {
-      return;
-    }
-
-    _isInitialPositionScheduled = true;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _isInitialPositionScheduled = false;
-
-      if (!mounted || _didSetInitialPosition) return;
-
-      final chatState = ref.read(chatRoomControllerProvider(widget.room));
-      final messages = ref.read(roomMessagesProvider(widget.room.id));
-
-      if (chatState.isInitialLoading) {
-        _scheduleInitialPositioning();
-        return;
-      }
-
-      if (messages.isEmpty) {
-        _didSetInitialPosition = true;
-        _markRoomAsReadOnce();
-        return;
-      }
-
-      final firstUnreadMessage = _findFirstUnreadMessage(
-        messages: messages,
-        lastReadAt: chatState.lastReadAt,
-      );
-
-      if (firstUnreadMessage == null) {
-        _forceInitialScrollToBottom(onComplete: _markRoomAsReadOnce);
-        return;
-      }
-
-      if (!_scrollController.hasClients) {
-        _scheduleInitialPositioning();
-        return;
-      }
-
-      final chatItems = _buildChatItems(messages);
-      final targetItemIndex = chatItems.indexWhere(
-        (item) =>
-            item.type == _ChatItemType.message &&
-            item.message?.id == firstUnreadMessage.id,
-      );
-
-      if (targetItemIndex == -1) {
-        _scheduleInitialPositioning();
-        return;
-      }
-
-      final maxExtent = _scrollController.position.maxScrollExtent;
-      if (maxExtent > 0 && chatItems.length > 1) {
-        final ratio = targetItemIndex / (chatItems.length - 1);
-        final roughOffset = (maxExtent * ratio).clamp(0.0, maxExtent);
-        _scrollController.jumpTo(roughOffset);
-      }
-
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted || _didSetInitialPosition) return;
-
-        final targetContext = _messageKey(firstUnreadMessage.id).currentContext;
-        if (targetContext == null) {
-          _scheduleInitialPositioning();
-          return;
-        }
-
-        Scrollable.ensureVisible(
-          targetContext,
-          duration: const Duration(milliseconds: 260),
-          curve: Curves.easeOut,
-          alignment: 0.12,
-        ).whenComplete(() {
-          if (!mounted) return;
-          _didSetInitialPosition = true;
-          _markRoomAsReadOnce();
-        });
-      });
-    });
-  }
-
-  void _forceInitialScrollToBottom({VoidCallback? onComplete}) {
-    if (!mounted || _didSetInitialPosition || _isForcingInitialScroll) return;
-
-    _isForcingInitialScroll = true;
-    Future(() async {
-      var performedJump = false;
-      // Retry for a short period so late layout/padding changes don't leave us
-      // above the latest message on first open.
-      for (var attempt = 0; attempt < 40; attempt++) {
-        if (!mounted) return;
-
-        await Future<void>.delayed(const Duration(milliseconds: 16));
-        if (!_scrollController.hasClients) {
-          continue;
-        }
-
-        performedJump = true;
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-
-      if (!mounted) return;
-      _isForcingInitialScroll = false;
-      if (!performedJump) {
-        Future<void>.delayed(
-          const Duration(milliseconds: 100),
-          () => _forceInitialScrollToBottom(onComplete: onComplete),
-        );
-        return;
-      }
-
-      _didSetInitialPosition = true;
-      onComplete?.call();
-    });
-  }
-
-  void _forceScrollToBottomForKeyboard() {
-    if (!mounted || _isForcingKeyboardScroll) return;
-
-    _isForcingKeyboardScroll = true;
-    Future(() async {
-      // Keep jumping while keyboard and input field finish animating.
-      for (var attempt = 0; attempt < 35; attempt++) {
-        if (!mounted) return;
-
-        await Future<void>.delayed(const Duration(milliseconds: 16));
-        if (!_scrollController.hasClients) {
-          continue;
-        }
-
-        _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
-      }
-
-      if (!mounted) return;
-      _isForcingKeyboardScroll = false;
-    });
-  }
-
   void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
-      final target = _scrollController.position.maxScrollExtent;
+      const target = 0.0; // Bottom is 0 in reverse list
       if (animated) {
         _scrollController.animateTo(
           target,
@@ -394,23 +161,36 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   }
 
   List<_ChatListItem> _buildChatItems(List<Message> messages) {
+    if (messages.isEmpty) return const [];
     final items = <_ChatListItem>[];
-    DateTime? lastDate;
 
-    for (final message in messages) {
+    // Source messages are Oldest -> Newest.
+    // We want the ListView(reverse: true) to have Index 0 = Bottom = Newest.
+    // So we iterate backwards.
+    for (int i = messages.length - 1; i >= 0; i--) {
+      final message = messages[i];
+      items.add(_ChatListItem.message(message));
+
+      final isFirstMessage = i == 0;
       final createdAt = message.createdAt;
       final currentDate =
           DateTime(createdAt.year, createdAt.month, createdAt.day);
 
-      if (lastDate == null ||
-          currentDate.year != lastDate.year ||
-          currentDate.month != lastDate.month ||
-          currentDate.day != lastDate.day) {
+      if (isFirstMessage) {
+        // This is the oldest message in the list (visually at the top).
+        // Always show date above it.
         items.add(_ChatListItem.date(currentDate));
-        lastDate = currentDate;
-      }
+      } else {
+        // Check if the previous (older) message has a different date.
+        final prevMessage = messages[i - 1];
+        final prevCreatedAt = prevMessage.createdAt;
+        final prevDate = DateTime(
+            prevCreatedAt.year, prevCreatedAt.month, prevCreatedAt.day);
 
-      items.add(_ChatListItem.message(message));
+        if (currentDate != prevDate) {
+          items.add(_ChatListItem.date(currentDate));
+        }
+      }
     }
 
     return items;
@@ -482,18 +262,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
     final chatItems = _buildChatItems(messages);
-
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
-    if (keyboardInset != _lastKeyboardInset) {
-      _lastKeyboardInset = keyboardInset;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (!mounted) return;
-        if (keyboardInset > 0) {
-          _forceScrollToBottomForKeyboard();
-        }
-      });
-    }
-
     return Scaffold(
       backgroundColor: BleyaTheme.background,
       resizeToAvoidBottomInset: false,
@@ -556,6 +325,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                             ),
                           )
                         : ListView.builder(
+                            reverse: true,
                             controller: _scrollController,
                             padding: EdgeInsets.only(
                               left: BleyaTheme.contentPadding,

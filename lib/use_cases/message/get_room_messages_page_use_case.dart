@@ -7,7 +7,7 @@ class GetRoomMessagesPageUseCase {
 
   Future<RoomMessagesPage> call(
     String roomId, {
-    int? before,
+    String? before,
     int? limit,
   }) {
     return _messageRepository.getRoomMessagesPage(
