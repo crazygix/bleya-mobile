@@ -17,6 +17,9 @@ export '../domain/entities/room_member.dart';
 /// Tracks which room (if any) is currently open in the chat UI.
 final currentOpenRoomIdProvider = StateProvider<String?>((ref) => null);
 
+/// Tracks which thread (if any) is currently open in the chat UI.
+final currentOpenThreadIdProvider = StateProvider<String?>((ref) => null);
+
 /// Wrapper model for a room along with its local unread count.
 class RoomListItem {
   final Room room;

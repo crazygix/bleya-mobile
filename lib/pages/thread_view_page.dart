@@ -29,26 +29,29 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   final TextEditingController _replyController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   int _previousReplyCount = 0;
-  ProviderSubscription<AsyncValue<Map<String, dynamic>>>? _threadSubscription;
+  late ProviderContainer _container;
 
   @override
   void initState() {
     super.initState();
-    // Listen to thread state changes to auto-scroll when new replies arrive
+    // Join the room to receive real-time updates for messages (including replies)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _threadSubscription = ref.listenManual<AsyncValue<Map<String, dynamic>>>(
-        threadMessagesProvider(widget.parentMessage.id),
-        (previous, next) {
-          next.whenData((data) {
-            final replies = data['replies'] as List<Message>;
-            if (replies.length > _previousReplyCount) {
-              _scrollToBottom();
-            }
-            _previousReplyCount = replies.length;
-          });
-        },
-      );
+      if (!mounted) return;
+
+      final socketService = ref.read(socketServiceProvider);
+      socketService.joinRoom(widget.room);
+
+      // Track that this thread is currently open
+      ref.read(currentOpenThreadIdProvider.notifier).state =
+          widget.parentMessage.id;
     });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Capture the container to use safely in dispose
+    _container = ProviderScope.containerOf(context, listen: false);
   }
 
   void _scrollToBottom() {
@@ -77,7 +80,12 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
 
   @override
   void dispose() {
-    _threadSubscription?.close();
+    // Clear the active thread safely using captured container
+    // Wrap in microtask to avoid "Tried to modify a provider while the widget tree was building"
+    Future.microtask(() {
+      _container.read(currentOpenThreadIdProvider.notifier).state = null;
+    });
+
     _replyController.dispose();
     _scrollController.dispose();
     super.dispose();
@@ -195,6 +203,19 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   Widget build(BuildContext context) {
     final threadState =
         ref.watch(threadMessagesProvider(widget.parentMessage.id));
+
+    // Listen for new messages to auto-scroll
+    ref.listen(threadMessagesProvider(widget.parentMessage.id),
+        (previous, next) {
+      next.whenData((data) {
+        final replies = data['replies'] as List<Message>;
+        if (replies.length > _previousReplyCount) {
+          _scrollToBottom();
+        }
+        _previousReplyCount = replies.length;
+      });
+    });
+
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
 

@@ -192,17 +192,20 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 _buildBottomNavItem(
                                   index: 0,
                                   icon: CupertinoIcons.chat_bubble,
+                                  selectedIcon: CupertinoIcons.chat_bubble_fill,
                                   label: 'Chats',
                                 ),
                                 _buildBottomNavItem(
                                   index: 1,
                                   icon: CupertinoIcons.bell,
-                                  label: 'Alerts',
+                                  selectedIcon: CupertinoIcons.bell_fill,
+                                  label: 'Activity',
                                   showBadge: true,
                                 ),
                                 _buildBottomNavItem(
                                   index: 2,
                                   icon: CupertinoIcons.settings,
+                                  selectedIcon: CupertinoIcons.settings_solid,
                                   label: 'Settings',
                                 ),
                               ],
@@ -230,10 +233,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       data: (items) {
         if (items.isEmpty) {
           return EmptyState(
-            icon: CupertinoIcons.airplane,
-            title: 'Ready for takeoff?',
-            description:
-                'Your next adventure is just a chat away. Connect with travelers now.',
+            icon: CupertinoIcons.sparkles,
+            title: 'Find your crowd',
+            description: 'No chats here yet.\nReady to find your next hangout?',
+            iconColor: BleyaTheme.accent,
             actionText: 'Join a room',
             onAction: _showJoinRoomDialog,
           );
@@ -372,6 +375,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   Widget _buildBottomNavItem({
     required int index,
     required IconData icon,
+    required IconData selectedIcon,
     required String label,
     bool showBadge = false,
   }) {
@@ -389,7 +393,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 clipBehavior: Clip.none,
                 children: [
                   Icon(
-                    icon,
+                    isSelected ? selectedIcon : icon,
                     color: isSelected
                         ? BleyaTheme.primary
                         : BleyaTheme.mutedForeground.withValues(alpha: 0.4),

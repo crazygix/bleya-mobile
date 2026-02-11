@@ -54,4 +54,22 @@ class NotificationRepositoryImpl implements NotificationRepository {
       throw ApiErrorMapper.mapDioError(e);
     }
   }
+
+  @override
+  Future<void> dismissNotification(String notificationId) async {
+    try {
+      await _dio.post('/notifications/$notificationId/dismiss');
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> dismissAll() async {
+    try {
+      await _dio.post('/notifications/dismiss-all');
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
 }

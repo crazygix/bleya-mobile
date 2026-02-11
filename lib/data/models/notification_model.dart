@@ -16,6 +16,7 @@ class NotificationModel extends Notification {
     required super.previewText,
     required super.type,
     required super.isRead,
+    required super.isDismissed,
     required super.createdAt,
   });
 
@@ -77,7 +78,8 @@ class NotificationModel extends Notification {
       replyText: replyText,
       previewText: json['previewText'] as String? ?? '',
       type: json['type'] as String,
-      isRead: json['read'] as bool,
+      isRead: (json['read'] ?? json['isRead']) as bool,
+      isDismissed: (json['isDismissed'] ?? false) as bool,
       createdAt: createdAt,
     );
   }
@@ -96,6 +98,7 @@ class NotificationModel extends Notification {
       'previewText': previewText,
       'type': type,
       'read': isRead,
+      'isDismissed': isDismissed,
       'createdAt': createdAt.millisecondsSinceEpoch,
     };
   }

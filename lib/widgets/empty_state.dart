@@ -18,6 +18,7 @@ class EmptyState extends StatelessWidget {
   final String description;
   final String? actionText;
   final VoidCallback? onAction;
+  final Color? iconColor;
 
   const EmptyState({
     super.key,
@@ -26,6 +27,7 @@ class EmptyState extends StatelessWidget {
     required this.description,
     this.actionText,
     this.onAction,
+    this.iconColor,
   });
 
   @override
@@ -39,7 +41,8 @@ class EmptyState extends StatelessWidget {
             Icon(
               icon,
               size: 64,
-              color: BleyaTheme.mutedForeground.withValues(alpha: 0.5),
+              color: iconColor ??
+                  BleyaTheme.mutedForeground.withValues(alpha: 0.5),
             ),
             SizedBox(height: BleyaTheme.spacingXL),
             Text(

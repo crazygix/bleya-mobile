@@ -13,6 +13,7 @@ class Notification {
   final String previewText;
   final String type; // 'reply'
   final bool isRead;
+  final bool isDismissed;
   final DateTime createdAt;
 
   const Notification({
@@ -30,6 +31,7 @@ class Notification {
     required this.previewText,
     required this.type,
     required this.isRead,
+    this.isDismissed = false,
     required this.createdAt,
   });
 
@@ -48,6 +50,7 @@ class Notification {
     String? previewText,
     String? type,
     bool? isRead,
+    bool? isDismissed,
     DateTime? createdAt,
   }) {
     return Notification(
@@ -65,6 +68,7 @@ class Notification {
       previewText: previewText ?? this.previewText,
       type: type ?? this.type,
       isRead: isRead ?? this.isRead,
+      isDismissed: isDismissed ?? this.isDismissed,
       createdAt: createdAt ?? this.createdAt,
     );
   }

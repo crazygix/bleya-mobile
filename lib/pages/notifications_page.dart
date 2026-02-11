@@ -16,6 +16,7 @@ class NotificationsPage extends ConsumerStatefulWidget {
 }
 
 class _NotificationsPageState extends ConsumerState<NotificationsPage> {
+  late ProviderContainer _container;
   final ScrollController _scrollController = ScrollController();
 
   @override
@@ -25,7 +26,20 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _container = ProviderScope.containerOf(context);
+  }
+
+  @override
   void dispose() {
+    // When leaving the Activity tab, mark everything as read to clear the badge
+    // but keep them in the list (Dismissal happens only on tap)
+    final state = _container.read(notificationStateProvider);
+    if (state.valueOrNull != null && state.value!.unreadCount > 0) {
+      _container.read(notificationStateProvider.notifier).markAllAsRead();
+    }
+
     _scrollController.dispose();
     super.dispose();
   }
@@ -42,14 +56,15 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   void _markAllRead() {
-    ref.read(notificationStateProvider.notifier).markAllAsRead();
+    // This is the "Clean all" action - removes everything from the list
+    ref.read(notificationStateProvider.notifier).dismissAll();
   }
 
   Future<void> _navigateToThread(context, notification) async {
-    // 1. Mark as read immediately
-    if (!notification.isRead) {
-      ref.read(notificationStateProvider.notifier).markAsRead(notification.id);
-    }
+    // 1. Dismiss from the Activity list immediately
+    ref
+        .read(notificationStateProvider.notifier)
+        .dismissNotification(notification.id);
 
     // 2. Fetch data needed for ThreadViewPage
     showCupertinoDialog(
@@ -115,19 +130,19 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Text(
-                    'Notifications',
+                    'Activity',
                     style: BleyaTheme.headingMedium,
                   ),
                   if (state.value?.unreadCount != null &&
                       state.value!.unreadCount > 0)
-                    GestureDetector(
-                      onTap: _markAllRead,
-                      child: Text(
-                        'Mark all read',
-                        style: BleyaTheme.bodyMedium.copyWith(
-                          color: BleyaTheme.primary,
-                          fontWeight: FontWeight.w600,
-                        ),
+                    IconButton(
+                      onPressed: _markAllRead,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                      icon: Icon(
+                        CupertinoIcons.checkmark_seal,
+                        color: BleyaTheme.primary,
+                        size: 24,
                       ),
                     ),
                 ],
@@ -146,9 +161,11 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.6,
                           child: const EmptyState(
-                            icon: CupertinoIcons.bell,
-                            title: 'All caught up',
-                            description: 'You have no new notifications.',
+                            icon: CupertinoIcons.sun_max_fill,
+                            title: 'Nothing new here',
+                            description:
+                                'Sit back and relax.\nYou\'re all caught up.',
+                            iconColor: BleyaTheme.accent,
                           ),
                         ),
                       ),

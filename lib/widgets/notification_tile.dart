@@ -71,7 +71,7 @@ class NotificationTile extends StatelessWidget {
                   const SizedBox(height: 2),
                   // Line 2: Action text
                   Text(
-                    '${notification.senderName} replied to your message',
+                    '${notification.senderName} replied to you',
                     style: BleyaTheme.bodySmall.copyWith(
                       color: BleyaTheme.foreground54,
                     ),

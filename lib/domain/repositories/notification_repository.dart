@@ -4,6 +4,8 @@ abstract class NotificationRepository {
   Future<NotificationPage> fetchNotifications({int? limit, String? before});
   Future<void> markAsRead(String notificationId);
   Future<void> markAllAsRead();
+  Future<void> dismissNotification(String notificationId);
+  Future<void> dismissAll();
 }
 
 class NotificationPage {

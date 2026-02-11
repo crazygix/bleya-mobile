@@ -6,6 +6,7 @@ import '../domain/repositories/notification_repository.dart';
 import '../data/repositories/notification_repository_impl.dart';
 import '../data/models/notification_model.dart';
 import 'auth_providers.dart';
+import 'chat_providers.dart';
 
 final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
   final dio = ref.watch(dioProvider);
@@ -48,13 +49,14 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
 
   Future<NotificationState> _fetchPage({String? cursor}) async {
     final repo = ref.read(notificationRepositoryProvider);
-    final page = await repo.fetchNotifications(limit: 20, before: cursor);
+    const limit = 20;
+    final page = await repo.fetchNotifications(limit: limit, before: cursor);
 
     return NotificationState(
       notifications: page.notifications,
       unreadCount: page.unreadCount,
       nextCursor: page.nextCursor,
-      hasMore: page.nextCursor != null,
+      hasMore: page.nextCursor != null && page.notifications.length >= limit,
     );
   }
 
@@ -69,12 +71,13 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
 
     try {
       final repo = ref.read(notificationRepositoryProvider);
-      final page =
-          await repo.fetchNotifications(limit: 20, before: current.nextCursor);
+      const limit = 20;
+      final page = await repo.fetchNotifications(
+          limit: limit, before: current.nextCursor);
 
-      // If page returns no new notifications, set hasMore to false
+      // Safeguard: only has more if we got a cursor AND we received a full page
       final hasMoreNotifications =
-          page.nextCursor != null && page.notifications.isNotEmpty;
+          page.nextCursor != null && page.notifications.length >= limit;
 
       state = AsyncData(current.copyWith(
         notifications: [...current.notifications, ...page.notifications],
@@ -97,13 +100,10 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     final current = state.value;
     if (current == null) return;
 
-    // Optimistic update
+    // Update locally but stay in list
     final updatedList = current.notifications.map((n) {
       if (n.id == notificationId && !n.isRead) {
-        return (n as NotificationModel).copyWith(
-            isRead:
-                true); // Cast to access copyWith if needed, or Entity should have it
-        // Entity has copyWith.
+        return n.copyWith(isRead: true);
       }
       return n;
     }).toList();
@@ -124,7 +124,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       final repo = ref.read(notificationRepositoryProvider);
       await repo.markAsRead(notificationId);
     } catch (e) {
-      // Revert if failed? Or silent fail. Silent fail is usually okay for read receipt.
+      // Silent fail
     }
   }
 
@@ -132,7 +132,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     final current = state.value;
     if (current == null) return;
 
-    // Optimistic
+    // Mark all as read but keep in list
     final updatedList =
         current.notifications.map((n) => n.copyWith(isRead: true)).toList();
 
@@ -149,9 +149,80 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     }
   }
 
+  Future<void> dismissNotification(String notificationId) async {
+    final current = state.value;
+    if (current == null) return;
+
+    // Remove from list immediately (UX: it disappears when tapped/handled)
+    final updatedList =
+        current.notifications.where((n) => n.id != notificationId).toList();
+
+    // Also update unread count if it was unread
+    final wasUnread =
+        current.notifications.any((n) => n.id == notificationId && !n.isRead);
+    final newCount = wasUnread
+        ? (current.unreadCount > 0 ? current.unreadCount - 1 : 0)
+        : current.unreadCount;
+
+    state = AsyncData(current.copyWith(
+      notifications: updatedList,
+      unreadCount: newCount,
+    ));
+
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      await repo.dismissNotification(notificationId);
+    } catch (e) {
+      // Silent fail
+    }
+  }
+
+  Future<void> dismissAll() async {
+    final current = state.value;
+    if (current == null) return;
+
+    // Clear everything for "Inbox Zero"
+    state = AsyncData(current.copyWith(
+      notifications: [],
+      unreadCount: 0,
+      hasMore: false,
+      nextCursor: null,
+    ));
+
+    try {
+      final repo = ref.read(notificationRepositoryProvider);
+      await repo.dismissAll();
+    } catch (e) {
+      // Silent fail
+    }
+  }
+
   void handleNewNotification(Notification notification) {
     final current = state.value;
     if (current == null) return; // Not loaded yet
+
+    final currentOpenThreadId = ref.read(currentOpenThreadIdProvider);
+
+    // Suppression happens ONLY if the user is currently looking at this specific thread
+    final isCurrentThread = currentOpenThreadId != null &&
+        notification.threadId == currentOpenThreadId;
+
+    if (isCurrentThread) {
+      if (kDebugMode) {
+        print(
+            '🔔 Notification suppressed for active thread: ${notification.threadId}');
+      }
+
+      // Mark as read on backend since they are seeing it in real-time
+      // But DO NOT add to the local notification list to keep the Alert tab clean
+      try {
+        final repo = ref.read(notificationRepositoryProvider);
+        repo.markAsRead(notification.id);
+      } catch (e) {
+        // Silent fail
+      }
+      return;
+    }
 
     state = AsyncData(current.copyWith(
       notifications: [notification, ...current.notifications],
