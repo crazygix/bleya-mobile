@@ -7,8 +7,12 @@ class NotificationModel extends Notification {
     required super.senderName,
     super.senderAvatarUrl,
     required super.roomId,
+    required super.roomName,
+    required super.roomType,
     required super.messageId,
     required super.threadId,
+    super.parentMessageText,
+    super.replyText,
     required super.previewText,
     required super.type,
     required super.isRead,
@@ -42,6 +46,12 @@ class NotificationModel extends Notification {
     final messageId = (json['messageId'] ?? json['message']) as String;
     final threadId = (json['threadId'] ?? json['thread']) as String;
 
+    // Check for enriched context fields
+    final roomName = json['roomName'] as String? ?? 'Unknown Room';
+    final roomType = json['roomType'] as String? ?? 'public';
+    final parentMessageText = json['parentMessageText'] as String?;
+    final replyText = json['replyText'] as String?;
+
     // Parse createdAt - can be int (milliseconds) or String (ISO)
     DateTime createdAt;
     final createdAtData = json['createdAt'];
@@ -59,8 +69,12 @@ class NotificationModel extends Notification {
       senderName: senderName,
       senderAvatarUrl: senderAvatarUrl,
       roomId: roomId,
+      roomName: roomName,
+      roomType: roomType,
       messageId: messageId,
       threadId: threadId,
+      parentMessageText: parentMessageText,
+      replyText: replyText,
       previewText: json['previewText'] as String? ?? '',
       type: json['type'] as String,
       isRead: json['read'] as bool,

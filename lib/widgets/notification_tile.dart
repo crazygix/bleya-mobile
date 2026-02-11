@@ -44,14 +44,16 @@ class NotificationTile extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Line 1: Room name + Time
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Expanded(
                         child: Text(
-                          notification.senderName,
-                          style: BleyaTheme.bodyLarge.copyWith(
-                            fontWeight: FontWeight.w600,
+                          notification.roomName,
+                          style: BleyaTheme.bodySmall.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: BleyaTheme.foreground,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -67,22 +69,42 @@ class NotificationTile extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 2),
-                  RichText(
-                    text: TextSpan(
-                      children: [
-                        TextSpan(
-                          text: 'replied to your thread: ',
-                          style: BleyaTheme.bodyMedium.copyWith(
-                            color: BleyaTheme.mutedForeground,
+                  // Line 2: Action text
+                  Text(
+                    '${notification.senderName} replied to your message',
+                    style: BleyaTheme.bodySmall.copyWith(
+                      color: BleyaTheme.foreground54,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  // Line 3: Parent message context (if available)
+                  if (notification.parentMessageText != null &&
+                      notification.parentMessageText!.isNotEmpty)
+                    Container(
+                      margin: const EdgeInsets.only(left: 4, bottom: 4),
+                      padding: const EdgeInsets.only(left: 8),
+                      decoration: BoxDecoration(
+                        border: Border(
+                          left: BorderSide(
+                            color: BleyaTheme.border,
+                            width: 2,
                           ),
                         ),
-                        TextSpan(
-                          text: notification.previewText,
-                          style: BleyaTheme.bodyMedium.copyWith(
-                            color: BleyaTheme.foreground,
-                          ),
+                      ),
+                      child: Text(
+                        '"${notification.parentMessageText}"',
+                        style: BleyaTheme.bodySmall.copyWith(
+                          color: BleyaTheme.foreground54,
                         ),
-                      ],
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  // Line 4: Reply content
+                  Text(
+                    notification.replyText ?? notification.previewText,
+                    style: BleyaTheme.bodySmall.copyWith(
+                      color: BleyaTheme.foreground87,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -151,11 +173,17 @@ class NotificationTileSkeleton extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: const [
-                AppSkeleton(width: 120, height: 16),
-                SizedBox(height: BleyaTheme.spacingXS),
+                // Line 1: Room name
+                AppSkeleton(width: 100, height: 14),
+                SizedBox(height: BleyaTheme.spacingSM),
+                // Line 2: Action text
+                AppSkeleton(width: 180, height: 16),
+                SizedBox(height: BleyaTheme.spacingSM),
+                // Line 3: Parent quote
                 AppSkeleton(width: double.infinity, height: 14),
-                SizedBox(height: 4),
-                AppSkeleton(width: 180, height: 14),
+                SizedBox(height: BleyaTheme.spacingXS),
+                // Line 4: Reply preview
+                AppSkeleton(width: 220, height: 14),
               ],
             ),
           ),
