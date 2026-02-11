@@ -32,6 +32,47 @@ class RoomDto {
     return 0;
   }
 
+  static double? _parseDouble(dynamic value) {
+    if (value is double) {
+      return value;
+    }
+    if (value is int) {
+      return value.toDouble();
+    }
+    if (value is String) {
+      return double.tryParse(value);
+    }
+    return null;
+  }
+
+  static RoomLocation? _parseLocation(dynamic value) {
+    if (value is! Map<String, dynamic>) {
+      return null;
+    }
+
+    final latitude = _parseDouble(value['latitude']);
+    final longitude = _parseDouble(value['longitude']);
+
+    if (latitude == null || longitude == null) {
+      return null;
+    }
+
+    return RoomLocation(
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
+
+  static bool _parseIsJoined(dynamic value) {
+    if (value is bool) {
+      return value;
+    }
+    if (value is String) {
+      return value.toLowerCase() == 'true';
+    }
+    return false;
+  }
+
   static Room fromJson(Map<String, dynamic> json) {
     final lastMessageTime = _parseTimestamp(json['lastMessageTime']);
     final hasUnreadCount = json.containsKey('unreadCount');
@@ -54,6 +95,10 @@ class RoomDto {
       unreadCount: unreadCount,
       hasUnreadCount: hasUnreadCount,
       imageUrl: json['imageUrl'] as String?,
+      cityKey: json['cityKey'] as String?,
+      location: _parseLocation(json['location']),
+      distanceKm: _parseDouble(json['distanceKm']),
+      isJoined: _parseIsJoined(json['isJoined']),
     );
   }
 }

@@ -9,6 +9,7 @@ import '../use_cases/user/upload_profile_image_use_case.dart';
 import '../use_cases/user/get_user_by_id_use_case.dart';
 import '../use_cases/user/update_profile_use_case.dart';
 import '../use_cases/room/get_available_rooms_use_case.dart';
+import '../use_cases/room/get_nearby_rooms_use_case.dart';
 import '../use_cases/room/get_joined_rooms_use_case.dart';
 import '../use_cases/room/leave_room_use_case.dart';
 import '../use_cases/room/create_direct_message_use_case.dart';
@@ -56,6 +57,11 @@ final getAvailableRoomsUseCaseProvider =
     Provider<GetAvailableRoomsUseCase>((ref) {
   final repository = ref.watch(roomRepositoryProvider);
   return GetAvailableRoomsUseCase(repository);
+});
+
+final getNearbyRoomsUseCaseProvider = Provider<GetNearbyRoomsUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return GetNearbyRoomsUseCase(repository);
 });
 
 final getJoinedRoomsUseCaseProvider = Provider<GetJoinedRoomsUseCase>((ref) {

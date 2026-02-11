@@ -1,4 +1,14 @@
 /// Domain entity for Room - pure business object, no JSON parsing
+class RoomLocation {
+  final double latitude;
+  final double longitude;
+
+  const RoomLocation({
+    required this.latitude,
+    required this.longitude,
+  });
+}
+
 class Room {
   final String id;
   final String name;
@@ -12,6 +22,10 @@ class Room {
   final int unreadCount;
   final bool hasUnreadCount;
   final String? imageUrl;
+  final String? cityKey;
+  final RoomLocation? location;
+  final double? distanceKm;
+  final bool isJoined;
 
   Room({
     required this.id,
@@ -26,6 +40,10 @@ class Room {
     this.unreadCount = 0,
     this.hasUnreadCount = false,
     this.imageUrl,
+    this.cityKey,
+    this.location,
+    this.distanceKm,
+    this.isJoined = false,
   });
 
   bool get isPrivate => type == 'private';

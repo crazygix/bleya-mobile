@@ -301,6 +301,10 @@ class RoomsListController
       lastMessageUsername: payload['lastMessageUsername']?.toString() ??
           existingRoom.lastMessageUsername,
       imageUrl: payload['imageUrl']?.toString() ?? existingRoom.imageUrl,
+      cityKey: existingRoom.cityKey,
+      location: existingRoom.location,
+      distanceKm: existingRoom.distanceKm,
+      isJoined: existingRoom.isJoined,
     );
 
     final openRoomId = ref.read(currentOpenRoomIdProvider);

@@ -58,5 +58,7 @@
 	<string>Pick a photo for your profile</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Take a photo for your profile</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Use your location to discover nearby city chat rooms</string>
 </dict>
 </plist>

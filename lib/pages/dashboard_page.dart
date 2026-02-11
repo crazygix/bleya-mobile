@@ -48,9 +48,12 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   }
 
   void _showJoinRoomDialog() {
-    showCupertinoModalPopup(
+    showModalBottomSheet(
       context: context,
-      builder: (context) => JoinRoomDialog(),
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const JoinRoomDialog(),
     );
   }
 
