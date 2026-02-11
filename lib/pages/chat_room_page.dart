@@ -318,15 +318,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                 child: messages.isEmpty && chatState.isInitialLoading
                     ? _buildChatLoadingSkeleton()
                     : messages.isEmpty
-                        ? Center(
-                            child: Text(
-                              'No messages yet',
-                              style: BleyaTheme.bodyMedium.copyWith(
-                                fontSize: 16,
-                                color: BleyaTheme.mutedForeground,
-                              ),
-                            ),
-                          )
+                        ? const _EmptyRoomState()
                         : ListView.builder(
                             reverse: true,
                             controller: _scrollController,
@@ -438,6 +430,48 @@ class _DateSeparatorLabel extends StatelessWidget {
               color: BleyaTheme.mutedForeground,
             ),
           ),
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyRoomState extends StatelessWidget {
+  const _EmptyRoomState();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: BleyaTheme.spacing3XL),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              CupertinoIcons.chat_bubble_2,
+              size: 64,
+              color: BleyaTheme.primary.withValues(alpha: 0.4),
+            ),
+            const SizedBox(height: BleyaTheme.spacingXL),
+            Text(
+              'No messages yet',
+              style: BleyaTheme.headingMedium.copyWith(
+                fontSize: 24,
+                color: BleyaTheme.foreground.withValues(alpha: 0.8),
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: BleyaTheme.spacingSM),
+            Text(
+              'Be the first to say hello and start the conversation!',
+              style: BleyaTheme.bodyMedium.copyWith(
+                fontSize: 16,
+                height: 1.4,
+                color: BleyaTheme.mutedForeground,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         ),
       ),
     );

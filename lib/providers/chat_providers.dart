@@ -166,7 +166,7 @@ class RoomsListController
       _pendingRoomSummaries[roomId] = data;
       _pendingUnreadIncrements[roomId] =
           (_pendingUnreadIncrements[roomId] ?? 0) + unreadIncrement;
-      _refreshRoomsFromBackend();
+      refresh();
       return;
     }
 
@@ -182,7 +182,7 @@ class RoomsListController
     }
   }
 
-  Future<void> _refreshRoomsFromBackend() async {
+  Future<void> refresh() async {
     if (_isRefreshingRooms) return;
     _isRefreshingRooms = true;
 

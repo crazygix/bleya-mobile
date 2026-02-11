@@ -227,6 +227,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     );
   }
 
+  Future<void> _handleRefresh() async {
+    await ref.read(roomsListProvider.notifier).refresh();
+  }
+
   Widget _buildChatTab() {
     final roomsAsync = ref.watch(roomsListProvider);
     final currentUser = ref.watch(currentUserProvider);
@@ -235,62 +239,75 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     return roomsAsync.when(
       data: (items) {
         if (items.isEmpty) {
-          return EmptyState(
-            icon: CupertinoIcons.sparkles,
-            title: 'Find your crowd',
-            description: 'No chats here yet.\nReady to find your next hangout?',
-            iconColor: BleyaTheme.accent,
-            actionText: 'Join a room',
-            onAction: _showJoinRoomDialog,
+          return RefreshIndicator(
+            onRefresh: _handleRefresh,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              child: SizedBox(
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: EmptyState(
+                  icon: CupertinoIcons.sparkles,
+                  title: 'Find your crowd',
+                  description:
+                      'No chats here yet.\nReady to find your next hangout?',
+                  iconColor: BleyaTheme.accent,
+                  actionText: 'Join a room',
+                  onAction: _showJoinRoomDialog,
+                ),
+              ),
+            ),
           );
         }
 
-        return ListView.builder(
-          padding: EdgeInsets.symmetric(
-            horizontal: BleyaTheme.contentPadding,
-          ).copyWith(
-            bottom: 100,
-          ),
-          itemCount: items.length,
-          itemBuilder: (context, index) {
-            final item = items[index];
-            final room = item.room;
-            final isPrivate = room.isPrivate;
-            final hasLastMessage = room.lastMessageText != null;
+        return RefreshIndicator(
+          onRefresh: _handleRefresh,
+          child: ListView.builder(
+            padding: EdgeInsets.symmetric(
+              horizontal: BleyaTheme.contentPadding,
+            ).copyWith(
+              bottom: 100,
+            ),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              final item = items[index];
+              final room = item.room;
+              final isPrivate = room.isPrivate;
+              final hasLastMessage = room.lastMessageText != null;
 
-            String subtitle;
-            if (hasLastMessage) {
-              String prefix = '';
-              if (!isPrivate && room.lastMessageUserId != null) {
-                final isCurrentUser = room.lastMessageUserId == currentUserId;
-                prefix = isCurrentUser
-                    ? 'You: '
-                    : '${room.lastMessageUsername ?? 'Unknown'}: ';
+              String subtitle;
+              if (hasLastMessage) {
+                String prefix = '';
+                if (!isPrivate && room.lastMessageUserId != null) {
+                  final isCurrentUser = room.lastMessageUserId == currentUserId;
+                  prefix = isCurrentUser
+                      ? 'You: '
+                      : '${room.lastMessageUsername ?? 'Unknown'}: ';
+                }
+                subtitle = '$prefix${room.lastMessageText}';
+              } else {
+                subtitle =
+                    isPrivate ? 'Private chat' : 'Tap to join the conversation';
               }
-              subtitle = '$prefix${room.lastMessageText}';
-            } else {
-              subtitle =
-                  isPrivate ? 'Private chat' : 'Tap to join the conversation';
-            }
 
-            final time = room.lastMessageTime != null
-                ? formatRelativeTime(room.lastMessageTime!)
-                : 'Now';
+              final time = room.lastMessageTime != null
+                  ? formatRelativeTime(room.lastMessageTime!)
+                  : 'Now';
 
-            return RoomCard(
-              room: room,
-              subtitle: subtitle,
-              time: time,
-              unreadCount: item.unreadCount,
-              onTap: () {
-                Navigator.of(context).push(
-                  CupertinoPageRoute(
-                    builder: (context) => ChatRoomPage(room: room),
-                  ),
-                );
-              },
-            );
-          },
+              return RoomCard(
+                room: room,
+                subtitle: subtitle,
+                time: time,
+                unreadCount: item.unreadCount,
+                onTap: () {
+                  Navigator.of(context).push(
+                    CupertinoPageRoute(
+                      builder: (context) => ChatRoomPage(room: room),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
         );
       },
       loading: _buildRoomsSkeleton,
@@ -302,13 +319,22 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
           errorMessage = "Couldn't load your rooms. Pull down to refresh.";
         }
         return Center(
-          child: Padding(
-            padding: EdgeInsets.all(BleyaTheme.spacing2XL),
-            child: Text(
-              errorMessage,
-              style: BleyaTheme.bodyLarge,
-              textAlign: TextAlign.center,
-            ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: EdgeInsets.all(BleyaTheme.spacing2XL),
+                child: Text(
+                  errorMessage,
+                  style: BleyaTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              TextButton(
+                onPressed: _handleRefresh,
+                child: const Text('Retry'),
+              ),
+            ],
           ),
         );
       },
