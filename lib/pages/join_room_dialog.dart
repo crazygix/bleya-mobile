@@ -1,14 +1,11 @@
-import 'dart:async';
-import 'package:dio/dio.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import '../constants/theme.dart';
-import '../providers/auth_providers.dart';
+import '../controllers/join_room_controller.dart';
 import '../providers/chat_providers.dart';
-import '../providers/use_case_providers.dart';
+import '../providers/controller_providers.dart';
 import '../utils/app_errors.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
@@ -16,8 +13,6 @@ import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/profile_avatar.dart';
-
-enum JoinRoomStep { initial, searching, results }
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   const JoinRoomDialog({super.key});
@@ -27,160 +22,77 @@ class JoinRoomDialog extends ConsumerStatefulWidget {
 }
 
 class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
-  static const int _nearbyLimit = 30;
-  static const double _fixedRadiusKm = 30;
+  final TextEditingController _searchController = TextEditingController();
+  final FocusNode _searchFocusNode = FocusNode();
+  bool _isSyncingSearchText = false;
 
-  bool _isJoining = false;
-  String? _joiningRoomId;
-  bool _isSearchingNearby = false;
-  JoinRoomStep _step = JoinRoomStep.initial;
-
-  String? _searchError;
-  double? _latitude;
-  double? _longitude;
-  List<Room> _nearbyRooms = const [];
-
-  Future<void> _handleShareLocation() async {
-    if (_isSearchingNearby) return;
-
-    setState(() {
-      _step = JoinRoomStep.searching;
-      _searchError = null;
-    });
-
-    await _resolveLocationAndSearch();
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_onSearchChanged);
+    _searchFocusNode.addListener(_onSearchFocusChanged);
   }
 
-  Future<void> _resolveLocationAndSearch() async {
-    setState(() => _isSearchingNearby = true);
-
-    try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _setSearchError(
-          'Location services are turned off. Enable GPS and try again.',
-        );
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        _setSearchError(
-          'Location permission is required to discover nearby city rooms.',
-        );
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        _setSearchError(
-          'Location permission is permanently denied. Enable it in system settings.',
-        );
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
-
-      if (!mounted) return;
-
-      setState(() {
-        _latitude = position.latitude;
-        _longitude = position.longitude;
-        _step = JoinRoomStep.results;
-      });
-
-      await _fetchNearbyRooms();
-    } catch (e) {
-      if (kDebugMode) {
-        print('Location discovery failed: $e');
-      }
-      _setSearchError("Couldn't read your location. Try again?");
-    } finally {
-      if (mounted) {
-        setState(() => _isSearchingNearby = false);
-      }
-    }
-  }
-
-  Future<void> _fetchNearbyRooms() async {
-    final latitude = _latitude;
-    final longitude = _longitude;
-    if (latitude == null || longitude == null) {
-      _setSearchError('Your location is missing. Share location again.');
+  void _onSearchChanged() {
+    if (_isSyncingSearchText) {
       return;
     }
 
-    setState(() {
-      _isSearchingNearby = true;
-      _searchError = null;
-    });
+    final controller = ref.read(joinRoomControllerProvider.notifier);
+    controller.onSearchQueryChanged(_searchController.text);
+  }
 
-    try {
-      final useCase = ref.read(getNearbyRoomsUseCaseProvider);
-      final rooms = await useCase(
-        latitude: latitude,
-        longitude: longitude,
-        radiusKm: _fixedRadiusKm,
-        limit: _nearbyLimit,
-      ).timeout(const Duration(seconds: 15));
-
-      if (!mounted) return;
-
-      setState(() {
-        _nearbyRooms = rooms;
-        _step = JoinRoomStep.results;
-      });
-    } on TimeoutException {
-      _setSearchError('Nearby search timed out. Try again?');
-    } catch (e) {
-      if (e is AppError) {
-        _setSearchError(e.getUserMessage());
-      } else {
-        _setSearchError("Couldn't load nearby cities. Try again?");
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isSearchingNearby = false);
-      }
+  void _onSearchFocusChanged() {
+    if (mounted) {
+      setState(() {});
     }
   }
 
-  void _setSearchError(String message) {
-    if (!mounted) return;
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchFocusNode.removeListener(_onSearchFocusChanged);
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    super.dispose();
+  }
 
-    setState(() {
-      _searchError = message;
-      _nearbyRooms = [];
-      _step = JoinRoomStep.results;
-    });
+  void _syncSearchController(JoinRoomState joinState) {
+    if (_searchController.text == joinState.searchQuery) {
+      return;
+    }
+
+    _isSyncingSearchText = true;
+    _searchController.value = TextEditingValue(
+      text: joinState.searchQuery,
+      selection: TextSelection.collapsed(offset: joinState.searchQuery.length),
+    );
+    _isSyncingSearchText = false;
+  }
+
+  void _clearSearch() {
+    final controller = ref.read(joinRoomControllerProvider.notifier);
+    controller.clearSearchQuery();
+    _searchController.clear();
+    _searchFocusNode.unfocus();
+  }
+
+  Future<void> _handleShareLocation() async {
+    final controller = ref.read(joinRoomControllerProvider.notifier);
+    await controller.shareLocationAndSearch();
+  }
+
+  Future<void> _fetchNearbyRooms() async {
+    final controller = ref.read(joinRoomControllerProvider.notifier);
+    await controller.fetchNearbyRooms();
   }
 
   Future<void> _joinRoom(Room room) async {
-    if (_isJoining) return;
-
-    setState(() {
-      _isJoining = true;
-      _joiningRoomId = room.id;
-    });
+    final controller = ref.read(joinRoomControllerProvider.notifier);
 
     try {
-      final dio = ref.read(dioProvider);
       final messenger = ScaffoldMessenger.maybeOf(context);
-      await dio.post(
-        '/rooms/${room.id}/join',
-        options: Options(
-          receiveTimeout: const Duration(seconds: 10),
-          sendTimeout: const Duration(seconds: 10),
-        ),
-      );
+      await controller.joinRoom(room);
 
       ref.invalidate(joinedRoomsFutureProvider);
       ref.invalidate(roomsListProvider);
@@ -194,14 +106,9 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     } catch (e) {
       if (!mounted) return;
 
-      String errorMessage;
-      if (e is AppError) {
-        errorMessage = e.getUserMessage();
-      } else if (e is DioException) {
-        errorMessage = "Couldn't join that room. Try again?";
-      } else {
-        errorMessage = "Something unexpected happened. Try again?";
-      }
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Something unexpected happened. Try again?";
 
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
@@ -209,19 +116,14 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           backgroundColor: BleyaTheme.error,
         ),
       );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isJoining = false;
-          _joiningRoomId = null;
-        });
-      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
+    final joinState = ref.watch(joinRoomControllerProvider);
+    _syncSearchController(joinState);
 
     return Container(
       height: mediaQuery.size.height * 0.78,
@@ -266,21 +168,21 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
               ),
             ),
             Divider(height: 1, color: BleyaTheme.border),
-            Expanded(child: _buildStepContent()),
+            Expanded(child: _buildStepContent(joinState)),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStepContent() {
-    switch (_step) {
+  Widget _buildStepContent(JoinRoomState joinState) {
+    switch (joinState.step) {
       case JoinRoomStep.initial:
         return _buildInitialStep();
       case JoinRoomStep.searching:
         return _buildSearchingStep();
       case JoinRoomStep.results:
-        return _buildResultsStep();
+        return _buildResultsStep(joinState);
     }
   }
 
@@ -324,7 +226,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           ),
           SizedBox(height: BleyaTheme.spacingMD),
           Text(
-            'Searching within ${_fixedRadiusKm.toStringAsFixed(0)} km.',
+            'Searching within ${JoinRoomController.fixedRadiusKm.toStringAsFixed(0)} km.',
             style: BleyaTheme.bodyMedium.copyWith(
               color: BleyaTheme.mutedForeground,
             ),
@@ -401,7 +303,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     );
   }
 
-  Widget _buildResultsStep() {
+  Widget _buildResultsStep(JoinRoomState joinState) {
     final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
 
     return Column(
@@ -431,7 +333,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Showing cities within ${_fixedRadiusKm.toStringAsFixed(0)} km',
+                      'Within ${JoinRoomController.fixedRadiusKm.toStringAsFixed(0)} km of you',
                       style: BleyaTheme.bodyMedium.copyWith(
                         color: BleyaTheme.mutedForeground,
                       ),
@@ -440,7 +342,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                   CupertinoButton(
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(24, 24),
-                    onPressed: _isSearchingNearby ? null : _fetchNearbyRooms,
+                    onPressed:
+                        joinState.isSearchingNearby ? null : _fetchNearbyRooms,
                     child: Icon(
                       CupertinoIcons.arrow_clockwise,
                       size: 18,
@@ -449,17 +352,19 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                   ),
                 ],
               ),
+              SizedBox(height: BleyaTheme.spacingMD),
+              _buildSearchField(joinState),
             ],
           ),
         ),
-        if (_isSearchingNearby)
+        if (joinState.isSearchingNearby)
           const LinearProgressIndicator(minHeight: 2)
         else
           const SizedBox(height: 2),
         Expanded(
           child: joinedRoomsAsync.when(
             data: (joinedRooms) {
-              final availableRooms = _nearbyRooms.where((room) {
+              final availableRooms = joinState.nearbyRooms.where((room) {
                 final joinedByList = joinedRooms.any((jr) => jr.id == room.id);
                 return !room.isJoined && !joinedByList;
               }).toList()
@@ -469,20 +374,21 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                   return aDistance.compareTo(bDistance);
                 });
 
-              if (_searchError != null) {
+              if (joinState.searchError != null) {
                 return Padding(
                   padding: EdgeInsets.all(BleyaTheme.contentPadding),
                   child: ErrorState(
                     title: 'Couldn\'t load nearby rooms',
-                    description: _searchError!,
-                    onRetry: _latitude != null && _longitude != null
+                    description: joinState.searchError!,
+                    onRetry: joinState.latitude != null &&
+                            joinState.longitude != null
                         ? _fetchNearbyRooms
                         : _handleShareLocation,
                   ),
                 );
               }
 
-              if (_nearbyRooms.isEmpty) {
+              if (joinState.nearbyRooms.isEmpty) {
                 return EmptyState(
                   icon: CupertinoIcons.location_slash,
                   title: 'No cities found nearby',
@@ -511,7 +417,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 itemCount: availableRooms.length,
                 itemBuilder: (context, index) {
                   final room = availableRooms[index];
-                  final isJoiningThis = _isJoining && _joiningRoomId == room.id;
+                  final isJoiningThis =
+                      joinState.isJoining && joinState.joiningRoomId == room.id;
                   final distanceLabel = room.distanceKm != null
                       ? '${room.distanceKm!.toStringAsFixed(1)} km away'
                       : 'Nearby';
@@ -519,7 +426,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                   return Padding(
                     padding: EdgeInsets.only(bottom: BleyaTheme.spacingMD),
                     child: GestureDetector(
-                      onTap: _isJoining ? null : () => _joinRoom(room),
+                      onTap: joinState.isJoining ? null : () => _joinRoom(room),
                       child: Container(
                         padding: EdgeInsets.all(BleyaTheme.spacingLG),
                         decoration: BoxDecoration(
@@ -619,6 +526,62 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildSearchField(JoinRoomState joinState) {
+    final borderColor = _searchFocusNode.hasFocus
+        ? BleyaTheme.primary.withValues(alpha: 0.5)
+        : BleyaTheme.border;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: BleyaTheme.glassSurface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
+        border: Border.all(color: borderColor, width: 1),
+        boxShadow: BleyaTheme.glassShadow,
+      ),
+      padding: EdgeInsets.symmetric(
+        horizontal: BleyaTheme.spacingLG,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            CupertinoIcons.search,
+            size: 18,
+            color: BleyaTheme.mutedForeground,
+          ),
+          SizedBox(width: BleyaTheme.spacingMD),
+          Expanded(
+            child: CupertinoTextField(
+              controller: _searchController,
+              focusNode: _searchFocusNode,
+              placeholder: 'Search a city',
+              decoration: const BoxDecoration(color: Colors.transparent),
+              style: BleyaTheme.bodyMedium.copyWith(
+                color: BleyaTheme.foreground,
+                fontWeight: FontWeight.w600,
+              ),
+              placeholderStyle: BleyaTheme.bodyMedium.copyWith(
+                color: BleyaTheme.mutedForeground.withValues(alpha: 0.7),
+              ),
+              padding: EdgeInsets.symmetric(
+                vertical: BleyaTheme.spacingLG,
+              ),
+              textInputAction: TextInputAction.search,
+            ),
+          ),
+          if (joinState.searchQuery.isNotEmpty)
+            GestureDetector(
+              onTap: _clearSearch,
+              child: Icon(
+                CupertinoIcons.xmark_circle_fill,
+                size: 18,
+                color: BleyaTheme.mutedForeground,
+              ),
+            ),
+        ],
+      ),
     );
   }
 }

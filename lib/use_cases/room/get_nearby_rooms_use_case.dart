@@ -11,12 +11,14 @@ class GetNearbyRoomsUseCase {
     required double longitude,
     double radiusKm = 30,
     int limit = 20,
+    String? searchQuery,
   }) async {
     return await _roomRepository.getNearbyRooms(
       latitude: latitude,
       longitude: longitude,
       radiusKm: radiusKm,
       limit: limit,
+      searchQuery: searchQuery,
     );
   }
 }

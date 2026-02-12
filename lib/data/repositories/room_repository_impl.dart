@@ -56,16 +56,24 @@ class RoomRepositoryImpl implements RoomRepository {
     required double longitude,
     double radiusKm = 30,
     int limit = 20,
+    String? searchQuery,
   }) async {
     try {
+      final trimmedSearch = searchQuery?.trim() ?? '';
+      final queryParameters = <String, dynamic>{
+        'latitude': latitude.toStringAsFixed(6),
+        'longitude': longitude.toStringAsFixed(6),
+        'radiusKm': radiusKm.toStringAsFixed(1),
+        'limit': limit,
+      };
+
+      if (trimmedSearch.isNotEmpty) {
+        queryParameters['search'] = trimmedSearch;
+      }
+
       final response = await _dio.get(
         '/rooms/nearby',
-        queryParameters: {
-          'latitude': latitude.toStringAsFixed(6),
-          'longitude': longitude.toStringAsFixed(6),
-          'radiusKm': radiusKm.toStringAsFixed(1),
-          'limit': limit,
-        },
+        queryParameters: queryParameters,
         options: Options(
           receiveTimeout: const Duration(seconds: 12),
           sendTimeout: const Duration(seconds: 12),
@@ -116,6 +124,38 @@ class RoomRepositoryImpl implements RoomRepository {
     } catch (e) {
       if (kDebugMode) {
         print('Error fetching joined rooms: $e');
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<Room> joinRoom(String roomId) async {
+    try {
+      final response = await _dio.post(
+        '/rooms/$roomId/join',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format: expected object');
+      }
+
+      final payload = response.data as Map<String, dynamic>;
+      if (payload['room'] is! Map<String, dynamic>) {
+        throw Exception('Invalid response format: expected room object');
+      }
+
+      final roomData = payload['room'] as Map<String, dynamic>;
+      return RoomDto.fromJson(roomData);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error joining room: $e');
       }
       rethrow;
     }

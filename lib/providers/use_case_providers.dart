@@ -11,6 +11,7 @@ import '../use_cases/user/update_profile_use_case.dart';
 import '../use_cases/room/get_available_rooms_use_case.dart';
 import '../use_cases/room/get_nearby_rooms_use_case.dart';
 import '../use_cases/room/get_joined_rooms_use_case.dart';
+import '../use_cases/room/join_room_use_case.dart';
 import '../use_cases/room/leave_room_use_case.dart';
 import '../use_cases/room/create_direct_message_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
@@ -67,6 +68,11 @@ final getNearbyRoomsUseCaseProvider = Provider<GetNearbyRoomsUseCase>((ref) {
 final getJoinedRoomsUseCaseProvider = Provider<GetJoinedRoomsUseCase>((ref) {
   final repository = ref.watch(roomRepositoryProvider);
   return GetJoinedRoomsUseCase(repository);
+});
+
+final joinRoomUseCaseProvider = Provider<JoinRoomUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return JoinRoomUseCase(repository);
 });
 
 final leaveRoomUseCaseProvider = Provider<LeaveRoomUseCase>((ref) {

@@ -10,8 +10,10 @@ abstract class RoomRepository {
     required double longitude,
     double radiusKm,
     int limit,
+    String? searchQuery,
   });
   Future<List<Room>> getJoinedRooms();
+  Future<Room> joinRoom(String roomId);
   Future<List<RoomMember>> getRoomMembers(String roomId);
   Future<void> leaveRoom(String roomId);
   Future<Room> createDirectMessage(String otherUserId);

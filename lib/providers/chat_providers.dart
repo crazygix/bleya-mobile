@@ -795,6 +795,7 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);
+    ref.invalidate(roomsListProvider);
   } catch (e) {
     if (kDebugMode) {
       print('Error leaving room: $e');
@@ -811,6 +812,7 @@ Future<Room> createDirectMessage(WidgetRef ref, String otherUserId) async {
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);
+    ref.invalidate(roomsListProvider);
 
     return room;
   } catch (e) {
