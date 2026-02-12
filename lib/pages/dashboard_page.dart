@@ -6,6 +6,7 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/room_card.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/glass_circle_icon_button.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../utils/app_errors.dart';
@@ -104,27 +105,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                           ),
                         ),
                         Spacer(),
-                        GestureDetector(
-                          onTap: _showJoinRoomDialog,
-                          child: Container(
-                            width: 40,
-                            height: 40,
-                            decoration: BoxDecoration(
-                              color: BleyaTheme.glassSurface
-                                  .withValues(alpha: BleyaTheme.glassOpacity),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(
-                                color: BleyaTheme.border,
-                                width: 1,
-                              ),
-                              boxShadow: BleyaTheme.glassShadow,
-                            ),
-                            child: Icon(
-                              CupertinoIcons.add,
-                              color: BleyaTheme.primary,
-                              size: 24,
-                            ),
-                          ),
+                        GlassCircleIconButton(
+                          icon: CupertinoIcons.add,
+                          onPressed: _showJoinRoomDialog,
+                          semanticLabel: 'Open city rooms',
                         ),
                       ],
                     ),

@@ -11,6 +11,7 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
+
 import '../widgets/primary_button.dart';
 import '../widgets/profile_avatar.dart';
 
@@ -101,14 +102,13 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
       Navigator.of(context, rootNavigator: true).pop();
       messenger?.showSnackBar(
-        SnackBar(content: Text('Successfully joined ${room.name}')),
+        SnackBar(content: Text('You joined ${room.name}')),
       );
     } catch (e) {
       if (!mounted) return;
 
-      final errorMessage = e is AppError
-          ? e.getUserMessage()
-          : "Something unexpected happened. Try again?";
+      final errorMessage =
+          e is AppError ? e.getUserMessage() : "Something went off. Try again?";
 
       ScaffoldMessenger.maybeOf(context)?.showSnackBar(
         SnackBar(
@@ -126,51 +126,15 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     _syncSearchController(joinState);
 
     return Container(
-      height: mediaQuery.size.height * 0.78,
+      height: mediaQuery.size.height * 0.45,
       decoration: BoxDecoration(
         color: BleyaTheme.background,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
-      child: SafeArea(
-        child: Column(
-          children: [
-            Padding(
-              padding: EdgeInsets.all(BleyaTheme.contentPadding),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Join a city room',
-                    style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
-                  ),
-                  GestureDetector(
-                    onTap: () => Navigator.pop(context),
-                    child: Container(
-                      width: 32,
-                      height: 32,
-                      decoration: BoxDecoration(
-                        color: BleyaTheme.glassSurface
-                            .withValues(alpha: BleyaTheme.glassOpacity),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(
-                          color: BleyaTheme.border,
-                          width: 1,
-                        ),
-                      ),
-                      child: Icon(
-                        CupertinoIcons.xmark,
-                        size: 16,
-                        color: BleyaTheme.mutedForeground,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Divider(height: 1, color: BleyaTheme.border),
-            Expanded(child: _buildStepContent(joinState)),
-          ],
-        ),
+      child: Column(
+        children: [
+          Expanded(child: _buildStepContent(joinState)),
+        ],
       ),
     );
   }
@@ -187,63 +151,56 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   }
 
   Widget _buildInitialStep() {
-    return Padding(
-      padding: EdgeInsets.all(BleyaTheme.contentPadding),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 124,
-            height: 124,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: LinearGradient(
-                colors: [
-                  BleyaTheme.primaryLight,
-                  BleyaTheme.primary.withValues(alpha: 0.3),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return CustomScrollView(
+          slivers: [
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: Padding(
+                padding: EdgeInsets.all(BleyaTheme.spacing3XL),
+                child: Column(
+                  children: [
+                    const Spacer(),
+                    Icon(
+                      CupertinoIcons.compass,
+                      size: 64,
+                      color: BleyaTheme.primary,
+                    ),
+                    SizedBox(height: BleyaTheme.spacingXL),
+                    Text(
+                      'Explore around you',
+                      style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: BleyaTheme.spacingMD),
+                    Text(
+                      'See what\'s happening around you and jump into the conversation.',
+                      style: BleyaTheme.bodyLarge,
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: BleyaTheme.spacing2XL),
+                    const Spacer(),
+                    PrimaryButton(
+                      text: 'Search',
+                      onPressed: _handleShareLocation,
+                      trailingIcon: const Icon(
+                        CupertinoIcons.search,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                    SizedBox(
+                      height: MediaQuery.of(context).padding.bottom +
+                          BleyaTheme.spacingXS,
+                    ),
+                  ],
+                ),
               ),
             ),
-            child: Icon(
-              CupertinoIcons.location_solid,
-              size: 56,
-              color: BleyaTheme.primaryDark,
-            ),
-          ),
-          SizedBox(height: BleyaTheme.spacing2XL),
-          Text(
-            'Discover nearby cities',
-            style: BleyaTheme.headingMedium.copyWith(fontSize: 28),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: BleyaTheme.spacingMD),
-          Text(
-            'Share your location and we will show city rooms around you.',
-            style: BleyaTheme.bodyLarge,
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: BleyaTheme.spacingMD),
-          Text(
-            'Searching within ${JoinRoomController.fixedRadiusKm.toStringAsFixed(0)} km.',
-            style: BleyaTheme.bodyMedium.copyWith(
-              color: BleyaTheme.mutedForeground,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          SizedBox(height: BleyaTheme.spacing2XL),
-          PrimaryButton(
-            text: 'Share location',
-            onPressed: _handleShareLocation,
-            trailingIcon: const Icon(
-              CupertinoIcons.location,
-              color: Colors.white,
-              size: 20,
-            ),
-          ),
-        ],
-      ),
+          ],
+        );
+      },
     );
   }
 
@@ -255,7 +212,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
           const AppSpinner(radius: 20),
           SizedBox(height: BleyaTheme.spacing2XL),
           Text(
-            'Scanning nearby city rooms...',
+            'Scouting for nearby chats...',
             style: BleyaTheme.bodyLarge,
             textAlign: TextAlign.center,
           ),
@@ -317,13 +274,13 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
               Row(
                 children: [
                   Icon(
-                    CupertinoIcons.location_solid,
+                    CupertinoIcons.location,
                     size: 20,
-                    color: BleyaTheme.primary,
+                    color: BleyaTheme.primaryLight,
                   ),
                   SizedBox(width: BleyaTheme.spacingSM),
                   Text(
-                    'Nearby city rooms',
+                    'Nearby chats',
                     style: BleyaTheme.headingMedium.copyWith(fontSize: 20),
                   ),
                 ],
@@ -333,7 +290,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 children: [
                   Expanded(
                     child: Text(
-                      'Within ${JoinRoomController.fixedRadiusKm.toStringAsFixed(0)} km of you',
+                      'Jump into the conversation',
                       style: BleyaTheme.bodyMedium.copyWith(
                         color: BleyaTheme.mutedForeground,
                       ),
@@ -378,7 +335,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 return Padding(
                   padding: EdgeInsets.all(BleyaTheme.contentPadding),
                   child: ErrorState(
-                    title: 'Couldn\'t load nearby rooms',
+                    title: 'Couldn\'t find any chats',
                     description: joinState.searchError!,
                     onRetry: joinState.latitude != null &&
                             joinState.longitude != null
@@ -391,9 +348,9 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
               if (joinState.nearbyRooms.isEmpty) {
                 return EmptyState(
                   icon: CupertinoIcons.location_slash,
-                  title: 'No cities found nearby',
-                  description: 'Try again from a different location.',
-                  actionText: 'Search again',
+                  title: 'It\'s quiet around here',
+                  description: 'We couldn\'t find any active chats nearby.',
+                  actionText: 'Try again',
                   onAction: _fetchNearbyRooms,
                 );
               }
@@ -404,10 +361,10 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
                 return EmptyState(
                   icon: CupertinoIcons.checkmark_circle,
-                  title: 'No joinable city rooms',
+                  title: 'You\'ve found them all!',
                   description: publicRoomCount >= 5
-                      ? 'You reached the limit of 5 group chats.'
-                      : 'You already joined nearby cities.',
+                      ? 'You\'ve hit the limit of 5 chats.'
+                      : 'You\'re already part of the local crowd.',
                 );
               }
 
@@ -421,7 +378,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                       joinState.isJoining && joinState.joiningRoomId == room.id;
                   final distanceLabel = room.distanceKm != null
                       ? '${room.distanceKm!.toStringAsFixed(1)} km away'
-                      : 'Nearby';
+                      : 'Close by';
 
                   return Padding(
                     padding: EdgeInsets.only(bottom: BleyaTheme.spacingMD),
@@ -446,7 +403,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                               imageUrl: room.imageUrl,
                               size: 52,
                               backgroundColor: BleyaTheme.primaryLight,
-                              fallbackIcon: CupertinoIcons.location_solid,
+                              fallbackIcon: CupertinoIcons.location,
                               fallbackIconColor: BleyaTheme.primaryDark,
                             ),
                             SizedBox(width: BleyaTheme.spacingLG),
@@ -517,8 +474,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
               return Padding(
                 padding: EdgeInsets.all(BleyaTheme.contentPadding),
                 child: ErrorState(
-                  title: 'Error loading joined rooms',
-                  description: 'Please try again.',
+                  title: 'Couldn\'t load your chats',
+                  description: 'Try again in a moment.',
                   onRetry: () => ref.invalidate(joinedRoomsFutureProvider),
                 ),
               );
@@ -556,7 +513,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
             child: CupertinoTextField(
               controller: _searchController,
               focusNode: _searchFocusNode,
-              placeholder: 'Search a city',
+              placeholder: 'Find a city...',
               decoration: const BoxDecoration(color: Colors.transparent),
               style: BleyaTheme.bodyMedium.copyWith(
                 color: BleyaTheme.foreground,
@@ -575,7 +532,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
             GestureDetector(
               onTap: _clearSearch,
               child: Icon(
-                CupertinoIcons.xmark_circle_fill,
+                CupertinoIcons.xmark_circle,
                 size: 18,
                 color: BleyaTheme.mutedForeground,
               ),

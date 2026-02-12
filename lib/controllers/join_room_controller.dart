@@ -95,6 +95,8 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
   }
 
   void onSearchQueryChanged(String value) {
+    if (!mounted) return;
+
     final normalized = value.trim();
     if (normalized == state.searchQuery) {
       return;
@@ -110,11 +112,12 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     }
 
     _searchDebounceTimer = Timer(const Duration(milliseconds: 280), () {
-      fetchNearbyRooms();
+      if (mounted) fetchNearbyRooms();
     });
   }
 
   void clearSearchQuery() {
+    if (!mounted) return;
     if (state.searchQuery.isEmpty) {
       return;
     }
@@ -147,7 +150,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         _setSearchError(
-          'Location services are turned off. Enable GPS and try again.',
+          'Nearby discovery is off. Turn it on to find chats around you.',
         );
         return;
       }
@@ -159,14 +162,14 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
 
       if (permission == LocationPermission.denied) {
         _setSearchError(
-          'Location permission is required to discover nearby city rooms.',
+          'Allow nearby discovery to see chats around you.',
         );
         return;
       }
 
       if (permission == LocationPermission.deniedForever) {
         _setSearchError(
-          'Location permission is permanently denied. Enable it in system settings.',
+          'Nearby discovery is off. Turn it on in Settings to keep going.',
         );
         return;
       }
@@ -177,6 +180,8 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
           timeLimit: Duration(seconds: 15),
         ),
       );
+
+      if (!mounted) return;
 
       state = state.copyWith(
         latitude: position.latitude,
@@ -189,9 +194,10 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
       if (kDebugMode) {
         print('Location discovery failed: $e');
       }
-      _setSearchError("Couldn't read your location. Try again?");
+      if (mounted)
+        _setSearchError("Couldn't find nearby chats yet. Try again?");
     } finally {
-      state = state.copyWith(isSearchingNearby: false);
+      if (mounted) state = state.copyWith(isSearchingNearby: false);
     }
   }
 
@@ -199,7 +205,9 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     final latitude = state.latitude;
     final longitude = state.longitude;
     if (latitude == null || longitude == null) {
-      _setSearchError('Your location is missing. Share location again.');
+      _setSearchError(
+        'Nearby discovery wasn\'t ready. Tap "Find city chats" again.',
+      );
       return;
     }
 
@@ -217,20 +225,23 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
         searchQuery: state.searchQuery.isEmpty ? null : state.searchQuery,
       ).timeout(const Duration(seconds: 15));
 
+      if (!mounted) return;
       state = state.copyWith(
         nearbyRooms: rooms,
         step: JoinRoomStep.results,
       );
     } on TimeoutException {
-      _setSearchError('Nearby search timed out. Try again?');
+      if (mounted)
+        _setSearchError('This is taking longer than usual. Try again?');
     } catch (e) {
+      if (!mounted) return;
       if (e is AppError) {
         _setSearchError(e.getUserMessage());
       } else {
-        _setSearchError("Couldn't load nearby cities. Try again?");
+        _setSearchError("Couldn't load nearby chats. Try again?");
       }
     } finally {
-      state = state.copyWith(isSearchingNearby: false);
+      if (mounted) state = state.copyWith(isSearchingNearby: false);
     }
   }
 
@@ -245,14 +256,17 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     try {
       await _joinRoomUseCase(room.id);
     } finally {
-      state = state.copyWith(
-        isJoining: false,
-        joiningRoomId: null,
-      );
+      if (mounted) {
+        state = state.copyWith(
+          isJoining: false,
+          joiningRoomId: null,
+        );
+      }
     }
   }
 
   void _setSearchError(String message) {
+    if (!mounted) return;
     state = state.copyWith(
       searchError: message,
       nearbyRooms: const [],
