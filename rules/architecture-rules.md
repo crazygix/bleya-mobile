@@ -1,10 +1,16 @@
+## Bleya Mobile - Architecture & System Design Rules
+
+The original mobile architecture rules were authored in a Dart file.
+Their content is preserved below as code for reference.
+
+```dart
 // Bleya Architecture & System Design Rules
 //
 // This document defines the architectural principles, patterns, and conventions
 // that all developers must follow when working on this codebase.
 // Similar to theme.dart, this serves as the single source of truth for
 // architectural decisions.
-
+//
 // ========================================
 // 1. CLEAN ARCHITECTURE PRINCIPLES
 // ========================================
@@ -347,3 +353,5 @@
 // ========================================
 // END OF ARCHITECTURE RULES
 // ========================================
+```
+

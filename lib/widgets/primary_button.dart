@@ -3,18 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/theme.dart';
 import 'app_spinner.dart';
 
-/// Primary Button Component
-///
-/// A reusable button component following Apple's Human Interface Guidelines
-/// and the Bleya Design System.
-///
-/// Features:
-/// - 56px height (HIG standard for primary buttons)
-/// - 10px border radius (HIG standard for interactive elements)
-/// - Gradient background when enabled
-/// - Loading state with activity indicator
-/// - Disabled state with muted appearance
-/// - Uses design system typography and colors
+/// Primary button component.
 class PrimaryButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;

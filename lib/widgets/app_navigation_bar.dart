@@ -1,16 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
 
-/// iOS-style Navigation Bar Component
-///
-/// A reusable navigation bar component following Apple's Human Interface Guidelines.
-///
-/// Features:
-/// - 44pt height (HIG standard navigation bar height)
-/// - Back button with proper 44x44pt touch target
-/// - Optional title and trailing actions
-/// - Uses design system colors and spacing
-/// - Supports async callbacks for back button
+/// iOS-style navigation bar component.
 class AppNavigationBar extends StatelessWidget {
   final Future<void> Function()? onBackPressed;
   final String? title;

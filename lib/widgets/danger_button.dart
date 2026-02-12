@@ -3,18 +3,7 @@ import 'package:flutter/material.dart';
 import '../constants/theme.dart';
 import 'app_spinner.dart';
 
-/// Danger Button Component
-///
-/// A reusable danger button component following Apple's Human Interface Guidelines
-/// and the Bleya Design System.
-///
-/// Features:
-/// - 56px height (HIG standard for primary buttons)
-/// - 10px border radius (HIG standard for interactive elements)
-/// - Red/error color for destructive actions
-/// - Loading state with activity indicator
-/// - Disabled state with muted appearance
-/// - Uses design system typography and colors
+/// Danger button component.
 class DangerButton extends StatelessWidget {
   final String text;
   final VoidCallback? onPressed;

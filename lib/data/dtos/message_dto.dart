@@ -1,7 +1,6 @@
 import '../../domain/entities/message.dart';
 
-/// Data Transfer Object for Message - handles JSON parsing
-/// Always expects timestamps (milliseconds since epoch), never ISO strings
+/// Data Transfer Object for Message - handles JSON parsing.
 class MessageDto {
   static Message fromJson(Map<String, dynamic> json) {
     final createdAt = DateTime.fromMillisecondsSinceEpoch(

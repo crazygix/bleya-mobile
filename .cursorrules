@@ -2,5 +2,10 @@
 
 Follow these architectural and design rules when working on the Flutter mobile app:
 
-@lib/core/architecture_rules.dart
-@lib/constants/theme.dart
+@rules/architecture-rules.md
+@rules/theme-and-brand-rules.md
+@rules/icons-outlined.mdc
+@rules/modularity-clean-code.mdc
+@rules/ui-component-reuse.mdc
+@rules/loading-ui-rules.md
+@rules/api-contract-rules.md

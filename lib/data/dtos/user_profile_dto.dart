@@ -1,7 +1,6 @@
 import '../../domain/entities/user_profile.dart';
 
-/// Data Transfer Object for UserProfile - handles JSON parsing
-/// Always expects timestamps (milliseconds since epoch), never ISO strings
+/// Data Transfer Object for UserProfile - handles JSON parsing.
 class UserProfileDto {
   static String _parseId(Map<String, dynamic> json) {
     final dynamic rawId = json['id'] ?? json['userId'] ?? json['_id'];

@@ -1,7 +1,8 @@
-# Loading UI Rules
+## Loading UI Rules
 
 This is the source of truth for loading behavior in the Flutter app.
 
+```md
 ## Core rule
 
 Always use shared loading widgets:
@@ -51,3 +52,5 @@ Any non-trivial loading state must have a visible failure path:
 - Content loaders use `AppSkeleton`
 - Action loaders use `AppSpinner`
 - Loading states have matching error/empty handling
+```
+
