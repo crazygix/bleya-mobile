@@ -42,9 +42,7 @@ class CompactStateView extends StatelessWidget {
             Icon(
               icon ?? CupertinoIcons.exclamationmark_bubble,
               size: 64,
-              color: icon == CupertinoIcons.map
-                  ? BleyaTheme.primary
-                  : BleyaTheme.mutedForeground,
+              color: BleyaTheme.primary,
             ),
           SizedBox(height: BleyaTheme.spacingXL),
           Text(

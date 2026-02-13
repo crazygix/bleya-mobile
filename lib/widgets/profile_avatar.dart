@@ -41,7 +41,7 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
 
   bool _isValidImageUrl(String? url) {
     if (url == null || url.isEmpty) return false;
-    return url.startsWith('https://');
+    return url.startsWith('http://') || url.startsWith('https://');
   }
 
   @override

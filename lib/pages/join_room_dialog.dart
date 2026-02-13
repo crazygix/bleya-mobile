@@ -20,7 +20,33 @@ class JoinRoomDialog extends ConsumerStatefulWidget {
   ConsumerState<JoinRoomDialog> createState() => _JoinRoomDialogState();
 }
 
-class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
+class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      final joinState = ref.read(joinRoomControllerProvider);
+      // Check if we were stuck on a permission error or "open settings" state
+      if (joinState.isLocationPermDeniedForever ||
+          (joinState.searchError != null &&
+              joinState.searchError!.contains('settings'))) {
+        _handleShareLocation();
+      }
+    }
+  }
+
   Future<void> _handleShareLocation() async {
     final controller = ref.read(joinRoomControllerProvider.notifier);
     await controller.shareLocationAndSearch();
@@ -203,6 +229,34 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   }
 
   Widget _buildResultsStep(JoinRoomState joinState) {
+    if (joinState.isLocationPermDeniedForever) {
+      return _buildUniformCompactState(
+        CompactStateView(
+          title: 'Where are you?',
+          description: joinState.searchError ??
+              'We need your location to find nearby chats. Check your settings?',
+          buttonText: 'Open Settings',
+          onAction: () {
+            ref
+                .read(joinRoomControllerProvider.notifier)
+                .openLocationSettings();
+          },
+        ),
+      );
+    }
+
+    if (joinState.searchError != null) {
+      return _buildUniformCompactState(
+        CompactStateView(
+          title: 'Nothing around',
+          description: joinState.searchError!,
+          onAction: joinState.latitude != null && joinState.longitude != null
+              ? _fetchNearbyRooms
+              : _handleShareLocation,
+        ),
+      );
+    }
+
     // Remove LinearProgressIndicator
     final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
 
@@ -218,41 +272,12 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
             return aDistance.compareTo(bDistance);
           });
 
-        if (joinState.isLocationPermDeniedForever) {
-          return _buildUniformCompactState(
-            CompactStateView(
-              title: 'Where are you?',
-              description: joinState.searchError ??
-                  'We need your location to find nearby chats. Check your settings?',
-              buttonText: 'Open Settings',
-              onAction: () {
-                ref
-                    .read(joinRoomControllerProvider.notifier)
-                    .openLocationSettings();
-              },
-            ),
-          );
-        }
-
-        if (joinState.searchError != null) {
-          return _buildUniformCompactState(
-            CompactStateView(
-              title: 'Nothing around',
-              description: joinState.searchError!,
-              onAction:
-                  joinState.latitude != null && joinState.longitude != null
-                      ? _fetchNearbyRooms
-                      : _handleShareLocation,
-            ),
-          );
-        }
-
         if (joinState.nearbyRooms.isEmpty) {
           return _buildUniformCompactState(
             CompactStateView(
               title: 'It\'s quiet here',
-              description: 'No chats nearby yet. Maybe start one?',
-              icon: CupertinoIcons.map,
+              description: 'No chats nearby yet.',
+              icon: CupertinoIcons.compass,
               onAction: _fetchNearbyRooms,
             ),
           );
@@ -260,18 +285,10 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
 
         if (availableRooms.isEmpty) {
           return _buildUniformCompactState(
-            // We can wrap EmptyState in CompactStateView logic if we want strict height,
-            // but EmptyState might be different.
-            // The prompt said "Only two that are different are searching and when there are the results".
-            // So "Empty Results" should probably also be uniform.
-            // Let's use CompactStateView instead of EmptyState to match "No chats nearby".
             CompactStateView(
               icon: CupertinoIcons.checkmark_circle,
               title: 'You\'ve found them all!',
-              description:
-                  joinedRooms.where((room) => room.type == 'public').length >= 5
-                      ? 'You\'ve hit the limit of 5 chats.'
-                      : 'You\'re already part of the local crowd.',
+              description: 'There are no other chats nearby at the moment.',
             ),
           );
         }

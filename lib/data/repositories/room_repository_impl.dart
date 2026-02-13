@@ -54,7 +54,6 @@ class RoomRepositoryImpl implements RoomRepository {
   Future<List<Room>> getNearbyRooms({
     required double latitude,
     required double longitude,
-    double radiusKm = 30,
     int limit = 20,
     String? searchQuery,
   }) async {
@@ -63,7 +62,6 @@ class RoomRepositoryImpl implements RoomRepository {
       final queryParameters = <String, dynamic>{
         'latitude': latitude.toStringAsFixed(6),
         'longitude': longitude.toStringAsFixed(6),
-        'radiusKm': radiusKm.toStringAsFixed(1),
         'limit': limit,
       };
 

@@ -8,7 +8,6 @@ abstract class RoomRepository {
   Future<List<Room>> getNearbyRooms({
     required double latitude,
     required double longitude,
-    double radiusKm = 30,
     int limit = 20,
     String? searchQuery,
   });

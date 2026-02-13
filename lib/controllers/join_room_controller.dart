@@ -85,8 +85,7 @@ class JoinRoomState {
 }
 
 class JoinRoomController extends StateNotifier<JoinRoomState> {
-  static const int nearbyLimit = 30;
-  static const double fixedRadiusKm = 30;
+  static const int nearbyLimit = 20;
 
   final GetNearbyRoomsUseCase _getNearbyRoomsUseCase;
   final JoinRoomUseCase _joinRoomUseCase;
@@ -215,7 +214,6 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
       final rooms = await _getNearbyRoomsUseCase(
         latitude: latitude,
         longitude: longitude,
-        radiusKm: fixedRadiusKm,
         limit: nearbyLimit,
         searchQuery: state.searchQuery.isEmpty ? null : state.searchQuery,
       ).timeout(const Duration(seconds: 15));
