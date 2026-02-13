@@ -10,7 +10,6 @@ import '../utils/app_errors.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
 import '../widgets/empty_state.dart';
-import '../widgets/error_state.dart';
 
 import '../widgets/primary_button.dart';
 import '../widgets/profile_avatar.dart';
@@ -23,61 +22,6 @@ class JoinRoomDialog extends ConsumerStatefulWidget {
 }
 
 class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
-  final TextEditingController _searchController = TextEditingController();
-  final FocusNode _searchFocusNode = FocusNode();
-  bool _isSyncingSearchText = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _searchController.addListener(_onSearchChanged);
-    _searchFocusNode.addListener(_onSearchFocusChanged);
-  }
-
-  void _onSearchChanged() {
-    if (_isSyncingSearchText) {
-      return;
-    }
-
-    final controller = ref.read(joinRoomControllerProvider.notifier);
-    controller.onSearchQueryChanged(_searchController.text);
-  }
-
-  void _onSearchFocusChanged() {
-    if (mounted) {
-      setState(() {});
-    }
-  }
-
-  @override
-  void dispose() {
-    _searchController.removeListener(_onSearchChanged);
-    _searchFocusNode.removeListener(_onSearchFocusChanged);
-    _searchController.dispose();
-    _searchFocusNode.dispose();
-    super.dispose();
-  }
-
-  void _syncSearchController(JoinRoomState joinState) {
-    if (_searchController.text == joinState.searchQuery) {
-      return;
-    }
-
-    _isSyncingSearchText = true;
-    _searchController.value = TextEditingValue(
-      text: joinState.searchQuery,
-      selection: TextSelection.collapsed(offset: joinState.searchQuery.length),
-    );
-    _isSyncingSearchText = false;
-  }
-
-  void _clearSearch() {
-    final controller = ref.read(joinRoomControllerProvider.notifier);
-    controller.clearSearchQuery();
-    _searchController.clear();
-    _searchFocusNode.unfocus();
-  }
-
   Future<void> _handleShareLocation() async {
     final controller = ref.read(joinRoomControllerProvider.notifier);
     await controller.shareLocationAndSearch();
@@ -123,17 +67,19 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
     final joinState = ref.watch(joinRoomControllerProvider);
-    _syncSearchController(joinState);
 
     return Container(
-      height: mediaQuery.size.height * 0.45,
+      constraints: BoxConstraints(
+        maxHeight: mediaQuery.size.height * 0.7,
+      ),
       decoration: BoxDecoration(
         color: BleyaTheme.background,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
       ),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Expanded(child: _buildStepContent(joinState)),
+          Flexible(child: _buildStepContent(joinState)),
         ],
       ),
     );
@@ -153,70 +99,112 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   Widget _buildInitialStep() {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return CustomScrollView(
-          slivers: [
-            SliverFillRemaining(
-              hasScrollBody: false,
-              child: Padding(
-                padding: EdgeInsets.all(BleyaTheme.spacing3XL),
-                child: Column(
-                  children: [
-                    const Spacer(),
-                    Icon(
-                      CupertinoIcons.compass,
-                      size: 64,
-                      color: BleyaTheme.primary,
-                    ),
-                    SizedBox(height: BleyaTheme.spacingXL),
-                    Text(
-                      'Explore around you',
-                      style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: BleyaTheme.spacingMD),
-                    Text(
-                      'See what\'s happening around you and jump into the conversation.',
-                      style: BleyaTheme.bodyLarge,
-                      textAlign: TextAlign.center,
-                    ),
-                    SizedBox(height: BleyaTheme.spacing2XL),
-                    const Spacer(),
-                    PrimaryButton(
-                      text: 'Search',
-                      onPressed: _handleShareLocation,
-                      trailingIcon: const Icon(
-                        CupertinoIcons.search,
-                        color: Colors.white,
-                        size: 20,
-                      ),
-                    ),
-                    SizedBox(
-                      height: MediaQuery.of(context).padding.bottom +
-                          BleyaTheme.spacingXS,
-                    ),
-                  ],
+        return SingleChildScrollView(
+          child: Padding(
+            padding: EdgeInsets.all(BleyaTheme.spacing3XL),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                SizedBox(height: BleyaTheme.spacingXL),
+                Icon(
+                  CupertinoIcons.map,
+                  size: 64,
+                  color: BleyaTheme.primary,
                 ),
-              ),
+                SizedBox(height: BleyaTheme.spacingXL),
+                Text(
+                  'Find your city',
+                  style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: BleyaTheme.spacingMD),
+                Text(
+                  'See who\'s hanging out nearby and say hello.',
+                  style: BleyaTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: BleyaTheme.spacing2XL),
+                PrimaryButton(
+                  text: 'Search',
+                  onPressed: _handleShareLocation,
+                  trailingIcon: const Icon(
+                    CupertinoIcons.search,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                SizedBox(
+                  height: MediaQuery.of(context).padding.bottom +
+                      BleyaTheme.spacingSM,
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
     );
   }
 
   Widget _buildSearchingStep() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const AppSpinner(radius: 20),
-          SizedBox(height: BleyaTheme.spacing2XL),
-          Text(
-            'Scouting for nearby chats...',
-            style: BleyaTheme.bodyLarge,
-            textAlign: TextAlign.center,
-          ),
-        ],
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(BleyaTheme.spacing3XL),
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            // Invisible content to maintain exact height/layout of initial step
+            Opacity(
+              opacity: 0.0,
+              child: Column(
+                children: [
+                  SizedBox(height: BleyaTheme.spacingXL),
+                  Icon(
+                    CupertinoIcons.compass,
+                    size: 64,
+                    color: BleyaTheme.primary,
+                  ),
+                  SizedBox(height: BleyaTheme.spacingXL),
+                  Text(
+                    'Find your city',
+                    style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: BleyaTheme.spacingMD),
+                  Text(
+                    'See who\'s hanging out nearby and say hello.',
+                    style: BleyaTheme.bodyLarge,
+                    textAlign: TextAlign.center,
+                  ),
+                  SizedBox(height: BleyaTheme.spacing2XL),
+                  const SizedBox(height: 50), // Button height placeholder
+                  SizedBox(
+                    height: MediaQuery.of(context).padding.bottom +
+                        BleyaTheme.spacingXS,
+                  ),
+                ],
+              ),
+            ),
+            // Visible centered content
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                const SizedBox(
+                  height: 64,
+                  width: 64,
+                  child: Center(
+                    child: AppSpinner(radius: 20),
+                  ),
+                ),
+                SizedBox(height: BleyaTheme.spacing2XL),
+                Text(
+                  'Looking for nearby chats...',
+                  style: BleyaTheme.bodyLarge,
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -224,6 +212,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
   Widget _buildRoomListSkeleton() {
     return ListView.builder(
       padding: EdgeInsets.symmetric(horizontal: BleyaTheme.contentPadding),
+      shrinkWrap: true,
       itemCount: 5,
       itemBuilder: (context, index) {
         return Padding(
@@ -264,61 +253,14 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     final joinedRoomsAsync = ref.watch(joinedRoomsFutureProvider);
 
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Padding(
-          padding: EdgeInsets.all(BleyaTheme.contentPadding),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Icon(
-                    CupertinoIcons.location,
-                    size: 20,
-                    color: BleyaTheme.primaryLight,
-                  ),
-                  SizedBox(width: BleyaTheme.spacingSM),
-                  Text(
-                    'Nearby chats',
-                    style: BleyaTheme.headingMedium.copyWith(fontSize: 20),
-                  ),
-                ],
-              ),
-              SizedBox(height: BleyaTheme.spacingSM),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      'Jump into the conversation',
-                      style: BleyaTheme.bodyMedium.copyWith(
-                        color: BleyaTheme.mutedForeground,
-                      ),
-                    ),
-                  ),
-                  CupertinoButton(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(24, 24),
-                    onPressed:
-                        joinState.isSearchingNearby ? null : _fetchNearbyRooms,
-                    child: Icon(
-                      CupertinoIcons.arrow_clockwise,
-                      size: 18,
-                      color: BleyaTheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              SizedBox(height: BleyaTheme.spacingMD),
-              _buildSearchField(joinState),
-            ],
-          ),
-        ),
         if (joinState.isSearchingNearby)
           const LinearProgressIndicator(minHeight: 2)
         else
           const SizedBox(height: 2),
-        Expanded(
+        Flexible(
           child: joinedRoomsAsync.when(
             data: (joinedRooms) {
               final availableRooms = joinState.nearbyRooms.where((room) {
@@ -331,27 +273,37 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                   return aDistance.compareTo(bDistance);
                 });
 
+              if (joinState.isLocationPermDeniedForever) {
+                return _buildCompactErrorState(
+                  title: 'Where are you?',
+                  description: joinState.searchError ??
+                      'We need your location to find nearby chats. Check your settings?',
+                  buttonText: 'Open Settings',
+                  onRetry: () {
+                    ref
+                        .read(joinRoomControllerProvider.notifier)
+                        .openLocationSettings();
+                  },
+                );
+              }
+
               if (joinState.searchError != null) {
-                return Padding(
-                  padding: EdgeInsets.all(BleyaTheme.contentPadding),
-                  child: ErrorState(
-                    title: 'Couldn\'t find any chats',
-                    description: joinState.searchError!,
-                    onRetry: joinState.latitude != null &&
-                            joinState.longitude != null
-                        ? _fetchNearbyRooms
-                        : _handleShareLocation,
-                  ),
+                return _buildCompactErrorState(
+                  title: 'Nothing around',
+                  description: joinState.searchError!,
+                  onRetry:
+                      joinState.latitude != null && joinState.longitude != null
+                          ? _fetchNearbyRooms
+                          : _handleShareLocation,
                 );
               }
 
               if (joinState.nearbyRooms.isEmpty) {
-                return EmptyState(
-                  icon: CupertinoIcons.location_slash,
-                  title: 'It\'s quiet around here',
-                  description: 'We couldn\'t find any active chats nearby.',
-                  actionText: 'Try again',
-                  onAction: _fetchNearbyRooms,
+                return _buildCompactErrorState(
+                  title: 'It\'s quiet here',
+                  description: 'No chats nearby yet. Maybe start one?',
+                  icon: CupertinoIcons.map,
+                  onRetry: _fetchNearbyRooms,
                 );
               }
 
@@ -371,6 +323,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
               return ListView.builder(
                 padding:
                     EdgeInsets.symmetric(horizontal: BleyaTheme.contentPadding),
+                shrinkWrap: true,
                 itemCount: availableRooms.length,
                 itemBuilder: (context, index) {
                   final room = availableRooms[index];
@@ -471,13 +424,10 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
                 print('Error loading joined rooms: $error');
                 print('Stack: $stack');
               }
-              return Padding(
-                padding: EdgeInsets.all(BleyaTheme.contentPadding),
-                child: ErrorState(
-                  title: 'Couldn\'t load your chats',
-                  description: 'Try again in a moment.',
-                  onRetry: () => ref.invalidate(joinedRoomsFutureProvider),
-                ),
+              return _buildCompactErrorState(
+                title: 'Couldn\'t load your chats',
+                description: 'Try again in a moment.',
+                onRetry: () => ref.invalidate(joinedRoomsFutureProvider),
               );
             },
           ),
@@ -486,58 +436,57 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog> {
     );
   }
 
-  Widget _buildSearchField(JoinRoomState joinState) {
-    final borderColor = _searchFocusNode.hasFocus
-        ? BleyaTheme.primary.withValues(alpha: 0.5)
-        : BleyaTheme.border;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: BleyaTheme.glassSurface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
-        border: Border.all(color: borderColor, width: 1),
-        boxShadow: BleyaTheme.glassShadow,
-      ),
-      padding: EdgeInsets.symmetric(
-        horizontal: BleyaTheme.spacingLG,
-      ),
-      child: Row(
-        children: [
-          Icon(
-            CupertinoIcons.search,
-            size: 18,
-            color: BleyaTheme.mutedForeground,
-          ),
-          SizedBox(width: BleyaTheme.spacingMD),
-          Expanded(
-            child: CupertinoTextField(
-              controller: _searchController,
-              focusNode: _searchFocusNode,
-              placeholder: 'Find a city...',
-              decoration: const BoxDecoration(color: Colors.transparent),
-              style: BleyaTheme.bodyMedium.copyWith(
-                color: BleyaTheme.foreground,
-                fontWeight: FontWeight.w600,
-              ),
-              placeholderStyle: BleyaTheme.bodyMedium.copyWith(
-                color: BleyaTheme.mutedForeground.withValues(alpha: 0.7),
-              ),
-              padding: EdgeInsets.symmetric(
-                vertical: BleyaTheme.spacingLG,
-              ),
-              textInputAction: TextInputAction.search,
+  Widget _buildCompactErrorState({
+    required String title,
+    required String description,
+    IconData? icon,
+    String? buttonText,
+    VoidCallback? onRetry,
+  }) {
+    return SingleChildScrollView(
+      child: Padding(
+        padding: EdgeInsets.all(BleyaTheme.spacing3XL),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(height: BleyaTheme.spacingXL),
+            Icon(
+              icon ?? CupertinoIcons.exclamationmark_bubble,
+              size: 64,
+              color: BleyaTheme.mutedForeground,
             ),
-          ),
-          if (joinState.searchQuery.isNotEmpty)
-            GestureDetector(
-              onTap: _clearSearch,
-              child: Icon(
-                CupertinoIcons.xmark_circle,
-                size: 18,
-                color: BleyaTheme.mutedForeground,
-              ),
+            SizedBox(height: BleyaTheme.spacingXL),
+            Text(
+              title,
+              style: BleyaTheme.headingMedium.copyWith(fontSize: 24),
+              textAlign: TextAlign.center,
             ),
-        ],
+            SizedBox(height: BleyaTheme.spacingMD),
+            Text(
+              description,
+              style: BleyaTheme.bodyLarge,
+              textAlign: TextAlign.center,
+            ),
+            if (onRetry != null) ...[
+              SizedBox(height: BleyaTheme.spacing2XL),
+              PrimaryButton(
+                text: buttonText ?? 'Try again',
+                onPressed: onRetry,
+                trailingIcon: Icon(
+                  buttonText == 'Open Settings'
+                      ? CupertinoIcons.settings
+                      : CupertinoIcons.refresh,
+                  color: Colors.white,
+                  size: 20,
+                ),
+              ),
+              SizedBox(
+                height: MediaQuery.of(context).padding.bottom +
+                    BleyaTheme.spacingXS,
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

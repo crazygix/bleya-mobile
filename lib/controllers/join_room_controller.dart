@@ -20,7 +20,9 @@ class JoinRoomState {
   final double? latitude;
   final double? longitude;
   final List<Room> nearbyRooms;
+
   final String searchQuery;
+  final bool isLocationPermDeniedForever;
 
   const JoinRoomState({
     required this.isJoining,
@@ -32,6 +34,7 @@ class JoinRoomState {
     required this.longitude,
     required this.nearbyRooms,
     required this.searchQuery,
+    required this.isLocationPermDeniedForever,
   });
 
   const JoinRoomState.initial()
@@ -43,7 +46,8 @@ class JoinRoomState {
         latitude = null,
         longitude = null,
         nearbyRooms = const [],
-        searchQuery = '';
+        searchQuery = '',
+        isLocationPermDeniedForever = false;
 
   JoinRoomState copyWith({
     bool? isJoining,
@@ -55,6 +59,7 @@ class JoinRoomState {
     Object? longitude = _noValue,
     List<Room>? nearbyRooms,
     String? searchQuery,
+    bool? isLocationPermDeniedForever,
   }) {
     return JoinRoomState(
       isJoining: isJoining ?? this.isJoining,
@@ -73,6 +78,8 @@ class JoinRoomState {
           : longitude as double?,
       nearbyRooms: nearbyRooms ?? this.nearbyRooms,
       searchQuery: searchQuery ?? this.searchQuery,
+      isLocationPermDeniedForever:
+          isLocationPermDeniedForever ?? this.isLocationPermDeniedForever,
     );
   }
 }
@@ -138,6 +145,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     state = state.copyWith(
       step: JoinRoomStep.searching,
       searchError: null,
+      isLocationPermDeniedForever: false,
     );
 
     await _resolveLocationAndSearch();
@@ -150,7 +158,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
       if (!serviceEnabled) {
         _setSearchError(
-          'Nearby discovery is off. Turn it on to find chats around you.',
+          'Turn on location to see what\'s nearby.',
         );
         return;
       }
@@ -162,14 +170,19 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
 
       if (permission == LocationPermission.denied) {
         _setSearchError(
-          'Allow nearby discovery to see chats around you.',
+          'Need location access to find your crowd.',
         );
         return;
       }
 
       if (permission == LocationPermission.deniedForever) {
-        _setSearchError(
-          'Nearby discovery is off. Turn it on in Settings to keep going.',
+        if (!mounted) return;
+        state = state.copyWith(
+          isLocationPermDeniedForever: true,
+          searchError:
+              'We need your location to find nearby chats. Check your settings?',
+          nearbyRooms: const [],
+          step: JoinRoomStep.results,
         );
         return;
       }
@@ -194,10 +207,13 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
       if (kDebugMode) {
         print('Location discovery failed: $e');
       }
-      if (mounted)
-        _setSearchError("Couldn't find nearby chats yet. Try again?");
+      if (mounted) {
+        _setSearchError("That's strange, we couldn't find nearby chats.");
+      }
     } finally {
-      if (mounted) state = state.copyWith(isSearchingNearby: false);
+      if (mounted) {
+        state = state.copyWith(isSearchingNearby: false);
+      }
     }
   }
 
@@ -206,7 +222,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     final longitude = state.longitude;
     if (latitude == null || longitude == null) {
       _setSearchError(
-        'Nearby discovery wasn\'t ready. Tap "Find city chats" again.',
+        'Not ready yet. Tap "Find city chats" again.',
       );
       return;
     }
@@ -231,17 +247,20 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
         step: JoinRoomStep.results,
       );
     } on TimeoutException {
-      if (mounted)
-        _setSearchError('This is taking longer than usual. Try again?');
+      if (mounted) {
+        _setSearchError('Taking a while. Want to retry?');
+      }
     } catch (e) {
       if (!mounted) return;
       if (e is AppError) {
         _setSearchError(e.getUserMessage());
       } else {
-        _setSearchError("Couldn't load nearby chats. Try again?");
+        _setSearchError("Something went sideways. Try again?");
       }
     } finally {
-      if (mounted) state = state.copyWith(isSearchingNearby: false);
+      if (mounted) {
+        state = state.copyWith(isSearchingNearby: false);
+      }
     }
   }
 
@@ -272,5 +291,9 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
       nearbyRooms: const [],
       step: JoinRoomStep.results,
     );
+  }
+
+  Future<void> openLocationSettings() async {
+    await Geolocator.openAppSettings();
   }
 }
