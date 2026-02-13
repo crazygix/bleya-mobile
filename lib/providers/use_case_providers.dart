@@ -16,6 +16,7 @@ import '../use_cases/room/leave_room_use_case.dart';
 import '../use_cases/room/create_direct_message_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
 import '../use_cases/message/get_room_messages_page_use_case.dart';
+import '../use_cases/location/get_current_location_use_case.dart';
 import 'repository_providers.dart';
 
 final requestCodeUseCaseProvider = Provider<RequestCodeUseCase>((ref) {
@@ -110,4 +111,10 @@ final getUserByIdUseCaseProvider = Provider<GetUserByIdUseCase>((ref) {
 final updateProfileUseCaseProvider = Provider<UpdateProfileUseCase>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return UpdateProfileUseCase(repository);
+});
+
+final getCurrentLocationUseCaseProvider =
+    Provider<GetCurrentLocationUseCase>((ref) {
+  final repository = ref.watch(locationRepositoryProvider);
+  return GetCurrentLocationUseCase(repository);
 });

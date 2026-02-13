@@ -24,5 +24,6 @@ final joinRoomControllerProvider =
     StateNotifierProvider.autoDispose<JoinRoomController, JoinRoomState>((ref) {
   final getNearbyRooms = ref.watch(getNearbyRoomsUseCaseProvider);
   final joinRoom = ref.watch(joinRoomUseCaseProvider);
-  return JoinRoomController(getNearbyRooms, joinRoom);
+  final getCurrentLocation = ref.watch(getCurrentLocationUseCaseProvider);
+  return JoinRoomController(getNearbyRooms, joinRoom, getCurrentLocation);
 });

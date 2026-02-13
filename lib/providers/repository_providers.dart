@@ -7,6 +7,8 @@ import '../data/repositories/auth_repository_impl.dart';
 import '../data/repositories/user_repository_impl.dart';
 import '../data/repositories/room_repository_impl.dart';
 import '../data/repositories/message_repository_impl.dart';
+import '../domain/repositories/location_repository.dart';
+import '../data/repositories/location_repository_impl.dart';
 import 'auth_providers.dart';
 
 /// Wire domain interfaces to data implementations
@@ -29,4 +31,8 @@ final roomRepositoryProvider = Provider<RoomRepository>((ref) {
 final messageRepositoryProvider = Provider<MessageRepository>((ref) {
   final dio = ref.watch(dioProvider);
   return MessageRepositoryImpl(dio);
+});
+
+final locationRepositoryProvider = Provider<LocationRepository>((ref) {
+  return LocationRepositoryImpl();
 });

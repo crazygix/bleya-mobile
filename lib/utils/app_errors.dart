@@ -205,3 +205,28 @@ class ServiceUnavailableError extends AppError {
               userMessage ?? "We're temporarily unavailable. Try again soon?",
         );
 }
+
+/// Location errors
+class AppLocationServiceDisabledException implements Exception {
+  final String message;
+  const AppLocationServiceDisabledException(
+      [this.message = 'Location services are disabled.']);
+  @override
+  String toString() => message;
+}
+
+class AppPermissionDeniedException implements Exception {
+  final String message;
+  const AppPermissionDeniedException(
+      [this.message = 'Location permission denied.']);
+  @override
+  String toString() => message;
+}
+
+class AppPermissionDeniedForeverException implements Exception {
+  final String message;
+  const AppPermissionDeniedForeverException(
+      [this.message = 'Location permission denied forever.']);
+  @override
+  String toString() => message;
+}

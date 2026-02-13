@@ -1,10 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:geolocator/geolocator.dart';
 import '../domain/entities/room.dart';
 import '../use_cases/room/get_nearby_rooms_use_case.dart';
 import '../use_cases/room/join_room_use_case.dart';
+import '../use_cases/location/get_current_location_use_case.dart';
 import '../utils/app_errors.dart';
 
 enum JoinRoomStep { initial, searching, results }
@@ -90,10 +90,14 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
 
   final GetNearbyRoomsUseCase _getNearbyRoomsUseCase;
   final JoinRoomUseCase _joinRoomUseCase;
+  final GetCurrentLocationUseCase _getCurrentLocationUseCase;
   Timer? _searchDebounceTimer;
 
-  JoinRoomController(this._getNearbyRoomsUseCase, this._joinRoomUseCase)
-      : super(const JoinRoomState.initial());
+  JoinRoomController(
+    this._getNearbyRoomsUseCase,
+    this._joinRoomUseCase,
+    this._getCurrentLocationUseCase,
+  ) : super(const JoinRoomState.initial());
 
   @override
   void dispose() {
@@ -155,54 +159,29 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     state = state.copyWith(isSearchingNearby: true);
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        _setSearchError(
-          'Turn on location to see what\'s nearby.',
-        );
-        return;
-      }
-
-      var permission = await Geolocator.checkPermission();
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        _setSearchError(
-          'Need location access to find your crowd.',
-        );
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        if (!mounted) return;
-        state = state.copyWith(
-          isLocationPermDeniedForever: true,
-          searchError:
-              'We need your location to find nearby chats. Check your settings?',
-          nearbyRooms: const [],
-          step: JoinRoomStep.results,
-        );
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition(
-        locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
-        ),
-      );
+      final position = await _getCurrentLocationUseCase();
 
       if (!mounted) return;
 
       state = state.copyWith(
         latitude: position.latitude,
         longitude: position.longitude,
-        step: JoinRoomStep.results,
       );
 
       await fetchNearbyRooms();
+    } on AppLocationServiceDisabledException {
+      _setSearchError('Turn on location to see what\'s nearby.');
+    } on AppPermissionDeniedException {
+      _setSearchError('Need location access to find your crowd.');
+    } on AppPermissionDeniedForeverException {
+      if (!mounted) return;
+      state = state.copyWith(
+        isLocationPermDeniedForever: true,
+        searchError:
+            'We need your location to find nearby chats. Check your settings?',
+        nearbyRooms: const [],
+        step: JoinRoomStep.results,
+      );
     } catch (e) {
       if (kDebugMode) {
         print('Location discovery failed: $e');
@@ -294,6 +273,6 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
   }
 
   Future<void> openLocationSettings() async {
-    await Geolocator.openAppSettings();
+    await _getCurrentLocationUseCase.openAppSettings();
   }
 }
