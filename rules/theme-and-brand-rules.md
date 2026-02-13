@@ -248,3 +248,22 @@ Their content is preserved below as code for reference.
 ///   - Weightless transitions: orbs persist, content animates
 ```
 
+## 6. UI COMPONENT STANDARDS
+
+We maintain strict standards for common UI patterns to ensure consistency.
+
+### STANDARD LIST CELL (e.g., RoomCard, NearbyResult)
+
+Used for any list item representing a person, room, or entity.
+
+- **Background**: `glassSurface.withValues(alpha: 0.5)`
+- **Border**: `border.withValues(alpha: 0.3)` width 1px
+- **Corner Radius**: `radiusSmall` (10.0px) -- **NOT** radiusMedium
+- **Padding**: `radiusSmall` (10.0px) internal padding
+- **Avatar Size**: 48.0px
+- **Spacing**: `spacingMD` (12.0px) between avatar and content
+- **Typography**:
+    - Title: `listTitle` (16px, w700)
+    - Subtitle: `bodySmall` (differs by context, typically muted)
+
+
