@@ -1,9 +1,9 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../domain/entities/room.dart';
-import '../use_cases/room/get_nearby_rooms_use_case.dart';
-import '../use_cases/room/join_room_use_case.dart';
+import '../domain/entities/city.dart';
+import '../use_cases/city/get_nearby_cities_use_case.dart';
+import '../use_cases/city/join_city_use_case.dart';
 import '../use_cases/location/get_current_location_use_case.dart';
 import '../utils/app_errors.dart';
 
@@ -13,59 +13,59 @@ class JoinRoomState {
   static const Object _noValue = Object();
 
   final bool isJoining;
-  final String? joiningRoomId;
+  final String? joiningCityId;
   final bool isSearchingNearby;
   final JoinRoomStep step;
   final String? searchError;
   final double? latitude;
   final double? longitude;
-  final List<Room> nearbyRooms;
+  final List<City> nearbyCities;
 
   final String searchQuery;
   final bool isLocationPermDeniedForever;
 
   const JoinRoomState({
     required this.isJoining,
-    required this.joiningRoomId,
+    required this.joiningCityId,
     required this.isSearchingNearby,
     required this.step,
     required this.searchError,
     required this.latitude,
     required this.longitude,
-    required this.nearbyRooms,
+    required this.nearbyCities,
     required this.searchQuery,
     required this.isLocationPermDeniedForever,
   });
 
   const JoinRoomState.initial()
       : isJoining = false,
-        joiningRoomId = null,
+        joiningCityId = null,
         isSearchingNearby = false,
         step = JoinRoomStep.initial,
         searchError = null,
         latitude = null,
         longitude = null,
-        nearbyRooms = const [],
+        nearbyCities = const [],
         searchQuery = '',
         isLocationPermDeniedForever = false;
 
   JoinRoomState copyWith({
     bool? isJoining,
-    Object? joiningRoomId = _noValue,
+    Object? joiningCityId = _noValue,
     bool? isSearchingNearby,
     JoinRoomStep? step,
     Object? searchError = _noValue,
     Object? latitude = _noValue,
     Object? longitude = _noValue,
-    List<Room>? nearbyRooms,
+    List<City>? nearbyCities,
     String? searchQuery,
     bool? isLocationPermDeniedForever,
   }) {
     return JoinRoomState(
       isJoining: isJoining ?? this.isJoining,
-      joiningRoomId: identical(joiningRoomId, _noValue)
-          ? this.joiningRoomId
-          : joiningRoomId as String?,
+      joiningCityId: identical(joiningCityId, _noValue)
+          ? this.joiningCityId
+          : joiningCityId as String?,
       isSearchingNearby: isSearchingNearby ?? this.isSearchingNearby,
       step: step ?? this.step,
       searchError: identical(searchError, _noValue)
@@ -76,7 +76,7 @@ class JoinRoomState {
       longitude: identical(longitude, _noValue)
           ? this.longitude
           : longitude as double?,
-      nearbyRooms: nearbyRooms ?? this.nearbyRooms,
+      nearbyCities: nearbyCities ?? this.nearbyCities,
       searchQuery: searchQuery ?? this.searchQuery,
       isLocationPermDeniedForever:
           isLocationPermDeniedForever ?? this.isLocationPermDeniedForever,
@@ -87,14 +87,14 @@ class JoinRoomState {
 class JoinRoomController extends StateNotifier<JoinRoomState> {
   static const int nearbyLimit = 20;
 
-  final GetNearbyRoomsUseCase _getNearbyRoomsUseCase;
-  final JoinRoomUseCase _joinRoomUseCase;
+  final GetNearbyCitiesUseCase _getNearbyCitiesUseCase;
+  final JoinCityUseCase _joinCityUseCase;
   final GetCurrentLocationUseCase _getCurrentLocationUseCase;
   Timer? _searchDebounceTimer;
 
   JoinRoomController(
-    this._getNearbyRoomsUseCase,
-    this._joinRoomUseCase,
+    this._getNearbyCitiesUseCase,
+    this._joinCityUseCase,
     this._getCurrentLocationUseCase,
   ) : super(const JoinRoomState.initial());
 
@@ -122,7 +122,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     }
 
     _searchDebounceTimer = Timer(const Duration(milliseconds: 280), () {
-      if (mounted) fetchNearbyRooms();
+      if (mounted) fetchNearbyCities();
     });
   }
 
@@ -138,7 +138,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     if (state.step == JoinRoomStep.results &&
         state.latitude != null &&
         state.longitude != null) {
-      fetchNearbyRooms();
+      fetchNearbyCities();
     }
   }
 
@@ -167,7 +167,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
         longitude: position.longitude,
       );
 
-      await fetchNearbyRooms();
+      await fetchNearbyCities();
     } on AppLocationServiceDisabledException {
       _setSearchError('Turn on location to see what\'s nearby.');
     } on AppPermissionDeniedException {
@@ -178,7 +178,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
         isLocationPermDeniedForever: true,
         searchError:
             'We need your location to find nearby chats. Check your settings?',
-        nearbyRooms: const [],
+        nearbyCities: const [],
         step: JoinRoomStep.results,
       );
     } catch (e) {
@@ -195,7 +195,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     }
   }
 
-  Future<void> fetchNearbyRooms() async {
+  Future<void> fetchNearbyCities() async {
     final latitude = state.latitude;
     final longitude = state.longitude;
     if (latitude == null || longitude == null) {
@@ -211,16 +211,14 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     );
 
     try {
-      final rooms = await _getNearbyRoomsUseCase(
+      final cities = await _getNearbyCitiesUseCase(
         latitude: latitude,
         longitude: longitude,
-        limit: nearbyLimit,
-        searchQuery: state.searchQuery.isEmpty ? null : state.searchQuery,
       ).timeout(const Duration(seconds: 15));
 
       if (!mounted) return;
       state = state.copyWith(
-        nearbyRooms: rooms,
+        nearbyCities: cities,
         step: JoinRoomStep.results,
       );
     } on TimeoutException {
@@ -241,21 +239,21 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     }
   }
 
-  Future<void> joinRoom(Room room) async {
+  Future<void> joinCity(City city) async {
     if (state.isJoining) return;
 
     state = state.copyWith(
       isJoining: true,
-      joiningRoomId: room.id,
+      joiningCityId: city.id,
     );
 
     try {
-      await _joinRoomUseCase(room.id);
+      await _joinCityUseCase(city.id);
     } finally {
       if (mounted) {
         state = state.copyWith(
           isJoining: false,
-          joiningRoomId: null,
+          joiningCityId: null,
         );
       }
     }
@@ -265,7 +263,7 @@ class JoinRoomController extends StateNotifier<JoinRoomState> {
     if (!mounted) return;
     state = state.copyWith(
       searchError: message,
-      nearbyRooms: const [],
+      nearbyCities: const [],
       step: JoinRoomStep.results,
     );
   }

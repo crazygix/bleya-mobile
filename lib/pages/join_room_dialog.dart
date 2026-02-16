@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../controllers/join_room_controller.dart';
+import '../domain/entities/city.dart';
 import '../providers/chat_providers.dart';
 import '../providers/controller_providers.dart';
 import '../utils/app_errors.dart';
@@ -11,7 +12,7 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
 
 import '../widgets/compact_state_view.dart';
-import '../widgets/nearby_room_item.dart';
+import '../widgets/nearby_city_item.dart';
 
 class JoinRoomDialog extends ConsumerStatefulWidget {
   const JoinRoomDialog({super.key});
@@ -52,17 +53,17 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
     await controller.shareLocationAndSearch();
   }
 
-  Future<void> _fetchNearbyRooms() async {
+  Future<void> _fetchNearbyCities() async {
     final controller = ref.read(joinRoomControllerProvider.notifier);
-    await controller.fetchNearbyRooms();
+    await controller.fetchNearbyCities();
   }
 
-  Future<void> _joinRoom(Room room) async {
+  Future<void> _joinCity(City city) async {
     final controller = ref.read(joinRoomControllerProvider.notifier);
 
     try {
       final messenger = ScaffoldMessenger.maybeOf(context);
-      await controller.joinRoom(room);
+      await controller.joinCity(city);
 
       ref.invalidate(joinedRoomsFutureProvider);
       ref.invalidate(roomsListProvider);
@@ -71,7 +72,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
 
       Navigator.of(context, rootNavigator: true).pop();
       messenger?.showSnackBar(
-        SnackBar(content: Text('You joined ${room.name}')),
+        SnackBar(content: Text('You joined ${city.name}, ${city.countryName}')),
       );
     } catch (e) {
       if (!mounted) return;
@@ -251,7 +252,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
           title: 'Nothing around',
           description: joinState.searchError!,
           onAction: joinState.latitude != null && joinState.longitude != null
-              ? _fetchNearbyRooms
+              ? _fetchNearbyCities
               : _handleShareLocation,
         ),
       );
@@ -262,33 +263,15 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
 
     return joinedRoomsAsync.when(
       data: (joinedRooms) {
-        final availableRooms = joinState.nearbyRooms.where((room) {
-          final joinedByList = joinedRooms.any((jr) => jr.id == room.id);
-          return !room.isJoined && !joinedByList;
-        }).toList()
-          ..sort((a, b) {
-            final aDistance = a.distanceKm ?? 9999;
-            final bDistance = b.distanceKm ?? 9999;
-            return aDistance.compareTo(bDistance);
-          });
+        final nearbyCities = joinState.nearbyCities;
 
-        if (joinState.nearbyRooms.isEmpty) {
+        if (nearbyCities.isEmpty) {
           return _buildUniformCompactState(
             CompactStateView(
               title: 'It\'s quiet here',
-              description: 'No chats nearby yet.',
+              description: 'No cities nearby yet.',
               icon: CupertinoIcons.compass,
-              onAction: _fetchNearbyRooms,
-            ),
-          );
-        }
-
-        if (availableRooms.isEmpty) {
-          return _buildUniformCompactState(
-            CompactStateView(
-              icon: CupertinoIcons.checkmark_circle,
-              title: 'You\'ve found them all!',
-              description: 'There are no other chats nearby at the moment.',
+              onAction: _fetchNearbyCities,
             ),
           );
         }
@@ -325,17 +308,17 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
                     bottom: bottomPadding + BleyaTheme.spacingLG,
                   ),
                   shrinkWrap: true,
-                  itemCount: availableRooms.length,
+                  itemCount: nearbyCities.length,
                   itemBuilder: (context, index) {
-                    final room = availableRooms[index];
+                    final city = nearbyCities[index];
                     final isJoiningThis = joinState.isJoining &&
-                        joinState.joiningRoomId == room.id;
+                        joinState.joiningCityId == city.id;
 
-                    return NearbyRoomItem(
-                      room: room,
+                    return NearbyCityItem(
+                      city: city,
                       isJoining: isJoiningThis,
                       onJoin:
-                          joinState.isJoining ? null : () => _joinRoom(room),
+                          joinState.isJoining ? null : () => _joinCity(city),
                     );
                   },
                 ),
