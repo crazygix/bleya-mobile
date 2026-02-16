@@ -16,11 +16,13 @@ import 'user_details_page.dart';
 class RoomDetailsPage extends ConsumerStatefulWidget {
   final String roomId;
   final String roomName;
+  final String? imageUrl;
 
   const RoomDetailsPage({
     super.key,
     required this.roomId,
     required this.roomName,
+    this.imageUrl,
   });
 
   @override
@@ -158,14 +160,6 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                         Container(
                           height: 200,
                           decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [
-                                BleyaTheme.primary.withValues(alpha: 0.8),
-                                BleyaTheme.secondary.withValues(alpha: 0.6),
-                              ],
-                            ),
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
@@ -176,50 +170,116 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
                               ),
                             ],
                           ),
-                          child: Stack(
-                            children: [
-                              Positioned.fill(
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(20),
-                                    gradient: LinearGradient(
-                                      begin: Alignment.topCenter,
-                                      end: Alignment.bottomCenter,
-                                      colors: [
-                                        Colors.transparent,
-                                        Colors.black.withValues(alpha: 0.3),
-                                      ],
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(20),
+                            child: Stack(
+                              children: [
+                                // Background Image or Gradient
+                                Positioned.fill(
+                                  child: widget.imageUrl != null
+                                      ? Image.network(
+                                          widget.imageUrl!,
+                                          fit: BoxFit.cover,
+                                          errorBuilder:
+                                              (context, error, stackTrace) {
+                                            // Fallback to gradient on error
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    BleyaTheme.primary
+                                                        .withValues(alpha: 0.8),
+                                                    BleyaTheme.secondary
+                                                        .withValues(alpha: 0.6),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                          loadingBuilder: (context, child,
+                                              loadingProgress) {
+                                            if (loadingProgress == null) {
+                                              return child;
+                                            }
+                                            // Show gradient while loading
+                                            return Container(
+                                              decoration: BoxDecoration(
+                                                gradient: LinearGradient(
+                                                  begin: Alignment.topLeft,
+                                                  end: Alignment.bottomRight,
+                                                  colors: [
+                                                    BleyaTheme.primary
+                                                        .withValues(alpha: 0.8),
+                                                    BleyaTheme.secondary
+                                                        .withValues(alpha: 0.6),
+                                                  ],
+                                                ),
+                                              ),
+                                            );
+                                          },
+                                        )
+                                      : Container(
+                                          decoration: BoxDecoration(
+                                            gradient: LinearGradient(
+                                              begin: Alignment.topLeft,
+                                              end: Alignment.bottomRight,
+                                              colors: [
+                                                BleyaTheme.primary
+                                                    .withValues(alpha: 0.8),
+                                                BleyaTheme.secondary
+                                                    .withValues(alpha: 0.6),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                ),
+                                // Gradient overlay for text readability
+                                Positioned.fill(
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topCenter,
+                                        end: Alignment.bottomCenter,
+                                        colors: [
+                                          Colors.transparent,
+                                          Colors.black.withValues(alpha: 0.5),
+                                        ],
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                              Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      widget.roomName,
-                                      style: const TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.bold,
-                                        color: Colors.white,
+                                // Text content
+                                Padding(
+                                  padding: const EdgeInsets.all(20),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.end,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        widget.roomName,
+                                        style: const TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${members.length} Members in Group',
-                                      style: TextStyle(
-                                        fontSize: 15,
-                                        color:
-                                            Colors.white.withValues(alpha: 0.9),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        '${members.length} Members in Group',
+                                        style: TextStyle(
+                                          fontSize: 15,
+                                          color: Colors.white
+                                              .withValues(alpha: 0.9),
+                                        ),
                                       ),
-                                    ),
-                                  ],
+                                    ],
+                                  ),
                                 ),
-                              ),
-                            ],
+                              ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: 20),

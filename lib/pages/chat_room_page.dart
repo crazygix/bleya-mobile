@@ -302,6 +302,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                           builder: (context) => RoomDetailsPage(
                             roomId: widget.room.id,
                             roomName: widget.room.name,
+                            imageUrl: widget.room.imageUrl,
                           ),
                         ),
                       );
