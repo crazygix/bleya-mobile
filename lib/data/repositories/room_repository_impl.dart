@@ -51,56 +51,6 @@ class RoomRepositoryImpl implements RoomRepository {
   }
 
   @override
-  Future<List<Room>> getNearbyRooms({
-    required double latitude,
-    required double longitude,
-    int limit = 20,
-    String? searchQuery,
-  }) async {
-    try {
-      final trimmedSearch = searchQuery?.trim() ?? '';
-      final queryParameters = <String, dynamic>{
-        'latitude': latitude.toStringAsFixed(6),
-        'longitude': longitude.toStringAsFixed(6),
-        'limit': limit,
-      };
-
-      if (trimmedSearch.isNotEmpty) {
-        queryParameters['search'] = trimmedSearch;
-      }
-
-      final response = await _dio.get(
-        '/rooms/nearby',
-        queryParameters: queryParameters,
-        options: Options(
-          receiveTimeout: const Duration(seconds: 12),
-          sendTimeout: const Duration(seconds: 12),
-        ),
-      );
-
-      if (response.data is! Map<String, dynamic>) {
-        throw Exception('Invalid response format: expected object');
-      }
-
-      final data = response.data as Map<String, dynamic>;
-      if (data['rooms'] is! List) {
-        throw Exception('Invalid response format: expected rooms list');
-      }
-
-      final List<dynamic> roomsJson = data['rooms'] as List<dynamic>;
-      return roomsJson.map((json) => RoomDto.fromJson(json)).toList();
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    } catch (e, stack) {
-      if (kDebugMode) {
-        print('Error fetching nearby rooms: $e');
-        print('Stack: $stack');
-      }
-      rethrow;
-    }
-  }
-
-  @override
   Future<List<Room>> getJoinedRooms() async {
     try {
       final response = await _dio.get(

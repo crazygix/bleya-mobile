@@ -5,12 +5,7 @@ import '../entities/room_member.dart';
 /// Use cases depend on this interface, not concrete implementations
 abstract class RoomRepository {
   Future<List<Room>> getAvailableRooms();
-  Future<List<Room>> getNearbyRooms({
-    required double latitude,
-    required double longitude,
-    int limit = 20,
-    String? searchQuery,
-  });
+
   Future<List<Room>> getJoinedRooms();
   Future<Room> joinRoom(String roomId);
   Future<List<RoomMember>> getRoomMembers(String roomId);
