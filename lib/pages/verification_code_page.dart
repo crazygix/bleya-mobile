@@ -250,7 +250,9 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
               child: Column(
                 children: [
                   // iOS-style Navigation Bar
-                  AppNavigationBar(),
+                  AppNavigationBar(
+                    title: 'Verification',
+                  ),
 
                   // Content
                   Expanded(

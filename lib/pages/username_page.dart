@@ -134,6 +134,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                 children: [
                   // iOS-style Navigation Bar
                   AppNavigationBar(
+                    title: 'Username',
                     onBackPressed: () async {
                       final authManager = ref.read(authManagerProvider);
                       await authManager.logout();

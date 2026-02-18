@@ -181,14 +181,6 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
           Column(
             children: [
               GlassHeader(
-                leftAction: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Icon(
-                    CupertinoIcons.chevron_left,
-                    size: 28,
-                    color: BleyaTheme.primary,
-                  ),
-                ),
                 title: 'User Details',
               ),
               Expanded(

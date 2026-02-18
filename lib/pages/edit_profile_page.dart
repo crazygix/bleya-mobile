@@ -12,6 +12,7 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
+import '../widgets/app_navigation_bar.dart';
 
 class EditProfilePage extends ConsumerStatefulWidget {
   @override
@@ -257,33 +258,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             SafeArea(
               child: Column(
                 children: [
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: BleyaTheme.contentPadding,
-                      right: BleyaTheme.contentPadding,
-                      top: BleyaTheme.spacingMD,
-                    ),
-                    child: Row(
-                      children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            size: 28,
-                            color: BleyaTheme.primary,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Edit profile',
-                          style:
-                              BleyaTheme.headingMedium.copyWith(fontSize: 20),
-                        ),
-                        const Spacer(),
-                        const SizedBox(width: 44),
-                      ],
-                    ),
+                  const AppNavigationBar(
+                    title: 'Edit profile',
                   ),
                   _buildProfileLoadingSkeleton(),
                 ],
@@ -305,33 +281,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               child: Column(
                 children: [
                   // Header
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: BleyaTheme.contentPadding,
-                      right: BleyaTheme.contentPadding,
-                      top: BleyaTheme.spacingMD,
-                    ),
-                    child: Row(
-                      children: [
-                        CupertinoButton(
-                          padding: EdgeInsets.zero,
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: Icon(
-                            CupertinoIcons.chevron_left,
-                            size: 28,
-                            color: BleyaTheme.primary,
-                          ),
-                        ),
-                        const Spacer(),
-                        Text(
-                          'Edit profile',
-                          style:
-                              BleyaTheme.headingMedium.copyWith(fontSize: 20),
-                        ),
-                        const Spacer(),
-                        const SizedBox(width: 44),
-                      ],
-                    ),
+                  const AppNavigationBar(
+                    title: 'Edit profile',
                   ),
                   // Content
                   Expanded(

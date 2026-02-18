@@ -1,6 +1,5 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
 import '../constants/theme.dart';
 
 /// Glass Header Component
@@ -19,6 +18,7 @@ class GlassHeader extends StatelessWidget {
   final String? title;
   final String? subtitle;
   final Widget? rightAction;
+  final bool showBackButton;
 
   const GlassHeader({
     super.key,
@@ -26,24 +26,45 @@ class GlassHeader extends StatelessWidget {
     this.title,
     this.subtitle,
     this.rightAction,
+    this.showBackButton = true,
   });
 
   @override
   Widget build(BuildContext context) {
     final topPadding = MediaQuery.of(context).padding.top;
+    final canPop = Navigator.of(context).canPop();
+
+    Widget? resolvedLeftAction = leftAction;
+    if (resolvedLeftAction == null && showBackButton && canPop) {
+      resolvedLeftAction = CupertinoButton(
+        padding: EdgeInsets.zero,
+        minimumSize: const Size(
+          BleyaTheme.iconContainerSize,
+          BleyaTheme.iconContainerSize,
+        ),
+        onPressed: () => Navigator.of(context).pop(),
+        child: const Icon(
+          CupertinoIcons.chevron_left,
+          size: 28,
+          color: BleyaTheme.primary,
+        ),
+      );
+    }
+
+    final hasSubtitle = subtitle != null && subtitle!.trim().isNotEmpty;
 
     return ClipRRect(
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
         child: Container(
           padding: EdgeInsets.only(
-            top: topPadding + 8,
-            bottom: 12,
-            left: 16,
-            right: 16,
+            top: topPadding + 6,
+            bottom: 6,
+            left: BleyaTheme.contentPadding,
+            right: BleyaTheme.contentPadding,
           ),
           decoration: BoxDecoration(
-            color: BleyaTheme.glassSurface.withValues(alpha: 0.0),
+            color: BleyaTheme.glassSurface.withValues(alpha: 0.08),
             border: Border(
               bottom: BorderSide(
                 color: BleyaTheme.border.withValues(alpha: 0.2),
@@ -53,13 +74,20 @@ class GlassHeader extends StatelessWidget {
           ),
           child: Row(
             children: [
-              if (leftAction != null) ...[
-                leftAction!,
-                const SizedBox(width: 12),
-              ],
+              SizedBox(
+                width: BleyaTheme.iconContainerSize,
+                height: BleyaTheme.iconContainerSize,
+                child: resolvedLeftAction == null
+                    ? const SizedBox.shrink()
+                    : Align(
+                        alignment: Alignment.centerLeft,
+                        child: resolvedLeftAction,
+                      ),
+              ),
+              const SizedBox(width: BleyaTheme.spacingSM),
               Expanded(
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (title != null)
@@ -69,25 +97,40 @@ class GlassHeader extends StatelessWidget {
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           color: BleyaTheme.foreground,
+                          fontFamily: '.SF Pro Text',
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
-                    if (subtitle != null) ...[
+                    if (hasSubtitle) ...[
                       const SizedBox(height: 2),
                       Text(
-                        subtitle!,
-                        style: TextStyle(
+                        subtitle!.trim(),
+                        style: const TextStyle(
                           fontSize: 13,
                           color: BleyaTheme.mutedForeground,
+                          fontFamily: '.SF Pro Text',
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ],
                 ),
               ),
-              if (rightAction != null) ...[
-                const SizedBox(width: 12),
-                rightAction!,
-              ],
+              const SizedBox(width: BleyaTheme.spacingSM),
+              SizedBox(
+                width: BleyaTheme.iconContainerSize,
+                height: BleyaTheme.iconContainerSize,
+                child: rightAction == null
+                    ? const SizedBox.shrink()
+                    : Align(
+                        alignment: Alignment.centerRight,
+                        child: rightAction,
+                      ),
+              ),
             ],
           ),
         ),

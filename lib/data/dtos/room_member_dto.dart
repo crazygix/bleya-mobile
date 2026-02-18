@@ -7,6 +7,7 @@ class RoomMemberDto {
       id: json['id'] as String,
       username: json['username'] as String? ?? '',
       phoneNumber: json['phoneNumber'] as String,
+      bio: json['bio'] as String? ?? '',
       profileImageUrl: json['profileImageUrl'] as String? ?? '',
     );
   }

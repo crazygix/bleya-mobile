@@ -228,14 +228,6 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
           Column(
             children: [
               GlassHeader(
-                leftAction: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Icon(
-                    CupertinoIcons.chevron_left,
-                    size: 28,
-                    color: BleyaTheme.primary,
-                  ),
-                ),
                 title: 'Thread',
               ),
               Expanded(

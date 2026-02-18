@@ -158,7 +158,9 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
               child: Column(
                 children: [
                   // iOS-style Navigation Bar
-                  AppNavigationBar(),
+                  AppNavigationBar(
+                    title: 'Sign in',
+                  ),
 
                   // Content
                   Expanded(

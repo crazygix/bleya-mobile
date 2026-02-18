@@ -30,8 +30,23 @@ class RoomCard extends StatelessWidget {
     required this.onTap,
   });
 
+  String _displayRoomName(Room room) {
+    if (room.isPrivate) return room.name;
+
+    final parts = room.name
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return room.name;
+    return parts.first;
+  }
+
   @override
   Widget build(BuildContext context) {
+    final roomDisplayName = _displayRoomName(room);
+
     return Padding(
       padding: EdgeInsets.only(bottom: BleyaTheme.spacingSM),
       child: GestureDetector(
@@ -70,7 +85,7 @@ class RoomCard extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            room.name,
+                            roomDisplayName,
                             style: BleyaTheme.listTitle,
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,

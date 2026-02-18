@@ -18,6 +18,8 @@ class AppNavigationBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
+
     return Container(
       height: 44.0, // HIG standard navigation bar height
       padding: EdgeInsets.symmetric(
@@ -33,13 +35,15 @@ class AppNavigationBar extends StatelessWidget {
               child: CupertinoButton(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
-                onPressed: onBackPressed != null
-                    ? () async => await onBackPressed!()
-                    : () {
-                        if (Navigator.of(context).canPop()) {
-                          Navigator.of(context).pop();
-                        }
-                      },
+                onPressed: !canPop && onBackPressed == null
+                    ? null
+                    : onBackPressed != null
+                        ? () async => await onBackPressed!()
+                        : () {
+                            if (Navigator.of(context).canPop()) {
+                              Navigator.of(context).pop();
+                            }
+                          },
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Icon(
@@ -55,8 +59,15 @@ class AppNavigationBar extends StatelessWidget {
             Expanded(
               child: Text(
                 title!,
-                style: BleyaTheme.headingMedium.copyWith(fontSize: 20),
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w600,
+                  color: BleyaTheme.foreground,
+                  fontFamily: '.SF Pro Text',
+                ),
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ] else

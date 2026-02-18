@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../providers/profile_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
-import '../widgets/profile_avatar.dart';
-import '../widgets/danger_button.dart';
 import '../widgets/error_state.dart';
 import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
+import '../widgets/room_details_components.dart';
 import 'user_details_page.dart';
 
 class RoomDetailsPage extends ConsumerStatefulWidget {
@@ -29,68 +29,203 @@ class RoomDetailsPage extends ConsumerStatefulWidget {
   ConsumerState<RoomDetailsPage> createState() => _RoomDetailsPageState();
 }
 
-class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
+class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _entranceController;
+  bool _isLeaving = false;
+
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
     // Invalidate and refresh room members when page is opened to get latest data
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.invalidate(roomMembersProvider(widget.roomId));
+      _entranceController.forward();
     });
+  }
+
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
+  String _memberCountLabel(int count) {
+    if (count == 1) return '1 member';
+    return '$count members';
+  }
+
+  String _resolveMembersError(Object error) {
+    if (error is AppError) {
+      return error.getUserMessage();
+    }
+    return "Couldn't load this room right now. Try again?";
+  }
+
+  String _cityFromRoomName(String roomName) {
+    final parts = roomName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return roomName.trim();
+    return parts.first;
+  }
+
+  String _countryFromRoomName(String roomName) {
+    final parts = roomName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+    if (parts.length < 2) return '';
+    return parts.last;
+  }
+
+  Widget _buildStaggered({required int order, required Widget child}) {
+    final start = (order * 0.07).clamp(0.0, 0.75).toDouble();
+    final end = (start + 0.25).clamp(0.25, 1.0).toDouble();
+
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final value = animation.value;
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 14),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _leaveCurrentRoom() async {
+    final cityName = _cityFromRoomName(widget.roomName);
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: Text('Leave $cityName?'),
+        content: const Text(
+          "You'll leave this chat for now, but you can join again next time you visit",
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _isLeaving = true);
+    try {
+      await leaveRoom(ref, widget.roomId);
+      if (!mounted) return;
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        ModalRoute.withName('/'),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      final message = error is AppError
+          ? error.getUserMessage()
+          : "Couldn't leave that room. Try again?";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isLeaving = false);
+      }
+    }
+  }
+
+  void _openUserDetails(String userId) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => UserDetailsPage(userId: userId),
+      ),
+    );
   }
 
   Widget _buildMembersLoadingSkeleton() {
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacingLG,
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacing2XL,
+      ),
       children: [
         const AppSkeleton(
-          height: 200,
+          height: 220,
           borderRadius: BorderRadius.all(
             Radius.circular(BleyaTheme.radiusLarge),
           ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: BleyaTheme.spacingLG),
         const AppSkeleton(
           height: BleyaTheme.buttonHeight,
           borderRadius: BorderRadius.all(
             Radius.circular(BleyaTheme.radiusSmall),
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: BleyaTheme.spacingXL),
         const AppSkeleton(
-          width: 180,
-          height: 22,
+          width: 120,
+          height: 20,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: BleyaTheme.spacingSM),
         ...List.generate(
           5,
           (index) => Padding(
-            padding: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
             child: Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(BleyaTheme.radiusSmall),
               decoration: BoxDecoration(
-                color: BleyaTheme.glassSurface.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(16),
+                color: BleyaTheme.glassSurface.withValues(alpha: 0.5),
+                borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
                 border: Border.all(
-                  color: BleyaTheme.border.withValues(alpha: 0.2),
+                  color: BleyaTheme.border.withValues(alpha: 0.3),
                   width: 1,
                 ),
+                boxShadow: BleyaTheme.glassShadow,
               ),
               child: const Row(
                 children: [
                   AppSkeleton.circle(size: 48),
-                  SizedBox(width: 12),
+                  SizedBox(width: BleyaTheme.spacingMD),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         AppSkeleton(width: 170, height: 16),
-                        SizedBox(height: 6),
+                        SizedBox(height: BleyaTheme.spacingXS),
                         AppSkeleton(width: 120, height: 12),
                       ],
                     ),
                   ),
-                  SizedBox(width: 8),
+                  SizedBox(width: BleyaTheme.spacingSM),
                   AppSkeleton(width: 16, height: 16),
                 ],
               ),
@@ -101,11 +236,80 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
     );
   }
 
+  Widget _buildMembersContent(
+    List<RoomMember> members,
+    String? currentUserId,
+    String? currentUserBio,
+  ) {
+    final memberCountLabel = _memberCountLabel(members.length);
+    final cityName = _cityFromRoomName(widget.roomName);
+    final countryName = _countryFromRoomName(widget.roomName);
+    final heroSubtitle = countryName;
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacingLG,
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacing3XL,
+      ),
+      children: [
+        _buildStaggered(
+          order: 0,
+          child: RoomHeroCard(
+            roomTitle: cityName,
+            roomSubtitle: heroSubtitle,
+            imageUrl: widget.imageUrl,
+          ),
+        ),
+        const SizedBox(height: BleyaTheme.spacing2XL),
+        _buildStaggered(
+          order: 1,
+          child: MembersSectionHeader(
+            memberCountLabel: memberCountLabel,
+          ),
+        ),
+        const SizedBox(height: BleyaTheme.spacingSM),
+        if (members.isEmpty)
+          _buildStaggered(
+            order: 2,
+            child: const EmptyMembersCard(),
+          )
+        else
+          ...members.asMap().entries.map((entry) {
+            final index = entry.key;
+            final member = entry.value;
+            final isCurrentUser =
+                currentUserId != null && member.id == currentUserId;
+            final bioOverride = isCurrentUser && member.bio.trim().isEmpty
+                ? currentUserBio
+                : null;
+
+            return _buildStaggered(
+              order: 2 + index,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
+                child: RoomMemberTile(
+                  member: member,
+                  bioOverride: bioOverride,
+                  isCurrentUser: isCurrentUser,
+                  onTap: () => _openUserDetails(member.id),
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final membersAsync = ref.watch(roomMembersProvider(widget.roomId));
     final currentUser = ref.watch(currentUserProvider);
+    final profile = ref.watch(profileProvider).valueOrNull;
     final currentUserId = currentUser?['id'] as String?;
+    final currentUserBioFromAuth = currentUser?['bio'] as String?;
+    final currentUserBio = profile?.bio ?? currentUserBioFromAuth;
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -116,385 +320,32 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage> {
           Column(
             children: [
               GlassHeader(
-                leftAction: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(
-                        CupertinoIcons.chevron_left,
-                        size: 28,
-                        color: BleyaTheme.primary,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Back',
-                        style: TextStyle(
-                          fontSize: 17,
-                          color: BleyaTheme.primary,
-                        ),
-                      ),
-                    ],
+                rightAction: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(
+                    BleyaTheme.iconContainerSize,
+                    BleyaTheme.iconContainerSize,
+                  ),
+                  onPressed: _isLeaving ? null : _leaveCurrentRoom,
+                  child: Icon(
+                    CupertinoIcons.square_arrow_right,
+                    size: 24,
+                    color: _isLeaving
+                        ? BleyaTheme.error.withValues(alpha: 0.4)
+                        : BleyaTheme.error,
                   ),
                 ),
-                title: widget.roomName,
+                title: 'Info',
               ),
               Expanded(
                 child: membersAsync.when(
-                  data: (members) {
-                    if (members.isEmpty) {
-                      return Center(
-                        child: Text(
-                          'No members in this room',
-                          style: TextStyle(
-                            fontSize: 16,
-                            color: BleyaTheme.mutedForeground,
-                          ),
-                        ),
-                      );
-                    }
-
-                    return ListView(
-                      padding: const EdgeInsets.all(16),
-                      children: [
-                        Container(
-                          height: 200,
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(20),
-                            boxShadow: [
-                              BoxShadow(
-                                color:
-                                    BleyaTheme.primary.withValues(alpha: 0.2),
-                                blurRadius: 20,
-                                offset: Offset(0, 8),
-                              ),
-                            ],
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(20),
-                            child: Stack(
-                              children: [
-                                // Background Image or Gradient
-                                Positioned.fill(
-                                  child: widget.imageUrl != null
-                                      ? Image.network(
-                                          widget.imageUrl!,
-                                          fit: BoxFit.cover,
-                                          errorBuilder:
-                                              (context, error, stackTrace) {
-                                            // Fallback to gradient on error
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    BleyaTheme.primary
-                                                        .withValues(alpha: 0.8),
-                                                    BleyaTheme.secondary
-                                                        .withValues(alpha: 0.6),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                          loadingBuilder: (context, child,
-                                              loadingProgress) {
-                                            if (loadingProgress == null) {
-                                              return child;
-                                            }
-                                            // Show gradient while loading
-                                            return Container(
-                                              decoration: BoxDecoration(
-                                                gradient: LinearGradient(
-                                                  begin: Alignment.topLeft,
-                                                  end: Alignment.bottomRight,
-                                                  colors: [
-                                                    BleyaTheme.primary
-                                                        .withValues(alpha: 0.8),
-                                                    BleyaTheme.secondary
-                                                        .withValues(alpha: 0.6),
-                                                  ],
-                                                ),
-                                              ),
-                                            );
-                                          },
-                                        )
-                                      : Container(
-                                          decoration: BoxDecoration(
-                                            gradient: LinearGradient(
-                                              begin: Alignment.topLeft,
-                                              end: Alignment.bottomRight,
-                                              colors: [
-                                                BleyaTheme.primary
-                                                    .withValues(alpha: 0.8),
-                                                BleyaTheme.secondary
-                                                    .withValues(alpha: 0.6),
-                                              ],
-                                            ),
-                                          ),
-                                        ),
-                                ),
-                                // Gradient overlay for text readability
-                                Positioned.fill(
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      gradient: LinearGradient(
-                                        begin: Alignment.topCenter,
-                                        end: Alignment.bottomCenter,
-                                        colors: [
-                                          Colors.transparent,
-                                          Colors.black.withValues(alpha: 0.5),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                // Text content
-                                Padding(
-                                  padding: const EdgeInsets.all(20),
-                                  child: Column(
-                                    mainAxisAlignment: MainAxisAlignment.end,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        widget.roomName,
-                                        style: const TextStyle(
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.white,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${members.length} Members in Group',
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          color: Colors.white
-                                              .withValues(alpha: 0.9),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 20),
-                        DangerButton(
-                          text: 'Leave Room',
-                          onPressed: () async {
-                            final confirmed = await showCupertinoDialog<bool>(
-                              context: context,
-                              builder: (context) => CupertinoAlertDialog(
-                                title: const Text('Leave Room'),
-                                content: const Text(
-                                    'Are you sure you want to leave this room?'),
-                                actions: [
-                                  CupertinoDialogAction(
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(false),
-                                    child: const Text('Cancel'),
-                                  ),
-                                  CupertinoDialogAction(
-                                    isDestructiveAction: true,
-                                    onPressed: () =>
-                                        Navigator.of(context).pop(true),
-                                    child: const Text('Leave'),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirmed == true) {
-                              try {
-                                await leaveRoom(ref, widget.roomId);
-                                if (context.mounted) {
-                                  Navigator.of(context).pushNamedAndRemoveUntil(
-                                    '/home',
-                                    ModalRoute.withName('/'),
-                                  );
-                                }
-                              } catch (e) {
-                                if (context.mounted) {
-                                  String errorMessage;
-                                  if (e is AppError) {
-                                    errorMessage = e.getUserMessage();
-                                  } else {
-                                    errorMessage =
-                                        "Couldn't leave that room. Try again?";
-                                  }
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(errorMessage)),
-                                  );
-                                }
-                              }
-                            }
-                          },
-                          trailingIcon: Icon(
-                            CupertinoIcons.arrow_right_square,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(height: 24),
-                        Row(
-                          children: [
-                            Text(
-                              'Members',
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: BleyaTheme.foreground,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '(${members.length})',
-                              style: TextStyle(
-                                fontSize: 18,
-                                color: BleyaTheme.mutedForeground,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 12),
-                        ...members.map((member) {
-                          final displayName = member.username.isNotEmpty
-                              ? member.username
-                              : member.phoneNumber;
-                          final isCurrentUser = currentUserId != null &&
-                              member.id == currentUserId;
-
-                          return GestureDetector(
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (context) => UserDetailsPage(
-                                    userId: member.id,
-                                  ),
-                                ),
-                              );
-                            },
-                            child: Container(
-                              margin: const EdgeInsets.only(bottom: 12),
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: BleyaTheme.glassSurface
-                                    .withValues(alpha: 0.7),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color:
-                                      BleyaTheme.border.withValues(alpha: 0.2),
-                                  width: 1,
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Stack(
-                                    children: [
-                                      ProfileAvatar(
-                                        imageUrl: member.profileImageUrl,
-                                        size: 48,
-                                        backgroundColor:
-                                            BleyaTheme.primaryLight,
-                                        fallbackIcon: CupertinoIcons.person,
-                                        fallbackIconColor:
-                                            BleyaTheme.primaryDark,
-                                      ),
-                                      Positioned(
-                                        right: 0,
-                                        bottom: 0,
-                                        child: Container(
-                                          width: 14,
-                                          height: 14,
-                                          decoration: BoxDecoration(
-                                            color: BleyaTheme.success,
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: BleyaTheme.glassSurface,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Row(
-                                          children: [
-                                            Text(
-                                              displayName,
-                                              style: const TextStyle(
-                                                fontSize: 16,
-                                                fontWeight: FontWeight.w600,
-                                              ),
-                                            ),
-                                            if (isCurrentUser) ...[
-                                              const SizedBox(width: 8),
-                                              Container(
-                                                padding:
-                                                    const EdgeInsets.symmetric(
-                                                  horizontal: 8,
-                                                  vertical: 2,
-                                                ),
-                                                decoration: BoxDecoration(
-                                                  color: BleyaTheme.primary
-                                                      .withValues(alpha: 0.15),
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                ),
-                                                child: const Text(
-                                                  'YOU',
-                                                  style: TextStyle(
-                                                    fontSize: 10,
-                                                    color: BleyaTheme.primary,
-                                                    fontWeight: FontWeight.bold,
-                                                    letterSpacing: 0.5,
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ],
-                                        ),
-                                        if (member.username.isNotEmpty) ...[
-                                          const SizedBox(height: 2),
-                                          Text(
-                                            member.phoneNumber,
-                                            style: TextStyle(
-                                              fontSize: 14,
-                                              color: BleyaTheme.mutedForeground,
-                                            ),
-                                          ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                  Icon(
-                                    CupertinoIcons.chevron_right,
-                                    size: 20,
-                                    color: BleyaTheme.mutedForeground,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    );
-                  },
+                  data: (members) => _buildMembersContent(
+                      members, currentUserId, currentUserBio),
                   loading: _buildMembersLoadingSkeleton,
                   error: (error, stack) => Center(
                     child: ErrorState(
-                      title: 'Error loading members',
-                      description: error.toString(),
+                      title: "Couldn't load members",
+                      description: _resolveMembersError(error),
                       onRetry: () {
                         ref.invalidate(roomMembersProvider(widget.roomId));
                       },

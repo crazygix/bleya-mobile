@@ -163,6 +163,17 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     });
   }
 
+  String _displayRoomTitle(String roomName) {
+    final parts = roomName
+        .split(',')
+        .map((part) => part.trim())
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return roomName;
+    return parts.first;
+  }
+
   List<_ChatListItem> _buildChatItems(List<Message> messages) {
     if (messages.isEmpty) return const [];
     final items = <_ChatListItem>[];
@@ -264,6 +275,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final messages = ref.watch(roomMessagesProvider(widget.room.id));
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
+    final roomDisplayTitle = _displayRoomTitle(widget.room.name);
     final chatItems = _buildChatItems(messages);
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
     return Scaffold(
@@ -276,17 +288,14 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
           Column(
             children: [
               GlassHeader(
-                leftAction: GestureDetector(
-                  onTap: () => Navigator.of(context).pop(),
-                  child: Icon(
-                    CupertinoIcons.chevron_left,
-                    size: 28,
-                    color: BleyaTheme.primary,
+                title: roomDisplayTitle,
+                rightAction: CupertinoButton(
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(
+                    BleyaTheme.iconContainerSize,
+                    BleyaTheme.iconContainerSize,
                   ),
-                ),
-                title: widget.room.name,
-                rightAction: GestureDetector(
-                  onTap: () {
+                  onPressed: () {
                     if (widget.room.isPrivate &&
                         widget.room.otherUserId != null) {
                       Navigator.of(context).push(
@@ -308,7 +317,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                       );
                     }
                   },
-                  child: Icon(
+                  child: const Icon(
                     CupertinoIcons.info,
                     size: 22,
                     color: BleyaTheme.primary,
