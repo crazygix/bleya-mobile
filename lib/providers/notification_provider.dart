@@ -61,7 +61,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> loadMore() async {
-    final current = state.value;
+    final current = state.valueOrNull;
     if (current == null || !current.hasMore || state.isLoading) return;
 
     // Prevent concurrent loads
@@ -86,8 +86,11 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
         // Update unread count as well from server
         unreadCount: page.unreadCount,
       ));
-    } catch (e, st) {
-      state = AsyncError(e, st);
+    } catch (e) {
+      if (kDebugMode) {
+        print('notifications/loadMore failed: $e');
+      }
+      // Keep current data on pagination errors/timeouts.
     }
   }
 
@@ -97,7 +100,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> markAsRead(String notificationId) async {
-    final current = state.value;
+    final current = state.valueOrNull;
     if (current == null) return;
 
     // Update locally but stay in list
@@ -129,7 +132,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> markAllAsRead() async {
-    final current = state.value;
+    final current = state.valueOrNull;
     if (current == null) return;
 
     // Mark all as read but keep in list
@@ -150,7 +153,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> dismissNotification(String notificationId) async {
-    final current = state.value;
+    final current = state.valueOrNull;
     if (current == null) return;
 
     // Remove from list immediately (UX: it disappears when tapped/handled)
@@ -178,7 +181,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> dismissAll() async {
-    final current = state.value;
+    final current = state.valueOrNull;
     if (current == null) return;
 
     // Clear everything for "Inbox Zero"
@@ -198,7 +201,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   void handleNewNotification(Notification notification) {
-    final current = state.value;
+    final current = state.valueOrNull;
     if (current == null) return; // Not loaded yet
 
     final currentOpenThreadId = ref.read(currentOpenThreadIdProvider);

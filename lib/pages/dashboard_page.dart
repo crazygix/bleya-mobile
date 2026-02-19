@@ -7,9 +7,9 @@ import '../widgets/liquid_glass_background.dart';
 import '../widgets/room_card.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/glass_circle_icon_button.dart';
+import '../widgets/pull_to_refresh_error_state.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
-import '../utils/app_errors.dart';
 import '../utils/time_formatter.dart';
 import 'chat_room_page.dart';
 import 'settings_page.dart';
@@ -295,33 +295,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         );
       },
       loading: _buildRoomsSkeleton,
-      error: (error, stack) {
-        String errorMessage;
-        if (error is AppError) {
-          errorMessage = error.getUserMessage();
-        } else {
-          errorMessage = "Couldn't load your rooms. Pull down to refresh.";
-        }
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Padding(
-                padding: EdgeInsets.all(BleyaTheme.spacing2XL),
-                child: Text(
-                  errorMessage,
-                  style: BleyaTheme.bodyLarge,
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              TextButton(
-                onPressed: _handleRefresh,
-                child: const Text('Retry'),
-              ),
-            ],
-          ),
-        );
-      },
+      error: (_, __) => PullToRefreshErrorState(
+        title: "Oops, chats didn't load",
+        description: 'Pull down to try again.',
+        onRefresh: _handleRefresh,
+      ),
     );
   }
 

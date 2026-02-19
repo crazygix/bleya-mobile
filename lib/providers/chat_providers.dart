@@ -187,11 +187,16 @@ class RoomsListController
     _isRefreshingRooms = true;
 
     try {
+      if (_roomSummaryHandler == null) {
+        await socketService.ensureConnectedForUserChannel();
+        _roomSummaryHandler = socketService.addListener(
+          'room_summary_updated',
+          _onRoomSummaryUpdated,
+        );
+      }
+
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
       final rooms = await getJoinedRoomsUseCase();
-      if (rooms.isEmpty && state.value == null) {
-        return;
-      }
 
       final existingItems = state.value ?? const <RoomListItem>[];
       final existingUnreadByRoomId = <String, int>{

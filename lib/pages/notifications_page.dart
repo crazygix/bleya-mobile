@@ -5,6 +5,7 @@ import '../constants/theme.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/notification_tile.dart';
 import '../widgets/empty_state.dart';
+import '../widgets/pull_to_refresh_error_state.dart';
 import 'thread_view_page.dart';
 import '../providers/repository_providers.dart';
 
@@ -36,7 +37,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     // When leaving the Activity tab, mark everything as read to clear the badge
     // but keep them in the list (Dismissal happens only on tap)
     final state = _container.read(notificationStateProvider);
-    if (state.valueOrNull != null && state.value!.unreadCount > 0) {
+    final unreadCount = state.valueOrNull?.unreadCount ?? 0;
+    if (unreadCount > 0) {
       _container.read(notificationStateProvider.notifier).markAllAsRead();
     }
 
@@ -113,6 +115,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(notificationStateProvider);
+    final unreadCount = state.valueOrNull?.unreadCount ?? 0;
 
     return Scaffold(
       backgroundColor: Colors.transparent, // Handled by dashboard background
@@ -133,8 +136,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     'Activity',
                     style: BleyaTheme.headingMedium,
                   ),
-                  if (state.value?.unreadCount != null &&
-                      state.value!.unreadCount > 0)
+                  if (unreadCount > 0)
                     IconButton(
                       onPressed: _markAllRead,
                       padding: EdgeInsets.zero,
@@ -197,17 +199,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                   itemCount: 6,
                   itemBuilder: (_, __) => const NotificationTileSkeleton(),
                 ),
-                error: (err, stack) => Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text('Error: $err'),
-                      TextButton(
-                        onPressed: _handleRefresh,
-                        child: const Text('Retry'),
-                      ),
-                    ],
-                  ),
+                error: (_, __) => PullToRefreshErrorState(
+                  title: "Oops, activities didn't load",
+                  description: 'Pull down to try again.',
+                  onRefresh: _handleRefresh,
                 ),
               ),
             ),

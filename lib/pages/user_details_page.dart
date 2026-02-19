@@ -7,6 +7,8 @@ import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/empty_state.dart';
+import '../widgets/error_state.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/glass_header.dart';
@@ -26,23 +28,39 @@ class UserDetailsPage extends ConsumerStatefulWidget {
   ConsumerState<UserDetailsPage> createState() => _UserDetailsPageState();
 }
 
-class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
+class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
+    with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _isCreatingChat = false;
   UserProfile? _userData;
+  String? _loadErrorMessage;
+  late final AnimationController _entranceController;
 
   @override
   void initState() {
     super.initState();
+    _entranceController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadUserData();
     });
   }
 
+  @override
+  void dispose() {
+    _entranceController.dispose();
+    super.dispose();
+  }
+
   Future<void> _loadUserData() async {
     try {
       if (!mounted) return;
-      setState(() => _isLoading = true);
+      setState(() {
+        _isLoading = true;
+        _loadErrorMessage = null;
+      });
 
       final getUserByIdUseCase = ref.read(getUserByIdUseCaseProvider);
       final user = await getUserByIdUseCase(widget.userId);
@@ -51,22 +69,17 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
       setState(() {
         _userData = user;
         _isLoading = false;
+        _loadErrorMessage = null;
       });
+      _entranceController.forward(from: 0);
     } catch (e) {
       if (!mounted) return;
-      setState(() => _isLoading = false);
-
-      if (mounted) {
-        String errorMessage;
-        if (e is AppError) {
-          errorMessage = e.getUserMessage();
-        } else {
-          errorMessage = "Couldn't load that user. Try again?";
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
-      }
+      final errorMessage =
+          e is AppError ? e.getUserMessage() : "Couldn't load this profile.";
+      setState(() {
+        _isLoading = false;
+        _loadErrorMessage = errorMessage;
+      });
     }
   }
 
@@ -83,7 +96,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
 
       // Navigate to chat room
       Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
+        CupertinoPageRoute(
           builder: (context) => ChatRoomPage(room: room),
         ),
       );
@@ -105,64 +118,352 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     }
   }
 
+  Widget _buildStaggered({
+    required int order,
+    required Widget child,
+  }) {
+    final start = (order * 0.06).clamp(0.0, 0.75).toDouble();
+    final end = (start + 0.25).clamp(0.25, 1.0).toDouble();
+
+    final animation = CurvedAnimation(
+      parent: _entranceController,
+      curve: Interval(start, end, curve: Curves.easeOutCubic),
+    );
+
+    return AnimatedBuilder(
+      animation: animation,
+      child: child,
+      builder: (context, child) {
+        final value = animation.value;
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 14),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  BoxDecoration _glassCardDecoration({double alpha = 0.58}) {
+    return BoxDecoration(
+      color: BleyaTheme.glassSurface.withValues(alpha: alpha),
+      borderRadius: BorderRadius.circular(BleyaTheme.radiusLarge),
+      border: Border.all(
+        color: BleyaTheme.border.withValues(alpha: 0.3),
+        width: 1,
+      ),
+      boxShadow: BleyaTheme.glassShadow,
+    );
+  }
+
+  String _displayName(UserProfile profile) {
+    final username = profile.username?.trim() ?? '';
+    if (username.isNotEmpty) return username;
+    return 'Guest';
+  }
+
   Widget _buildUserDetailsSkeleton() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacingLG,
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacing3XL,
+      ),
+      children: [
+        Container(
+          padding: const EdgeInsets.all(BleyaTheme.spacing2XL),
+          decoration: _glassCardDecoration(alpha: 0.62),
+          child: const Column(
+            children: [
+              AppSkeleton.circle(size: 108),
+              SizedBox(height: BleyaTheme.spacingXL),
+              AppSkeleton(width: 180, height: 26),
+              SizedBox(height: BleyaTheme.spacingSM),
+              AppSkeleton(width: 220, height: 15),
+              SizedBox(height: BleyaTheme.spacingXL),
+              AppSkeleton(
+                height: BleyaTheme.buttonHeight,
+                borderRadius: BorderRadius.all(
+                  Radius.circular(BleyaTheme.radiusSmall),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: BleyaTheme.spacingLG),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(BleyaTheme.spacingXL),
+          decoration: _glassCardDecoration(alpha: 0.6),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppSkeleton(width: 90, height: 18),
+              SizedBox(height: BleyaTheme.spacingMD),
+              AppSkeleton(height: 14),
+              SizedBox(height: BleyaTheme.spacingSM),
+              AppSkeleton(height: 14),
+            ],
+          ),
+        ),
+        const SizedBox(height: BleyaTheme.spacingLG),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(BleyaTheme.spacingXL),
+          decoration: _glassCardDecoration(alpha: 0.6),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppSkeleton(width: 110, height: 18),
+              SizedBox(height: BleyaTheme.spacingMD),
+              AppSkeleton(height: 14),
+              SizedBox(height: BleyaTheme.spacingSM),
+              AppSkeleton(height: 14),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHeroCard(UserProfile profile, {required bool isOwnProfile}) {
+    final name = _displayName(profile);
+
+    return Container(
+      padding: const EdgeInsets.all(BleyaTheme.spacing2XL),
+      decoration: _glassCardDecoration(alpha: 0.62),
       child: Column(
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: BleyaTheme.glassSurface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(
-                color: BleyaTheme.border.withValues(alpha: 0.2),
-                width: 1,
-              ),
-              boxShadow: BleyaTheme.glassShadow,
-            ),
-            child: const Column(
-              children: [
-                AppSkeleton.circle(size: 100),
-                SizedBox(height: 20),
-                AppSkeleton(width: 170, height: 24),
-                SizedBox(height: 20),
-                AppSkeleton(
-                  height: BleyaTheme.buttonHeight,
-                  borderRadius: BorderRadius.all(
-                    Radius.circular(BleyaTheme.radiusSmall),
-                  ),
-                ),
-              ],
-            ),
+          ProfileAvatar(
+            imageUrl: profile.profileImageUrl,
+            size: 108,
+            borderColor: Colors.white.withValues(alpha: 0.7),
+            borderWidth: 2,
+            backgroundColor: BleyaTheme.primaryLight,
+            fallbackIcon: CupertinoIcons.person,
+            fallbackIconColor: BleyaTheme.primaryDark,
           ),
-          const SizedBox(height: 20),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: BleyaTheme.glassSurface.withValues(alpha: 0.9),
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: BleyaTheme.border.withValues(alpha: 0.2),
-                width: 1,
+          const SizedBox(height: BleyaTheme.spacingXL),
+          Text(
+            name,
+            style: BleyaTheme.headingMedium.copyWith(
+              fontSize: 32,
+              height: 1.0,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: BleyaTheme.spacingSM),
+          Text(
+            isOwnProfile
+                ? 'This is your profile.'
+                : "Here's what ${name.split(' ').first} shared.",
+            style: BleyaTheme.bodyMedium.copyWith(
+              color: BleyaTheme.mutedForeground,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          if (!isOwnProfile) ...[
+            const SizedBox(height: BleyaTheme.spacingXL),
+            PrimaryButton(
+              text: _isCreatingChat ? 'Opening chat...' : 'Say hey',
+              onPressed: _startChat,
+              isLoading: _isCreatingChat,
+              trailingIcon: const Icon(
+                CupertinoIcons.chat_bubble,
+                color: Colors.white,
+                size: 20,
               ),
             ),
-            child: const Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                AppSkeleton(width: 80, height: 16),
-                SizedBox(height: 12),
-                AppSkeleton(height: 14),
-                SizedBox(height: 8),
-                AppSkeleton(height: 14),
-                SizedBox(height: 8),
-                AppSkeleton(width: 120, height: 14),
-              ],
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBioCard(UserProfile profile) {
+    final bio = profile.bio?.trim() ?? '';
+    final hasBio = bio.isNotEmpty;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BleyaTheme.spacingXL),
+      decoration: _glassCardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                CupertinoIcons.quote_bubble,
+                size: 20,
+                color: BleyaTheme.primary,
+              ),
+              const SizedBox(width: BleyaTheme.spacingSM),
+              Text(
+                'About',
+                style: BleyaTheme.listTitle.copyWith(fontSize: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: BleyaTheme.spacingMD),
+          Text(
+            hasBio ? bio : 'No bio yet.',
+            style: BleyaTheme.bodyLarge.copyWith(
+              color:
+                  hasBio ? BleyaTheme.foreground87 : BleyaTheme.mutedForeground,
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildMetaRow({
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Row(
+      children: [
+        Icon(
+          icon,
+          size: 18,
+          color: BleyaTheme.primary,
+        ),
+        const SizedBox(width: BleyaTheme.spacingSM),
+        Expanded(
+          child: Text(
+            label,
+            style: BleyaTheme.bodySmall.copyWith(
+              color: BleyaTheme.mutedForeground,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        Text(
+          value,
+          style: BleyaTheme.bodySmall.copyWith(
+            color: BleyaTheme.foreground,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDetailsCard(BuildContext context, UserProfile profile) {
+    final rows = <Widget>[
+      if (profile.createdAt != null)
+        _buildMetaRow(
+          icon: CupertinoIcons.calendar,
+          label: 'Member since',
+          value: _formatDate(context, profile.createdAt!),
+        ),
+      if (profile.lastLogin != null) ...[
+        if (profile.createdAt != null)
+          const SizedBox(height: BleyaTheme.spacingMD),
+        _buildMetaRow(
+          icon: CupertinoIcons.clock,
+          label: 'Last active',
+          value: _formatDate(context, profile.lastLogin!),
+        ),
+      ],
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(BleyaTheme.spacingXL),
+      decoration: _glassCardDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                CupertinoIcons.info_circle,
+                size: 20,
+                color: BleyaTheme.primary,
+              ),
+              const SizedBox(width: BleyaTheme.spacingSM),
+              Text(
+                'Details',
+                style: BleyaTheme.listTitle.copyWith(fontSize: 18),
+              ),
+            ],
+          ),
+          const SizedBox(height: BleyaTheme.spacingMD),
+          if (rows.isEmpty)
+            Text(
+              "No extra details yet.",
+              style: BleyaTheme.bodyMedium,
+            )
+          else
+            ...rows,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLoadedContent({
+    required BuildContext context,
+    required UserProfile profile,
+    required bool isOwnProfile,
+  }) {
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacingLG,
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacing3XL,
+      ),
+      children: [
+        _buildStaggered(
+          order: 0,
+          child: _buildHeroCard(profile, isOwnProfile: isOwnProfile),
+        ),
+        const SizedBox(height: BleyaTheme.spacingLG),
+        _buildStaggered(
+          order: 1,
+          child: _buildBioCard(profile),
+        ),
+        const SizedBox(height: BleyaTheme.spacingLG),
+        _buildStaggered(
+          order: 2,
+          child: _buildDetailsCard(context, profile),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildBody(BuildContext context, bool isOwnProfile) {
+    if (_isLoading) {
+      return _buildUserDetailsSkeleton();
+    }
+
+    if (_loadErrorMessage != null) {
+      return ErrorState(
+        title: "Couldn't open profile",
+        description: _loadErrorMessage!,
+        onRetry: _loadUserData,
+      );
+    }
+
+    final userData = _userData;
+    if (userData == null) {
+      return const EmptyState(
+        icon: CupertinoIcons.person,
+        title: 'No profile yet',
+        description: "Looks like this profile isn't available right now.",
+      );
+    }
+
+    return _buildLoadedContent(
+      context: context,
+      profile: userData,
+      isOwnProfile: isOwnProfile,
     );
   }
 
@@ -180,166 +481,11 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
           const LiquidGlassBackground(),
           Column(
             children: [
-              GlassHeader(
-                title: 'User Details',
+              const GlassHeader(
+                title: 'Profile',
               ),
               Expanded(
-                child: _isLoading
-                    ? _buildUserDetailsSkeleton()
-                    : _userData == null
-                        ? Center(
-                            child: Text(
-                              'User not found',
-                              style: TextStyle(
-                                fontSize: 16,
-                                color: BleyaTheme.mutedForeground,
-                              ),
-                            ),
-                          )
-                        : SingleChildScrollView(
-                            padding: const EdgeInsets.all(20.0),
-                            child: Column(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(24),
-                                  decoration: BoxDecoration(
-                                    color: BleyaTheme.glassSurface
-                                        .withValues(alpha: 0.9),
-                                    borderRadius: BorderRadius.circular(24),
-                                    border: Border.all(
-                                      color: BleyaTheme.border
-                                          .withValues(alpha: 0.2),
-                                      width: 1,
-                                    ),
-                                    boxShadow: BleyaTheme.glassShadow,
-                                  ),
-                                  child: Column(
-                                    children: [
-                                      ProfileAvatar(
-                                        imageUrl: _userData!.profileImageUrl,
-                                        size: 100,
-                                        backgroundColor:
-                                            BleyaTheme.primaryLight,
-                                        fallbackIcon: CupertinoIcons.person,
-                                        fallbackIconColor:
-                                            BleyaTheme.primaryDark,
-                                      ),
-                                      const SizedBox(height: 20),
-                                      Text(
-                                        _userData!.username?.isNotEmpty == true
-                                            ? _userData!.username!
-                                            : 'No username',
-                                        style: const TextStyle(
-                                          fontSize: 26,
-                                          fontWeight: FontWeight.bold,
-                                          color: BleyaTheme.foreground,
-                                        ),
-                                      ),
-                                      if (!isOwnProfile) ...[
-                                        const SizedBox(height: 20),
-                                        PrimaryButton(
-                                          text: _isCreatingChat
-                                              ? 'Opening chat...'
-                                              : 'Chat',
-                                          onPressed: _startChat,
-                                          isLoading: _isCreatingChat,
-                                          trailingIcon: Icon(
-                                            CupertinoIcons.chat_bubble,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(height: 20),
-                                if (_userData!.bio?.isNotEmpty == true)
-                                  Container(
-                                    width: double.infinity,
-                                    padding: const EdgeInsets.all(20),
-                                    decoration: BoxDecoration(
-                                      color: BleyaTheme.glassSurface
-                                          .withValues(alpha: 0.9),
-                                      borderRadius: BorderRadius.circular(20),
-                                      border: Border.all(
-                                        color: BleyaTheme.border
-                                            .withValues(alpha: 0.2),
-                                        width: 1,
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'About',
-                                          style: TextStyle(
-                                            fontSize: 18,
-                                            fontWeight: FontWeight.bold,
-                                            color: BleyaTheme.foreground,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        Text(
-                                          _userData!.bio!,
-                                          style: TextStyle(
-                                            fontSize: 15,
-                                            color: BleyaTheme.foreground,
-                                            height: 1.5,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                if (_userData!.bio?.isNotEmpty == true)
-                                  const SizedBox(height: 20),
-                                Container(
-                                  width: double.infinity,
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: BleyaTheme.glassSurface
-                                        .withValues(alpha: 0.9),
-                                    borderRadius: BorderRadius.circular(20),
-                                    border: Border.all(
-                                      color: BleyaTheme.border
-                                          .withValues(alpha: 0.2),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Information',
-                                        style: TextStyle(
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                          color: BleyaTheme.foreground,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      if (_userData!.createdAt != null)
-                                        _buildInfoRow(
-                                          context,
-                                          'Member since',
-                                          _formatDate(_userData!.createdAt),
-                                        ),
-                                      if (_userData!.lastLogin != null) ...[
-                                        const SizedBox(height: 12),
-                                        _buildInfoRow(
-                                          context,
-                                          'Last login',
-                                          _formatDate(_userData!.lastLogin),
-                                        ),
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                child: _buildBody(context, isOwnProfile),
               ),
             ],
           ),
@@ -348,28 +494,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage> {
     );
   }
 
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: BleyaTheme.greyText,
-              ),
-        ),
-        Text(
-          value,
-          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w500,
-              ),
-        ),
-      ],
-    );
-  }
-
-  String _formatDate(DateTime? date) {
-    if (date == null) return 'N/A';
-    return '${date.day}/${date.month}/${date.year}';
+  String _formatDate(BuildContext context, DateTime date) {
+    return MaterialLocalizations.of(context).formatMediumDate(date);
   }
 }

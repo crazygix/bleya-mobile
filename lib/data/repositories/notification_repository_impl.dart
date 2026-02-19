@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import '../../core/errors/api_error_mapper.dart';
 import '../../domain/repositories/notification_repository.dart';
@@ -9,32 +11,54 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   NotificationRepositoryImpl(this._dio);
 
+  static bool _isTransientNetworkError(DioException e) {
+    return e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.sendTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.connectionError;
+  }
+
   @override
   Future<NotificationPage> fetchNotifications(
       {int? limit, String? before}) async {
-    try {
-      final queryParams = <String, dynamic>{};
-      if (limit != null) queryParams['limit'] = limit;
-      if (before != null) queryParams['before'] = before;
+    final queryParams = <String, dynamic>{};
+    if (limit != null) queryParams['limit'] = limit;
+    if (before != null) queryParams['before'] = before;
 
-      final response = await _dio.get(
-        '/notifications',
-        queryParameters: queryParams.isEmpty ? null : queryParams,
-      );
+    DioException? lastDioError;
 
-      final data = response.data as Map<String, dynamic>;
-      final list = (data['notifications'] as List)
-          .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
-          .toList();
+    for (var attempt = 0; attempt < 2; attempt++) {
+      try {
+        final response = await _dio.get(
+          '/notifications',
+          queryParameters: queryParams.isEmpty ? null : queryParams,
+          options: Options(
+            sendTimeout: const Duration(seconds: 20),
+            receiveTimeout: const Duration(seconds: 45),
+          ),
+        );
 
-      return NotificationPage(
-        notifications: list,
-        unreadCount: data['unreadCount'] as int? ?? 0,
-        nextCursor: data['nextCursor']?.toString(),
-      );
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
+        final data = response.data as Map<String, dynamic>;
+        final list = (data['notifications'] as List)
+            .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
+            .toList();
+
+        return NotificationPage(
+          notifications: list,
+          unreadCount: data['unreadCount'] as int? ?? 0,
+          nextCursor: data['nextCursor']?.toString(),
+        );
+      } on DioException catch (e) {
+        lastDioError = e;
+        final isLastAttempt = attempt == 1;
+        if (!_isTransientNetworkError(e) || isLastAttempt) {
+          break;
+        }
+        await Future.delayed(const Duration(milliseconds: 350));
+      }
     }
+
+    throw ApiErrorMapper.mapDioError(lastDioError!);
   }
 
   @override
