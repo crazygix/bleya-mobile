@@ -53,7 +53,7 @@ class IntroPage extends StatelessWidget {
                     ),
                     const SizedBox(height: BleyaTheme.spacingSM),
                     Text(
-                      'Meet travelers. Make memories.',
+                      'Built for solo travelers. Open to everyone.',
                       style: BleyaTheme.bodyLarge.copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,
@@ -73,7 +73,7 @@ class IntroPage extends StatelessWidget {
                       color: BleyaTheme.foreground,
                     ),
                     children: [
-                      TextSpan(text: 'Your next adventure starts with a '),
+                      TextSpan(text: 'Your next solo adventure starts with a '),
                       TextSpan(
                         text: 'conversation',
                         style: TextStyle(color: BleyaTheme.primary),
@@ -90,16 +90,17 @@ class IntroPage extends StatelessWidget {
                     _FeatureItem(
                       icon: CupertinoIcons.location,
                       iconColor: BleyaTheme.primary,
-                      title: 'Discover Travelers',
+                      title: 'Discover people nearby',
                       description:
-                          'Find people exploring the same city as you.',
+                          'Find people exploring the same city, even when you are on your own.',
                     ),
                     const SizedBox(height: BleyaTheme.spacingMD),
                     _FeatureItem(
                       icon: CupertinoIcons.person_2,
                       iconColor: BleyaTheme.secondary,
                       title: 'Connect Instantly',
-                      description: 'Real-time chat with fellow adventurers.',
+                      description:
+                          'Real-time chat that makes solo trips feel social.',
                     ),
                     const SizedBox(height: BleyaTheme.spacingMD),
                     _FeatureItem(

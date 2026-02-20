@@ -3,6 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 class BleyaTheme {
   // ========================================
+  // PRODUCT POSITIONING
+  // ========================================
+  // Bleya is built for solo travelers first.
+  // Other travelers are welcome, but product defaults and messaging should
+  // prioritize solo-traveler confidence, safety, and social discovery.
+
+  // ========================================
   // CAFÉ COAST COLOR PALETTE
   // ========================================
 

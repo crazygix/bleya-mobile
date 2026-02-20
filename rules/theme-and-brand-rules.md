@@ -26,6 +26,23 @@ Their content is preserved below as code for reference.
 /// - Harsh, saturated colors
 ///
 /// ========================================
+/// 1.1 PRODUCT PRIORITY: "SOLO TRAVELERS FIRST"
+/// ========================================
+///
+/// PRIMARY AUDIENCE:
+/// - Solo travelers are the #1 priority in product decisions, copy, and UX defaults.
+/// - Other travelers are welcome, but we optimize first for people exploring alone.
+///
+/// EXPERIENCE PRIORITIES (IN ORDER):
+/// 1. Safety and confidence for someone traveling solo
+/// 2. Fast, low-friction ways to meet people in a new city
+/// 3. General travel social utility for everyone else
+///
+/// POSITIONING RULE:
+/// - Key onboarding and discovery copy should explicitly signal the solo-traveler focus.
+/// - Prefer phrasing like: "Built for solo travelers. Open to everyone."
+///
+/// ========================================
 /// 2. THE COLOR PALETTE: "CAFÉ COAST"
 /// ========================================
 ///
@@ -114,6 +131,7 @@ Their content is preserved below as code for reference.
 ///   - Use contractions naturally
 ///   - Active voice always
 ///   - Short sentences for clarity
+///   - Assume a "party of one" default in examples and microcopy
 ///   - Even "bad" moments should feel calm and "Café Coast"
 ///   - Error messages: Encouraging, not accusatory
 ///   - Success messages: Welcoming and forward-looking
@@ -266,4 +284,13 @@ Used for any list item representing a person, room, or entity.
     - Title: `listTitle` (16px, w700)
     - Subtitle: `bodySmall` (differs by context, typically muted)
 
+## 7. Product Positioning Guardrails (Solo Travelers)
+
+Apply these guardrails to new features, screens, and copy updates:
+
+- State solo-first positioning clearly in onboarding and first-run surfaces.
+- Prioritize "safe to start a conversation" over "high volume of matches."
+- Keep first actions lightweight for users arriving alone in a new city.
+- Avoid copy that assumes users are already traveling with a group.
+- Keep flows inclusive: solo-first by default, but never exclusionary toward other travelers.
 
