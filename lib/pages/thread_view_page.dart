@@ -100,6 +100,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
           MaterialPageRoute(
             builder: (context) => UserDetailsPage(
               userId: message.userId,
+              showSayHeyButton: !widget.room.isPrivate,
             ),
           ),
         );

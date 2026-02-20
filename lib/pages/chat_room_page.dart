@@ -302,6 +302,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                         MaterialPageRoute(
                           builder: (context) => UserDetailsPage(
                             userId: widget.room.otherUserId!,
+                            showSayHeyButton: false,
                           ),
                         ),
                       );
@@ -378,6 +379,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                       MaterialPageRoute(
                                         builder: (context) => UserDetailsPage(
                                           userId: message.userId,
+                                          showSayHeyButton:
+                                              !widget.room.isPrivate,
                                         ),
                                       ),
                                     );

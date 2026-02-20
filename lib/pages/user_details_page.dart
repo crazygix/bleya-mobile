@@ -18,10 +18,12 @@ import 'chat_room_page.dart';
 
 class UserDetailsPage extends ConsumerStatefulWidget {
   final String userId;
+  final bool showSayHeyButton;
 
   const UserDetailsPage({
     super.key,
     required this.userId,
+    this.showSayHeyButton = true,
   });
 
   @override
@@ -176,20 +178,22 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
         Container(
           padding: const EdgeInsets.all(BleyaTheme.spacing2XL),
           decoration: _glassCardDecoration(alpha: 0.62),
-          child: const Column(
+          child: Column(
             children: [
-              AppSkeleton.circle(size: 108),
-              SizedBox(height: BleyaTheme.spacingXL),
-              AppSkeleton(width: 180, height: 26),
-              SizedBox(height: BleyaTheme.spacingSM),
-              AppSkeleton(width: 220, height: 15),
-              SizedBox(height: BleyaTheme.spacingXL),
-              AppSkeleton(
-                height: BleyaTheme.buttonHeight,
-                borderRadius: BorderRadius.all(
-                  Radius.circular(BleyaTheme.radiusSmall),
+              const AppSkeleton.circle(size: 108),
+              const SizedBox(height: BleyaTheme.spacingXL),
+              const AppSkeleton(width: 180, height: 26),
+              const SizedBox(height: BleyaTheme.spacingSM),
+              const AppSkeleton(width: 220, height: 15),
+              if (widget.showSayHeyButton) ...[
+                const SizedBox(height: BleyaTheme.spacingXL),
+                const AppSkeleton(
+                  height: BleyaTheme.buttonHeight,
+                  borderRadius: BorderRadius.all(
+                    Radius.circular(BleyaTheme.radiusSmall),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
@@ -239,7 +243,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
             ),
             textAlign: TextAlign.center,
           ),
-          if (!isOwnProfile) ...[
+          if (!isOwnProfile && widget.showSayHeyButton) ...[
             const SizedBox(height: BleyaTheme.spacingXL),
             PrimaryButton(
               text: _isCreatingChat ? 'Opening chat...' : 'Say hey',
