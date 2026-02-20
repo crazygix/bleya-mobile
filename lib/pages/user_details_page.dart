@@ -209,22 +209,6 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
             ],
           ),
         ),
-        const SizedBox(height: BleyaTheme.spacingLG),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(BleyaTheme.spacingXL),
-          decoration: _glassCardDecoration(alpha: 0.6),
-          child: const Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AppSkeleton(width: 110, height: 18),
-              SizedBox(height: BleyaTheme.spacingMD),
-              AppSkeleton(height: 14),
-              SizedBox(height: BleyaTheme.spacingSM),
-              AppSkeleton(height: 14),
-            ],
-          ),
-        ),
       ],
     );
   }
@@ -252,16 +236,6 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
             style: BleyaTheme.headingMedium.copyWith(
               fontSize: 32,
               height: 1.0,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: BleyaTheme.spacingSM),
-          Text(
-            isOwnProfile
-                ? 'This is your profile.'
-                : "Here's what ${name.split(' ').first} shared.",
-            style: BleyaTheme.bodyMedium.copyWith(
-              color: BleyaTheme.mutedForeground,
             ),
             textAlign: TextAlign.center,
           ),
@@ -321,94 +295,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     );
   }
 
-  Widget _buildMetaRow({
-    required IconData icon,
-    required String label,
-    required String value,
-  }) {
-    return Row(
-      children: [
-        Icon(
-          icon,
-          size: 18,
-          color: BleyaTheme.primary,
-        ),
-        const SizedBox(width: BleyaTheme.spacingSM),
-        Expanded(
-          child: Text(
-            label,
-            style: BleyaTheme.bodySmall.copyWith(
-              color: BleyaTheme.mutedForeground,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: BleyaTheme.bodySmall.copyWith(
-            color: BleyaTheme.foreground,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDetailsCard(BuildContext context, UserProfile profile) {
-    final rows = <Widget>[
-      if (profile.createdAt != null)
-        _buildMetaRow(
-          icon: CupertinoIcons.calendar,
-          label: 'Member since',
-          value: _formatDate(context, profile.createdAt!),
-        ),
-      if (profile.lastLogin != null) ...[
-        if (profile.createdAt != null)
-          const SizedBox(height: BleyaTheme.spacingMD),
-        _buildMetaRow(
-          icon: CupertinoIcons.clock,
-          label: 'Last active',
-          value: _formatDate(context, profile.lastLogin!),
-        ),
-      ],
-    ];
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BleyaTheme.spacingXL),
-      decoration: _glassCardDecoration(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(
-                CupertinoIcons.info_circle,
-                size: 20,
-                color: BleyaTheme.primary,
-              ),
-              const SizedBox(width: BleyaTheme.spacingSM),
-              Text(
-                'Details',
-                style: BleyaTheme.listTitle.copyWith(fontSize: 18),
-              ),
-            ],
-          ),
-          const SizedBox(height: BleyaTheme.spacingMD),
-          if (rows.isEmpty)
-            Text(
-              "No extra details yet.",
-              style: BleyaTheme.bodyMedium,
-            )
-          else
-            ...rows,
-        ],
-      ),
-    );
-  }
-
   Widget _buildLoadedContent({
-    required BuildContext context,
     required UserProfile profile,
     required bool isOwnProfile,
   }) {
@@ -428,11 +315,6 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
         _buildStaggered(
           order: 1,
           child: _buildBioCard(profile),
-        ),
-        const SizedBox(height: BleyaTheme.spacingLG),
-        _buildStaggered(
-          order: 2,
-          child: _buildDetailsCard(context, profile),
         ),
       ],
     );
@@ -461,7 +343,6 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     }
 
     return _buildLoadedContent(
-      context: context,
       profile: userData,
       isOwnProfile: isOwnProfile,
     );
@@ -492,9 +373,5 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
         ],
       ),
     );
-  }
-
-  String _formatDate(BuildContext context, DateTime date) {
-    return MaterialLocalizations.of(context).formatMediumDate(date);
   }
 }
