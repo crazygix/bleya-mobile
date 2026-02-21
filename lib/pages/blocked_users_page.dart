@@ -16,13 +16,19 @@ import 'user_details_page.dart';
 class BlockedUsersPage extends ConsumerWidget {
   const BlockedUsersPage({super.key});
 
+  Widget _buildOpticallyCenteredState(Widget child) {
+    return Transform.translate(
+      offset: const Offset(0, -24),
+      child: child,
+    );
+  }
+
   Future<void> _openUserDetails(
       BuildContext context, WidgetRef ref, String userId) async {
     await Navigator.of(context).push(
       CupertinoPageRoute(
         builder: (context) => UserDetailsPage(
           userId: userId,
-          showSayHeyButton: false,
         ),
       ),
     );
@@ -75,14 +81,11 @@ class BlockedUsersPage extends ConsumerWidget {
   Widget _buildList(
       BuildContext context, WidgetRef ref, List<BlockedUser> users) {
     if (users.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: BleyaTheme.spacing3XL),
-          child: EmptyState(
-            icon: CupertinoIcons.shield,
-            title: 'No blocked users',
-            description: 'People you block will appear here.',
-          ),
+      return _buildOpticallyCenteredState(
+        const EmptyState(
+          icon: CupertinoIcons.shield,
+          title: 'No blocked users',
+          description: 'People you block will appear here.',
         ),
       );
     }
@@ -177,12 +180,14 @@ class BlockedUsersPage extends ConsumerWidget {
               Expanded(
                 child: blockedUsersAsync.when(
                   loading: _buildLoadingState,
-                  error: (error, _) => ErrorState(
-                    title: "Couldn't load blocked users",
-                    description: error is AppError
-                        ? error.getUserMessage()
-                        : "Something went wrong. Try again?",
-                    onRetry: () => ref.invalidate(blockedUsersProvider),
+                  error: (error, _) => _buildOpticallyCenteredState(
+                    ErrorState(
+                      title: "Couldn't load blocked users",
+                      description: error is AppError
+                          ? error.getUserMessage()
+                          : "Something went wrong. Try again?",
+                      onRetry: () => ref.invalidate(blockedUsersProvider),
+                    ),
                   ),
                   data: (users) => _buildList(context, ref, users),
                 ),

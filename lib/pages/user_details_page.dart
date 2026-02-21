@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../providers/chat_providers.dart';
+import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../constants/theme.dart';
@@ -245,6 +246,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await unblockDirectChat(ref, widget.userId);
       if (!mounted) return;
+      ref.invalidate(blockedUsersProvider);
       _handleDirectActionResult(result, shouldCloseCurrentChat: false);
     } catch (e) {
       if (!mounted) return;
@@ -266,6 +268,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await blockDirectChat(ref, widget.userId);
       if (!mounted) return;
+      ref.invalidate(blockedUsersProvider);
       _handleDirectActionResult(result, shouldCloseCurrentChat: true);
     } catch (e) {
       if (!mounted) return;
