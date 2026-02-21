@@ -6,6 +6,7 @@ import '../services/socket_service.dart';
 import '../domain/entities/room.dart';
 import '../domain/entities/message.dart';
 import '../domain/entities/room_member.dart';
+import '../domain/entities/direct_chat_status.dart';
 import '../data/dtos/message_dto.dart';
 import '../data/dtos/room_dto.dart';
 import 'use_case_providers.dart';
@@ -13,6 +14,7 @@ import 'use_case_providers.dart';
 export '../domain/entities/room.dart';
 export '../domain/entities/message.dart';
 export '../domain/entities/room_member.dart';
+export '../domain/entities/direct_chat_status.dart';
 
 /// Tracks which room (if any) is currently open in the chat UI.
 final currentOpenRoomIdProvider = StateProvider<String?>((ref) => null);
@@ -73,6 +75,14 @@ final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
     return [];
   }
 });
+
+final directChatStatusProvider =
+    FutureProvider.autoDispose.family<DirectChatStatus, String>(
+  (ref, otherUserId) async {
+    final useCase = ref.read(getDirectChatStatusUseCaseProvider);
+    return await useCase(otherUserId);
+  },
+);
 
 /// Controller for the rooms list on the dashboard, including realtime updates
 /// from the socket and per-session unread counts.
@@ -818,11 +828,54 @@ Future<Room> createDirectMessage(WidgetRef ref, String otherUserId) async {
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);
     ref.invalidate(roomsListProvider);
+    ref.invalidate(directChatStatusProvider(otherUserId));
 
     return room;
   } catch (e) {
     if (kDebugMode) {
       print('Error creating direct message: $e');
+    }
+    rethrow;
+  }
+}
+
+Future<DirectChatActionResult> deleteDirectChat(
+  WidgetRef ref,
+  String otherUserId,
+) async {
+  try {
+    final useCase = ref.read(deleteDirectChatUseCaseProvider);
+    final result = await useCase(otherUserId);
+
+    ref.invalidate(joinedRoomsFutureProvider);
+    ref.invalidate(roomsListProvider);
+    ref.invalidate(directChatStatusProvider(otherUserId));
+
+    return result;
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error deleting direct chat: $e');
+    }
+    rethrow;
+  }
+}
+
+Future<DirectChatActionResult> blockDirectChat(
+  WidgetRef ref,
+  String otherUserId,
+) async {
+  try {
+    final useCase = ref.read(blockDirectChatUseCaseProvider);
+    final result = await useCase(otherUserId);
+
+    ref.invalidate(joinedRoomsFutureProvider);
+    ref.invalidate(roomsListProvider);
+    ref.invalidate(directChatStatusProvider(otherUserId));
+
+    return result;
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error blocking direct chat: $e');
     }
     rethrow;
   }

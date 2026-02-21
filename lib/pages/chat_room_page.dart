@@ -275,6 +275,14 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     final messages = ref.watch(roomMessagesProvider(widget.room.id));
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
+    final directChatStatusAsync =
+        widget.room.isPrivate && widget.room.otherUserId != null
+            ? ref.watch(directChatStatusProvider(widget.room.otherUserId!))
+            : null;
+    final directChatStatus = directChatStatusAsync?.valueOrNull;
+    final isDirectMessagingBlocked =
+        widget.room.isPrivate && (directChatStatus?.isBlocked ?? false);
+    final blockedByMe = directChatStatus?.isBlockedByMe ?? false;
     final roomDisplayTitle = _displayRoomTitle(widget.room.name);
     final chatItems = _buildChatItems(messages);
     final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
@@ -303,6 +311,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                           builder: (context) => UserDetailsPage(
                             userId: widget.room.otherUserId!,
                             showSayHeyButton: false,
+                            directRoomId: widget.room.id,
                           ),
                         ),
                       );
@@ -381,6 +390,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                           userId: message.userId,
                                           showSayHeyButton:
                                               !widget.room.isPrivate,
+                                          directRoomId: widget.room.isPrivate
+                                              ? widget.room.id
+                                              : null,
                                         ),
                                       ),
                                     );
@@ -390,15 +402,18 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                             },
                           ),
               ),
-              AnimatedPadding(
-                duration: const Duration(milliseconds: 200),
-                curve: Curves.easeOut,
-                padding: EdgeInsets.only(bottom: keyboardInset),
-                child: MessageInputField(
-                  controller: _messageController,
-                  onSend: _sendMessage,
+              if (isDirectMessagingBlocked)
+                _BlockedDirectChatNotice(blockedByMe: blockedByMe),
+              if (!isDirectMessagingBlocked)
+                AnimatedPadding(
+                  duration: const Duration(milliseconds: 200),
+                  curve: Curves.easeOut,
+                  padding: EdgeInsets.only(bottom: keyboardInset),
+                  child: MessageInputField(
+                    controller: _messageController,
+                    onSend: _sendMessage,
+                  ),
                 ),
-              ),
             ],
           ),
         ],
@@ -444,6 +459,49 @@ class _DateSeparatorLabel extends StatelessWidget {
             ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _BlockedDirectChatNotice extends StatelessWidget {
+  final bool blockedByMe;
+
+  const _BlockedDirectChatNotice({required this.blockedByMe});
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.fromLTRB(
+        BleyaTheme.contentPadding,
+        BleyaTheme.spacingSM,
+        BleyaTheme.contentPadding,
+        bottomSafeArea + BleyaTheme.footerBottomPadding,
+      ),
+      padding: const EdgeInsets.symmetric(
+        horizontal: BleyaTheme.spacingMD,
+        vertical: BleyaTheme.spacingSM,
+      ),
+      decoration: BoxDecoration(
+        color: BleyaTheme.error.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
+        border: Border.all(
+          color: BleyaTheme.error.withValues(alpha: 0.35),
+          width: 1,
+        ),
+      ),
+      child: Text(
+        blockedByMe
+            ? 'You blocked this user. Unblock to send messages.'
+            : 'Messaging is unavailable in this chat.',
+        style: BleyaTheme.bodySmall.copyWith(
+          color: BleyaTheme.error,
+          fontWeight: FontWeight.w600,
+        ),
+        textAlign: TextAlign.center,
       ),
     );
   }

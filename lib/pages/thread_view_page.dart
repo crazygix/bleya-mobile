@@ -101,6 +101,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
             builder: (context) => UserDetailsPage(
               userId: message.userId,
               showSayHeyButton: !widget.room.isPrivate,
+              directRoomId: widget.room.isPrivate ? widget.room.id : null,
             ),
           ),
         );
@@ -219,6 +220,14 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
 
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
+    final directChatStatusAsync =
+        widget.room.isPrivate && widget.room.otherUserId != null
+            ? ref.watch(directChatStatusProvider(widget.room.otherUserId!))
+            : null;
+    final directChatStatus = directChatStatusAsync?.valueOrNull;
+    final isDirectMessagingBlocked =
+        widget.room.isPrivate && (directChatStatus?.isBlocked ?? false);
+    final blockedByMe = directChatStatus?.isBlockedByMe ?? false;
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -351,10 +360,44 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                   ),
                 ),
               ),
-              MessageInputField(
-                controller: _replyController,
-                onSend: _sendReply,
-              ),
+              if (isDirectMessagingBlocked)
+                Container(
+                  width: double.infinity,
+                  margin: EdgeInsets.fromLTRB(
+                    BleyaTheme.contentPadding,
+                    BleyaTheme.spacingSM,
+                    BleyaTheme.contentPadding,
+                    MediaQuery.of(context).padding.bottom +
+                        BleyaTheme.footerBottomPadding,
+                  ),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: BleyaTheme.spacingMD,
+                    vertical: BleyaTheme.spacingSM,
+                  ),
+                  decoration: BoxDecoration(
+                    color: BleyaTheme.error.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
+                    border: Border.all(
+                      color: BleyaTheme.error.withValues(alpha: 0.35),
+                      width: 1,
+                    ),
+                  ),
+                  child: Text(
+                    blockedByMe
+                        ? 'You blocked this user. Unblock to send replies.'
+                        : 'Messaging is unavailable in this chat.',
+                    style: BleyaTheme.bodySmall.copyWith(
+                      color: BleyaTheme.error,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              if (!isDirectMessagingBlocked)
+                MessageInputField(
+                  controller: _replyController,
+                  onSend: _sendReply,
+                ),
             ],
           ),
         ],

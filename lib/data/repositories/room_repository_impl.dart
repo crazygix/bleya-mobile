@@ -4,8 +4,10 @@ import '../../core/errors/api_error_mapper.dart';
 import '../../domain/repositories/room_repository.dart';
 import '../../domain/entities/room.dart';
 import '../../domain/entities/room_member.dart';
+import '../../domain/entities/direct_chat_status.dart';
 import '../dtos/room_dto.dart';
 import '../dtos/room_member_dto.dart';
+import '../dtos/direct_chat_dto.dart';
 
 /// Data layer implementation of RoomRepository
 /// Handles all Dio/network concerns and JSON parsing
@@ -174,6 +176,87 @@ class RoomRepositoryImpl implements RoomRepository {
     } catch (e) {
       if (kDebugMode) {
         print('Error creating direct message: $e');
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<DirectChatStatus> getDirectChatStatus(String otherUserId) async {
+    try {
+      final response = await _dio.get(
+        '/rooms/direct/$otherUserId/status',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format: expected object');
+      }
+
+      final payload = response.data as Map<String, dynamic>;
+      return DirectChatDto.statusFromJson(payload);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching direct chat status: $e');
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<DirectChatActionResult> deleteDirectChat(String otherUserId) async {
+    try {
+      final response = await _dio.post(
+        '/rooms/direct/$otherUserId/delete',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format: expected object');
+      }
+
+      final payload = response.data as Map<String, dynamic>;
+      return DirectChatDto.actionFromJson(payload);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error deleting direct chat: $e');
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<DirectChatActionResult> blockDirectChat(String otherUserId) async {
+    try {
+      final response = await _dio.post(
+        '/rooms/direct/$otherUserId/block',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format: expected object');
+      }
+
+      final payload = response.data as Map<String, dynamic>;
+      return DirectChatDto.actionFromJson(payload);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error blocking direct chat: $e');
       }
       rethrow;
     }

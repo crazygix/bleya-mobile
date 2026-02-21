@@ -19,11 +19,13 @@ import 'chat_room_page.dart';
 class UserDetailsPage extends ConsumerStatefulWidget {
   final String userId;
   final bool showSayHeyButton;
+  final String? directRoomId;
 
   const UserDetailsPage({
     super.key,
     required this.userId,
     this.showSayHeyButton = true,
+    this.directRoomId,
   });
 
   @override
@@ -34,6 +36,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     with SingleTickerProviderStateMixin {
   bool _isLoading = true;
   bool _isCreatingChat = false;
+  bool _isRunningDirectAction = false;
   UserProfile? _userData;
   String? _loadErrorMessage;
   late final AnimationController _entranceController;
@@ -120,6 +123,160 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     }
   }
 
+  Future<bool> _confirmDeleteChat() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Delete chat?'),
+        content: const Text(
+          "This only hides it from the list of chats. If you reopen the chat, it will be restored.",
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete chat'),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
+  Future<bool> _confirmBlockUser() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Block user?'),
+        content: const Text(
+          "They won’t be able to message you. You can review this later in settings.",
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Block'),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
+  void _handleDirectActionResult(DirectChatActionResult result) {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    scaffoldMessenger.showSnackBar(
+      SnackBar(content: Text(result.message)),
+    );
+
+    if (widget.directRoomId != null &&
+        result.roomId != null &&
+        result.roomId == widget.directRoomId) {
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        '/home',
+        ModalRoute.withName('/'),
+      );
+      return;
+    }
+  }
+
+  Future<void> _deleteDirectChat() async {
+    setState(() => _isRunningDirectAction = true);
+    try {
+      final result = await deleteDirectChat(ref, widget.userId);
+      if (!mounted) return;
+      _handleDirectActionResult(result);
+    } catch (e) {
+      if (!mounted) return;
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't delete this chat right now.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRunningDirectAction = false);
+      }
+    }
+  }
+
+  Future<void> _blockDirectChat() async {
+    setState(() => _isRunningDirectAction = true);
+    try {
+      final result = await blockDirectChat(ref, widget.userId);
+      if (!mounted) return;
+      _handleDirectActionResult(result);
+    } catch (e) {
+      if (!mounted) return;
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't block this user right now.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRunningDirectAction = false);
+      }
+    }
+  }
+
+  Future<void> _showDirectChatActions(DirectChatStatus status) async {
+    if (!status.hasChat || _isRunningDirectAction) {
+      return;
+    }
+
+    final selectedAction = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        actions: [
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop('delete'),
+            child: const Text('Delete chat'),
+          ),
+          CupertinoActionSheetAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop('block'),
+            child: const Text('Block user'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+
+    if (!mounted || selectedAction == null) {
+      return;
+    }
+
+    if (selectedAction == 'delete') {
+      final confirmed = await _confirmDeleteChat();
+      if (!mounted || !confirmed) return;
+      await _deleteDirectChat();
+      return;
+    }
+
+    if (selectedAction == 'block') {
+      final confirmed = await _confirmBlockUser();
+      if (!mounted || !confirmed) return;
+      await _blockDirectChat();
+    }
+  }
+
   Widget _buildStaggered({
     required int order,
     required Widget child,
@@ -157,6 +314,42 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
         width: 1,
       ),
       boxShadow: BleyaTheme.glassShadow,
+    );
+  }
+
+  Widget? _buildHeaderAction({
+    required bool isOwnProfile,
+    required DirectChatStatus? directChatStatus,
+    required bool isDirectStatusLoading,
+  }) {
+    if (isOwnProfile) {
+      return null;
+    }
+
+    if (isDirectStatusLoading && !_isRunningDirectAction) {
+      return const CupertinoActivityIndicator();
+    }
+
+    if (directChatStatus == null || !directChatStatus.hasChat) {
+      return null;
+    }
+
+    return CupertinoButton(
+      padding: EdgeInsets.zero,
+      minimumSize: const Size(
+        BleyaTheme.iconContainerSize,
+        BleyaTheme.iconContainerSize,
+      ),
+      onPressed: _isRunningDirectAction
+          ? null
+          : () => _showDirectChatActions(directChatStatus),
+      child: _isRunningDirectAction
+          ? const CupertinoActivityIndicator()
+          : const Icon(
+              CupertinoIcons.ellipsis_circle,
+              size: 24,
+              color: BleyaTheme.primary,
+            ),
     );
   }
 
@@ -217,8 +410,22 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     );
   }
 
-  Widget _buildHeroCard(UserProfile profile, {required bool isOwnProfile}) {
+  Widget _buildHeroCard(
+    UserProfile profile, {
+    required bool isOwnProfile,
+    required DirectChatStatus? directChatStatus,
+  }) {
     final name = _displayName(profile);
+    final isBlocked = directChatStatus?.isBlocked ?? false;
+    final blockedByMe = directChatStatus?.isBlockedByMe ?? false;
+    final blockedByOtherUser = directChatStatus?.isBlockedByOtherUser ?? false;
+    final buttonText = _isCreatingChat
+        ? 'Opening chat...'
+        : blockedByMe
+            ? 'Blocked'
+            : blockedByOtherUser
+                ? 'Unavailable'
+                : 'Say hey';
 
     return Container(
       padding: const EdgeInsets.all(BleyaTheme.spacing2XL),
@@ -246,14 +453,17 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
           if (!isOwnProfile && widget.showSayHeyButton) ...[
             const SizedBox(height: BleyaTheme.spacingXL),
             PrimaryButton(
-              text: _isCreatingChat ? 'Opening chat...' : 'Say hey',
-              onPressed: _startChat,
+              text: buttonText,
+              onPressed: isBlocked ? null : _startChat,
               isLoading: _isCreatingChat,
-              trailingIcon: const Icon(
-                CupertinoIcons.chat_bubble,
-                color: Colors.white,
-                size: 20,
-              ),
+              isEnabled: !isBlocked,
+              trailingIcon: isBlocked
+                  ? null
+                  : const Icon(
+                      CupertinoIcons.chat_bubble,
+                      color: Colors.white,
+                      size: 20,
+                    ),
             ),
           ],
         ],
@@ -302,6 +512,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
   Widget _buildLoadedContent({
     required UserProfile profile,
     required bool isOwnProfile,
+    required DirectChatStatus? directChatStatus,
   }) {
     return ListView(
       padding: const EdgeInsets.fromLTRB(
@@ -313,7 +524,11 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       children: [
         _buildStaggered(
           order: 0,
-          child: _buildHeroCard(profile, isOwnProfile: isOwnProfile),
+          child: _buildHeroCard(
+            profile,
+            isOwnProfile: isOwnProfile,
+            directChatStatus: directChatStatus,
+          ),
         ),
         const SizedBox(height: BleyaTheme.spacingLG),
         _buildStaggered(
@@ -324,7 +539,11 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     );
   }
 
-  Widget _buildBody(BuildContext context, bool isOwnProfile) {
+  Widget _buildBody(
+    BuildContext context,
+    bool isOwnProfile,
+    DirectChatStatus? directChatStatus,
+  ) {
     if (_isLoading) {
       return _buildUserDetailsSkeleton();
     }
@@ -349,6 +568,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     return _buildLoadedContent(
       profile: userData,
       isOwnProfile: isOwnProfile,
+      directChatStatus: directChatStatus,
     );
   }
 
@@ -357,6 +577,11 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
     final isOwnProfile = currentUserId == widget.userId;
+    final directStatusAsync = isOwnProfile
+        ? null
+        : ref.watch(directChatStatusProvider(widget.userId));
+    final directChatStatus = directStatusAsync?.valueOrNull;
+    final isDirectStatusLoading = directStatusAsync?.isLoading ?? false;
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,
@@ -366,11 +591,20 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
           const LiquidGlassBackground(),
           Column(
             children: [
-              const GlassHeader(
+              GlassHeader(
                 title: 'Profile',
+                rightAction: _buildHeaderAction(
+                  isOwnProfile: isOwnProfile,
+                  directChatStatus: directChatStatus,
+                  isDirectStatusLoading: isDirectStatusLoading,
+                ),
               ),
               Expanded(
-                child: _buildBody(context, isOwnProfile),
+                child: _buildBody(
+                  context,
+                  isOwnProfile,
+                  directChatStatus,
+                ),
               ),
             ],
           ),

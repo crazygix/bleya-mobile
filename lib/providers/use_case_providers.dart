@@ -13,6 +13,9 @@ import '../use_cases/room/get_joined_rooms_use_case.dart';
 import '../use_cases/room/join_room_use_case.dart';
 import '../use_cases/room/leave_room_use_case.dart';
 import '../use_cases/room/create_direct_message_use_case.dart';
+import '../use_cases/room/get_direct_chat_status_use_case.dart';
+import '../use_cases/room/delete_direct_chat_use_case.dart';
+import '../use_cases/room/block_direct_chat_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
 import '../use_cases/message/get_room_messages_page_use_case.dart';
 import '../use_cases/location/get_current_location_use_case.dart';
@@ -81,6 +84,23 @@ final createDirectMessageUseCaseProvider =
     Provider<CreateDirectMessageUseCase>((ref) {
   final repository = ref.watch(roomRepositoryProvider);
   return CreateDirectMessageUseCase(repository);
+});
+
+final getDirectChatStatusUseCaseProvider =
+    Provider<GetDirectChatStatusUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return GetDirectChatStatusUseCase(repository);
+});
+
+final deleteDirectChatUseCaseProvider =
+    Provider<DeleteDirectChatUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return DeleteDirectChatUseCase(repository);
+});
+
+final blockDirectChatUseCaseProvider = Provider<BlockDirectChatUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return BlockDirectChatUseCase(repository);
 });
 
 final getThreadUseCaseProvider = Provider<GetThreadUseCase>((ref) {
