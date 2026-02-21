@@ -178,8 +178,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                               children: [
                                 _buildBottomNavItem(
                                   index: 0,
-                                  icon: CupertinoIcons.chat_bubble,
-                                  selectedIcon: CupertinoIcons.chat_bubble_fill,
+                                  icon: CupertinoIcons.chat_bubble_2,
+                                  selectedIcon:
+                                      CupertinoIcons.chat_bubble_2_fill,
                                   label: 'Chats',
                                 ),
                                 _buildBottomNavItem(
@@ -191,8 +192,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                                 ),
                                 _buildBottomNavItem(
                                   index: 2,
-                                  icon: CupertinoIcons.settings,
-                                  selectedIcon: CupertinoIcons.settings_solid,
+                                  icon: CupertinoIcons.gear,
+                                  selectedIcon: CupertinoIcons.gear_solid,
                                   label: 'Settings',
                                 ),
                               ],

@@ -148,13 +148,38 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     return confirmed == true;
   }
 
+  Future<bool> _confirmUnblockUser() async {
+    final confirmed = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('Unblock user?'),
+        content: const Text(
+          'They will be able to message you again.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          CupertinoDialogAction(
+            isDestructiveAction: true,
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Unblock'),
+          ),
+        ],
+      ),
+    );
+
+    return confirmed == true;
+  }
+
   Future<bool> _confirmBlockUser() async {
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (context) => CupertinoAlertDialog(
         title: const Text('Block user?'),
         content: const Text(
-          "They won’t be able to message you. You can review this later in settings.",
+          'They will not be able to message you anymore.',
         ),
         actions: [
           CupertinoDialogAction(
@@ -173,13 +198,17 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     return confirmed == true;
   }
 
-  void _handleDirectActionResult(DirectChatActionResult result) {
+  void _handleDirectActionResult(
+    DirectChatActionResult result, {
+    required bool shouldCloseCurrentChat,
+  }) {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     scaffoldMessenger.showSnackBar(
       SnackBar(content: Text(result.message)),
     );
 
-    if (widget.directRoomId != null &&
+    if (shouldCloseCurrentChat &&
+        widget.directRoomId != null &&
         result.roomId != null &&
         result.roomId == widget.directRoomId) {
       Navigator.of(context).pushNamedAndRemoveUntil(
@@ -195,7 +224,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await deleteDirectChat(ref, widget.userId);
       if (!mounted) return;
-      _handleDirectActionResult(result);
+      _handleDirectActionResult(result, shouldCloseCurrentChat: true);
     } catch (e) {
       if (!mounted) return;
       final errorMessage = e is AppError
@@ -211,12 +240,33 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     }
   }
 
+  Future<void> _unblockDirectChat() async {
+    setState(() => _isRunningDirectAction = true);
+    try {
+      final result = await unblockDirectChat(ref, widget.userId);
+      if (!mounted) return;
+      _handleDirectActionResult(result, shouldCloseCurrentChat: false);
+    } catch (e) {
+      if (!mounted) return;
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't unblock this user right now.";
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isRunningDirectAction = false);
+      }
+    }
+  }
+
   Future<void> _blockDirectChat() async {
     setState(() => _isRunningDirectAction = true);
     try {
       final result = await blockDirectChat(ref, widget.userId);
       if (!mounted) return;
-      _handleDirectActionResult(result);
+      _handleDirectActionResult(result, shouldCloseCurrentChat: true);
     } catch (e) {
       if (!mounted) return;
       final errorMessage = e is AppError
@@ -237,6 +287,15 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       return;
     }
 
+    if (status.isBlockedByMe) {
+      await _showUnblockOnlyActions();
+      return;
+    }
+
+    await _showBlockActions();
+  }
+
+  Future<void> _showBlockActions() async {
     final selectedAction = await showCupertinoModalPopup<String>(
       context: context,
       builder: (context) => CupertinoActionSheet(
@@ -274,6 +333,35 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final confirmed = await _confirmBlockUser();
       if (!mounted || !confirmed) return;
       await _blockDirectChat();
+    }
+  }
+
+  Future<void> _showUnblockOnlyActions() async {
+    final selectedAction = await showCupertinoModalPopup<String>(
+      context: context,
+      builder: (context) => CupertinoActionSheet(
+        actions: [
+          CupertinoActionSheetAction(
+            onPressed: () => Navigator.of(context).pop('unblock'),
+            child: const Text('Unblock user'),
+          ),
+        ],
+        cancelButton: CupertinoActionSheetAction(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+      ),
+    );
+
+    if (!mounted || selectedAction == null) {
+      return;
+    }
+
+    if (selectedAction == 'unblock') {
+      final confirmed = await _confirmUnblockUser();
+      if (!mounted || !confirmed) return;
+      await _unblockDirectChat();
+      return;
     }
   }
 

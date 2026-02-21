@@ -263,6 +263,33 @@ class RoomRepositoryImpl implements RoomRepository {
   }
 
   @override
+  Future<DirectChatActionResult> unblockDirectChat(String otherUserId) async {
+    try {
+      final response = await _dio.post(
+        '/rooms/direct/$otherUserId/unblock',
+        options: Options(
+          receiveTimeout: const Duration(seconds: 10),
+          sendTimeout: const Duration(seconds: 10),
+        ),
+      );
+
+      if (response.data is! Map<String, dynamic>) {
+        throw Exception('Invalid response format: expected object');
+      }
+
+      final payload = response.data as Map<String, dynamic>;
+      return DirectChatDto.actionFromJson(payload);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error unblocking direct chat: $e');
+      }
+      rethrow;
+    }
+  }
+
+  @override
   Future<Room> getRoom(String roomId) async {
     try {
       final response = await _dio.get('/rooms/$roomId');

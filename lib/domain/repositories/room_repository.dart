@@ -15,5 +15,6 @@ abstract class RoomRepository {
   Future<DirectChatStatus> getDirectChatStatus(String otherUserId);
   Future<DirectChatActionResult> deleteDirectChat(String otherUserId);
   Future<DirectChatActionResult> blockDirectChat(String otherUserId);
+  Future<DirectChatActionResult> unblockDirectChat(String otherUserId);
   Future<Room> getRoom(String roomId);
 }

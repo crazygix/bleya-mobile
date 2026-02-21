@@ -9,6 +9,7 @@ import '../widgets/settings_menu_item.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
 import '../utils/app_errors.dart';
+import 'blocked_users_page.dart';
 import 'edit_profile_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
@@ -47,6 +48,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await Navigator.of(context).push(
       CupertinoPageRoute(
         builder: (context) => EditProfilePage(),
+      ),
+    );
+  }
+
+  Future<void> _navigateToBlockedUsers() async {
+    await Navigator.of(context).push(
+      CupertinoPageRoute(
+        builder: (context) => const BlockedUsersPage(),
       ),
     );
   }
@@ -228,6 +237,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           iconColor: Color(0xFF3B82F6), // Blue
                           label: 'Privacy',
                           onTap: () => _showComingSoon('Privacy'),
+                        ),
+                        const SizedBox(height: 4.0),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.person_crop_circle_badge_xmark,
+                          iconColor: BleyaTheme.error,
+                          label: 'Blocked users',
+                          onTap: _navigateToBlockedUsers,
                         ),
                         const SizedBox(height: 4.0),
                         SettingsMenuItem(

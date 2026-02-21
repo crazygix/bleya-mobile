@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../domain/entities/blocked_user.dart';
 import '../domain/entities/user_profile.dart';
 import 'auth_providers.dart';
 import 'use_case_providers.dart';
@@ -74,4 +75,15 @@ final profileProvider =
     StateNotifierProvider<ProfileController, AsyncValue<UserProfile?>>((ref) {
   final token = ref.watch(tokenProvider);
   return ProfileController(ref, token: token);
+});
+
+final blockedUsersProvider =
+    FutureProvider.autoDispose<List<BlockedUser>>((ref) async {
+  final token = ref.watch(tokenProvider);
+  if (token == null || token.isEmpty) {
+    return [];
+  }
+
+  final useCase = ref.read(getBlockedUsersUseCaseProvider);
+  return await useCase();
 });

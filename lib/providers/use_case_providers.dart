@@ -5,6 +5,7 @@ import '../use_cases/auth/verify_code_use_case.dart';
 import '../use_cases/auth/check_username_use_case.dart';
 import '../use_cases/auth/set_username_use_case.dart';
 import '../use_cases/user/get_profile_use_case.dart';
+import '../use_cases/user/get_blocked_users_use_case.dart';
 import '../use_cases/user/upload_profile_image_use_case.dart';
 import '../use_cases/user/get_user_by_id_use_case.dart';
 import '../use_cases/user/update_profile_use_case.dart';
@@ -16,6 +17,7 @@ import '../use_cases/room/create_direct_message_use_case.dart';
 import '../use_cases/room/get_direct_chat_status_use_case.dart';
 import '../use_cases/room/delete_direct_chat_use_case.dart';
 import '../use_cases/room/block_direct_chat_use_case.dart';
+import '../use_cases/room/unblock_direct_chat_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
 import '../use_cases/message/get_room_messages_page_use_case.dart';
 import '../use_cases/location/get_current_location_use_case.dart';
@@ -51,6 +53,11 @@ final setUsernameUseCaseProvider = Provider<SetUsernameUseCase>((ref) {
 final getProfileUseCaseProvider = Provider<GetProfileUseCase>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return GetProfileUseCase(repository);
+});
+
+final getBlockedUsersUseCaseProvider = Provider<GetBlockedUsersUseCase>((ref) {
+  final repository = ref.watch(userRepositoryProvider);
+  return GetBlockedUsersUseCase(repository);
 });
 
 final uploadProfileImageUseCaseProvider =
@@ -101,6 +108,12 @@ final deleteDirectChatUseCaseProvider =
 final blockDirectChatUseCaseProvider = Provider<BlockDirectChatUseCase>((ref) {
   final repository = ref.watch(roomRepositoryProvider);
   return BlockDirectChatUseCase(repository);
+});
+
+final unblockDirectChatUseCaseProvider =
+    Provider<UnblockDirectChatUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return UnblockDirectChatUseCase(repository);
 });
 
 final getThreadUseCaseProvider = Provider<GetThreadUseCase>((ref) {

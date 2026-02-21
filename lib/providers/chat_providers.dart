@@ -880,3 +880,24 @@ Future<DirectChatActionResult> blockDirectChat(
     rethrow;
   }
 }
+
+Future<DirectChatActionResult> unblockDirectChat(
+  WidgetRef ref,
+  String otherUserId,
+) async {
+  try {
+    final useCase = ref.read(unblockDirectChatUseCaseProvider);
+    final result = await useCase(otherUserId);
+
+    ref.invalidate(joinedRoomsFutureProvider);
+    ref.invalidate(roomsListProvider);
+    ref.invalidate(directChatStatusProvider(otherUserId));
+
+    return result;
+  } catch (e) {
+    if (kDebugMode) {
+      print('Error unblocking direct chat: $e');
+    }
+    rethrow;
+  }
+}

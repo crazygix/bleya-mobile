@@ -1,5 +1,6 @@
 import 'dart:io';
 import '../entities/user_profile.dart';
+import '../entities/blocked_user.dart';
 
 /// Domain repository interface for user operations
 /// Use cases depend on this interface, not concrete implementations
@@ -11,4 +12,5 @@ abstract class UserRepository {
   });
   Future<UserProfile> uploadProfileImage(File imageFile);
   Future<UserProfile> getUserById(String userId);
+  Future<List<BlockedUser>> getBlockedUsers();
 }
