@@ -5,6 +5,7 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
 import '../utils/app_errors.dart';
+import '../utils/app_toast.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/error_state.dart';
@@ -150,9 +151,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
       final message = error is AppError
           ? error.getUserMessage()
           : "Couldn't leave that room. Try again?";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      AppToast.showError(context, message);
     } finally {
       if (mounted) {
         setState(() => _isLeaving = false);

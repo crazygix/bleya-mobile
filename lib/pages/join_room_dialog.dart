@@ -8,6 +8,7 @@ import '../domain/entities/city.dart';
 import '../providers/chat_providers.dart';
 import '../providers/controller_providers.dart';
 import '../utils/app_errors.dart';
+import '../utils/app_toast.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
 
@@ -62,7 +63,6 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
     final controller = ref.read(joinRoomControllerProvider.notifier);
 
     try {
-      final messenger = ScaffoldMessenger.maybeOf(context);
       await controller.joinCity(city);
 
       ref.invalidate(joinedRoomsFutureProvider);
@@ -71,8 +71,9 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pop();
-      messenger?.showSnackBar(
-        SnackBar(content: Text('You joined ${city.name}, ${city.countryName}')),
+      AppToast.showSuccess(
+        context,
+        'You joined ${city.name}, ${city.countryName}',
       );
     } catch (e) {
       if (!mounted) return;
@@ -80,12 +81,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
       final errorMessage =
           e is AppError ? e.getUserMessage() : "Something went off. Try again?";
 
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        SnackBar(
-          content: Text(errorMessage),
-          backgroundColor: BleyaTheme.error,
-        ),
-      );
+      AppToast.showError(context, errorMessage);
     }
   }
 

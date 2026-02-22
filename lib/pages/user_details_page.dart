@@ -6,6 +6,7 @@ import '../providers/chat_providers.dart';
 import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
+import '../utils/app_toast.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/empty_state.dart';
@@ -117,9 +118,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
         } else {
           errorMessage = "Couldn't start the chat. Try again?";
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
+        AppToast.showError(context, errorMessage);
       }
     }
   }
@@ -203,10 +202,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     DirectChatActionResult result, {
     required bool shouldCloseCurrentChat,
   }) {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-    scaffoldMessenger.showSnackBar(
-      SnackBar(content: Text(result.message)),
-    );
+    AppToast.showInfo(context, result.message);
 
     if (shouldCloseCurrentChat &&
         widget.directRoomId != null &&
@@ -231,9 +227,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't delete this chat right now.";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      AppToast.showError(context, errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -253,9 +247,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't unblock this user right now.";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      AppToast.showError(context, errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -275,9 +267,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't block this user right now.";
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      AppToast.showError(context, errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -345,6 +335,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       builder: (context) => CupertinoActionSheet(
         actions: [
           CupertinoActionSheetAction(
+            isDestructiveAction: true,
             onPressed: () => Navigator.of(context).pop('unblock'),
             child: const Text('Unblock user'),
           ),

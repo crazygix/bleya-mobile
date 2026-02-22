@@ -6,6 +6,7 @@ import '../providers/notification_provider.dart';
 import '../widgets/notification_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
+import '../utils/app_toast.dart';
 import 'thread_view_page.dart';
 import '../providers/repository_providers.dart';
 
@@ -105,9 +106,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     } catch (e) {
       if (context.mounted) {
         Navigator.pop(context); // Close loader
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to load thread: $e')),
-        );
+        AppToast.showError(context, 'Failed to load thread: $e');
       }
     }
   }

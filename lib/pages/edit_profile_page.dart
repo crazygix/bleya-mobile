@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
+import '../utils/app_toast.dart';
 import '../domain/entities/user_profile.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
@@ -100,9 +101,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       } else {
         errorMessage = "Couldn't load your profile. Try again?";
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(errorMessage)),
-      );
+      AppToast.showError(context, errorMessage);
     }
   }
 
@@ -123,10 +122,8 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-              content: Text("Couldn't pick that image. Try another one?")),
-        );
+        AppToast.showError(
+            context, "Couldn't pick that image. Try another one?");
       }
     }
   }
@@ -168,9 +165,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
       if (mounted) {
         _applyProfile(updatedProfile, clearSelectedImage: true);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Profile updated successfully')),
-        );
+        AppToast.showSuccess(context, 'Profile updated successfully');
       }
     } catch (e) {
       if (mounted) {
@@ -180,9 +175,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         } else {
           errorMessage = "Couldn't update your profile. Try again?";
         }
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(errorMessage)),
-        );
+        AppToast.showError(context, errorMessage);
       }
     } finally {
       if (mounted) {
