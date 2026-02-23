@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:ui';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../constants/theme.dart';
@@ -11,8 +12,11 @@ enum AppToastVariant { info, success, error }
 
 class AppToast {
   static OverlayEntry? _activeToast;
+  static ValueNotifier<bool>? _visibilityNotifier;
   static Timer? _dismissTimer;
+  static Timer? _removeTimer;
   static const Duration _defaultDuration = Duration(seconds: 3);
+  static const Duration _transitionDuration = Duration(milliseconds: 220);
 
   static void show(
     BuildContext context, {
@@ -79,11 +83,35 @@ class AppToast {
     );
   }
 
-  static void dismiss() {
+  static void dismiss({bool immediate = false}) {
     _dismissTimer?.cancel();
     _dismissTimer = null;
+
+    _removeTimer?.cancel();
+    _removeTimer = null;
+
+    final visibility = _visibilityNotifier;
+    if (!immediate && visibility != null) {
+      visibility.value = false;
+      _removeTimer = Timer(_transitionDuration, _removeActiveToast);
+      return;
+    }
+
+    _removeActiveToast();
+  }
+
+  static void _removeActiveToast() {
+    _dismissTimer?.cancel();
+    _dismissTimer = null;
+
+    _removeTimer?.cancel();
+    _removeTimer = null;
+
     _activeToast?.remove();
     _activeToast = null;
+
+    _visibilityNotifier?.dispose();
+    _visibilityNotifier = null;
   }
 
   static void _showIosToast(
@@ -108,17 +136,27 @@ class AppToast {
       return;
     }
 
-    dismiss();
+    dismiss(immediate: true);
+
+    final visibilityNotifier = ValueNotifier<bool>(false);
 
     final entry = OverlayEntry(
       builder: (_) => _IosToastBanner(
         message: message,
         variant: variant,
+        isVisibleListenable: visibilityNotifier,
       ),
     );
 
     _activeToast = entry;
+    _visibilityNotifier = visibilityNotifier;
     overlay.insert(entry);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_visibilityNotifier == visibilityNotifier) {
+        visibilityNotifier.value = true;
+      }
+    });
 
     _dismissTimer = Timer(duration, dismiss);
   }
@@ -127,10 +165,12 @@ class AppToast {
 class _IosToastBanner extends StatelessWidget {
   final String message;
   final AppToastVariant variant;
+  final ValueListenable<bool> isVisibleListenable;
 
   const _IosToastBanner({
     required this.message,
     required this.variant,
+    required this.isVisibleListenable,
   });
 
   @override
@@ -143,15 +183,17 @@ class _IosToastBanner extends StatelessWidget {
           alignment: Alignment.topCenter,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-            child: TweenAnimationBuilder<double>(
-              duration: const Duration(milliseconds: 240),
-              curve: Curves.easeOutCubic,
-              tween: Tween(begin: 0, end: 1),
-              builder: (context, value, child) {
-                return Opacity(
-                  opacity: value,
-                  child: Transform.translate(
-                    offset: Offset(0, (1 - value) * -10),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: isVisibleListenable,
+              builder: (context, isVisible, child) {
+                return AnimatedOpacity(
+                  opacity: isVisible ? 1 : 0,
+                  duration: AppToast._transitionDuration,
+                  curve: isVisible ? Curves.easeOutCubic : Curves.easeInCubic,
+                  child: AnimatedSlide(
+                    offset: isVisible ? Offset.zero : const Offset(0, -0.12),
+                    duration: AppToast._transitionDuration,
+                    curve: isVisible ? Curves.easeOutCubic : Curves.easeInCubic,
                     child: child,
                   ),
                 );
@@ -159,9 +201,9 @@ class _IosToastBanner extends StatelessWidget {
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 420),
                 child: ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: BorderRadius.circular(16),
                   child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
+                    filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
@@ -170,16 +212,14 @@ class _IosToastBanner extends StatelessWidget {
                       constraints: const BoxConstraints(minWidth: 120),
                       decoration: BoxDecoration(
                         color: _IosToastStyle.background,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(16),
                         border: Border.all(
-                          color: _IosToastStyle.border,
-                          width: 0.8,
-                        ),
-                        boxShadow: [
+                            color: _IosToastStyle.border, width: 0.9),
+                        boxShadow: const [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.16),
+                            color: _IosToastStyle.shadow,
                             blurRadius: 20,
-                            offset: const Offset(0, 8),
+                            offset: Offset(0, 10),
                           ),
                         ],
                       ),
@@ -197,8 +237,9 @@ class _IosToastBanner extends StatelessWidget {
                             child: Text(
                               message,
                               softWrap: true,
+                              maxLines: 3,
                               style: BleyaTheme.bodyMedium.copyWith(
-                                color: BleyaTheme.foreground87,
+                                color: Colors.white,
                                 fontWeight: FontWeight.normal,
                                 height: 1.25,
                                 decoration: TextDecoration.none,
@@ -229,25 +270,25 @@ class _IosToastStyle {
     required this.icon,
   });
 
-  // Explicit ARGB values to avoid runtime color-conversion issues in static init.
-  static const Color background = Color(0xF0D8E8FF);
-  static const Color border = Color(0xE68FB2F2);
+  static const Color background = Color(0x96223552);
+  static const Color border = Color(0x66FFFFFF);
+  static const Color shadow = Color(0x2A0B1220);
 
   factory _IosToastStyle.fromVariant(AppToastVariant variant) {
     switch (variant) {
       case AppToastVariant.success:
         return _IosToastStyle(
-          iconColor: BleyaTheme.success,
+          iconColor: const Color(0xFF6EE7B7),
           icon: CupertinoIcons.check_mark_circled,
         );
       case AppToastVariant.error:
         return _IosToastStyle(
-          iconColor: BleyaTheme.error,
+          iconColor: const Color(0xFFFCA5A5),
           icon: CupertinoIcons.exclamationmark_circle,
         );
       case AppToastVariant.info:
         return _IosToastStyle(
-          iconColor: BleyaTheme.primary,
+          iconColor: const Color(0xFF93C5FD),
           icon: CupertinoIcons.info_circle,
         );
     }
