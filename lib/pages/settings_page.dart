@@ -77,94 +77,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Widget _buildToastPreviewPanel() {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(BleyaTheme.spacingLG),
-      decoration: BoxDecoration(
-        color:
-            BleyaTheme.glassSurface.withValues(alpha: BleyaTheme.glassOpacity),
-        borderRadius: BorderRadius.circular(BleyaTheme.radiusMedium),
-        border: Border.all(
-          color: BleyaTheme.border,
-          width: 1,
-        ),
-        boxShadow: BleyaTheme.glassShadow,
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Toast preview',
-            style: BleyaTheme.bodyLarge.copyWith(fontWeight: FontWeight.w700),
-          ),
-          const SizedBox(height: BleyaTheme.spacingSM),
-          Text(
-            'Tap to test each variation.',
-            style: BleyaTheme.bodySmall.copyWith(
-              color: BleyaTheme.mutedForeground,
-            ),
-          ),
-          const SizedBox(height: BleyaTheme.spacingMD),
-          Wrap(
-            spacing: BleyaTheme.spacingSM,
-            runSpacing: BleyaTheme.spacingSM,
-            children: [
-              CupertinoButton(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: Size.zero,
-                color: BleyaTheme.primary,
-                borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
-                onPressed: () => AppToast.showInfo(
-                  context,
-                  'Info toast',
-                ),
-                child: const Text('Info'),
-              ),
-              CupertinoButton(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: Size.zero,
-                color: BleyaTheme.success,
-                borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
-                onPressed: () => AppToast.showSuccess(
-                  context,
-                  'Success toast: Profile updated successfully.',
-                ),
-                child: const Text('Success'),
-              ),
-              CupertinoButton(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: Size.zero,
-                color: BleyaTheme.error,
-                borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
-                onPressed: () => AppToast.showError(
-                  context,
-                  "Error toast: Couldn't save your changes. Try again?",
-                ),
-                child: const Text('Error'),
-              ),
-              CupertinoButton(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                minimumSize: Size.zero,
-                color: BleyaTheme.mutedForeground,
-                borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
-                onPressed: () => AppToast.showInfo(
-                  context,
-                  'Long toast: This is a longer message to test wrapping and spacing in the iOS toast component.',
-                ),
-                child: const Text('Long'),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final mediaQuery = MediaQuery.of(context);
@@ -347,8 +259,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           onTap: () => _showComingSoon('Help'),
                         ),
                         const SizedBox(height: 4.0),
-                        _buildToastPreviewPanel(),
-                        const SizedBox(height: BleyaTheme.spacingSM),
                         SettingsMenuItem(
                           icon: CupertinoIcons.circle,
                           iconColor: Color(0xFFF97316), // Orange
