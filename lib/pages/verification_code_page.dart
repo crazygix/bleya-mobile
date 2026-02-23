@@ -27,10 +27,9 @@ class VerificationCodePage extends ConsumerStatefulWidget {
 }
 
 class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
-  final List<TextEditingController> _codeControllers =
-      List.generate(6, (_) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (_) => FocusNode());
-  final List<bool> _hasValue = List.generate(6, (_) => false);
+  static const int _digitCount = 6;
+  final TextEditingController _codeController = TextEditingController();
+  final FocusNode _codeFocusNode = FocusNode();
 
   DateTime? _codeSentAt;
   int _resendRemainingSeconds = 60;
@@ -40,24 +39,20 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   @override
   void initState() {
     super.initState();
+    _codeFocusNode.addListener(() {
+      if (!mounted) return;
+      setState(() {});
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _focusCodeInput();
+    });
     if (widget.codeSentAt != null) {
       _updateCodeSentTime(widget.codeSentAt);
     } else {
       _codeSentAt = DateTime.now();
       _resendRemainingSeconds = 60;
       _startCountdown();
-    }
-    for (int i = 0; i < _codeControllers.length; i++) {
-      final index = i;
-      _codeControllers[i].addListener(() {
-        if (!mounted) return;
-        final hasValue = _codeControllers[index].text.isNotEmpty;
-        if (_hasValue[index] != hasValue) {
-          setState(() {
-            _hasValue[index] = hasValue;
-          });
-        }
-      });
     }
   }
 
@@ -107,70 +102,56 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
-    for (var controller in _codeControllers) {
-      controller.dispose();
-    }
-    for (var focusNode in _focusNodes) {
-      focusNode.dispose();
-    }
+    _codeController.dispose();
+    _codeFocusNode.dispose();
     super.dispose();
   }
 
-  void _handleCodeChange(int index, String value) {
-    if (value.length > 1) {
-      // Handle paste
-      final pastedCode = value.substring(0, 6).split('');
-      for (int i = 0; i < pastedCode.length && i < 6; i++) {
-        if (i < _codeControllers.length) {
-          _codeControllers[i].text = pastedCode[i];
-          _hasValue[i] = pastedCode[i].isNotEmpty;
-        }
-      }
-      setState(() {});
-      final nextIndex = pastedCode.length < 6 ? pastedCode.length : 5;
-      if (nextIndex < _focusNodes.length) {
-        _focusNodes[nextIndex].requestFocus();
-      }
+  void _focusCodeInput() {
+    FocusScope.of(context).requestFocus(_codeFocusNode);
+    final code = _codeController.text;
+    _codeController.selection = TextSelection.collapsed(offset: code.length);
+    SystemChannels.textInput.invokeMethod<void>('TextInput.show');
+  }
+
+  void _handleCodeChange(String value) {
+    final digits = value.replaceAll(RegExp(r'[^0-9]'), '');
+    final nextCode =
+        digits.length > _digitCount ? digits.substring(0, _digitCount) : digits;
+
+    if (nextCode != value) {
+      _codeController.value = TextEditingValue(
+        text: nextCode,
+        selection: TextSelection.collapsed(offset: nextCode.length),
+      );
       return;
     }
 
-    if (value.isNotEmpty && !RegExp(r'[0-9]').hasMatch(value)) {
-      _codeControllers[index].clear();
-      setState(() {
-        _hasValue[index] = false;
-      });
-      return;
-    }
+    setState(() {});
+  }
 
-    // Update hasValue state
-    setState(() {
-      _hasValue[index] = value.isNotEmpty;
-    });
+  bool _isCellFilled(int index) {
+    return index < _codeController.text.length;
+  }
 
-    // Handle backspace - clear current field and move to previous
-    if (value.isEmpty) {
-      if (index > 0) {
-        // Clear previous field and move focus there
-        _codeControllers[index - 1].clear();
-        setState(() {
-          _hasValue[index - 1] = false;
-        });
-        _focusNodes[index - 1].requestFocus();
-      }
-    } else {
-      // Move to next field when digit is entered
-      if (index < 5) {
-        _focusNodes[index + 1].requestFocus();
-      }
-    }
+  bool _isCellActive(int index) {
+    if (!_codeFocusNode.hasFocus) return false;
+    final codeLength = _codeController.text.length;
+    final activeIndex = codeLength < _digitCount ? codeLength : _digitCount - 1;
+    return index == activeIndex;
+  }
+
+  String _digitForCell(int index) {
+    if (!_isCellFilled(index)) return '';
+    return _codeController.text[index];
   }
 
   String _getCode() {
-    return _codeControllers.map((c) => c.text).join();
+    return _codeController.text;
   }
 
   bool _isCodeComplete() {
-    return _codeControllers.every((c) => c.text.isNotEmpty);
+    return _codeController.text.length == _digitCount;
   }
 
   String _formatTime(int seconds) {
@@ -229,6 +210,9 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
+    final normalizedPhone = widget.phoneNumber.startsWith('+')
+        ? widget.phoneNumber
+        : '+${widget.phoneNumber}';
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
@@ -256,7 +240,9 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
 
                   // Content
                   Expanded(
-                    child: Padding(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: EdgeInsets.symmetric(
                         horizontal: BleyaTheme.contentPadding,
                       ),
@@ -269,9 +255,22 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                             style: BleyaTheme.headingMedium,
                           ),
                           SizedBox(height: BleyaTheme.spacingMD),
-                          Text(
-                            "Enter the code we just sent to ${widget.phoneNumber.startsWith('+') ? widget.phoneNumber : '+${widget.phoneNumber}'}",
-                            style: BleyaTheme.bodyLarge,
+                          RichText(
+                            text: TextSpan(
+                              style: BleyaTheme.bodyLarge,
+                              children: [
+                                TextSpan(
+                                  text: 'Enter the code we just sent to ',
+                                ),
+                                TextSpan(
+                                  text: normalizedPhone,
+                                  style: BleyaTheme.bodyLarge.copyWith(
+                                    color: BleyaTheme.foreground,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           SizedBox(
                             height:
@@ -279,110 +278,126 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                           ),
 
                           // 6-Digit Code Inputs
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: List.generate(6, (index) {
-                              return Padding(
-                                padding: EdgeInsets.symmetric(
-                                  horizontal: BleyaTheme.spacingSM,
-                                ),
-                                child: SizedBox(
-                                  width: BleyaTheme.iconContainerSize,
-                                  height: 60,
-                                  child: Container(
-                                    decoration: BoxDecoration(
-                                      color: _hasValue[index]
-                                          ? BleyaTheme.primary
-                                              .withValues(alpha: 0.05)
-                                          : BleyaTheme.glassSurface.withValues(
-                                              alpha: BleyaTheme.glassOpacity),
-                                      borderRadius: BorderRadius.circular(
-                                          BleyaTheme.radiusMedium),
-                                      border: Border.all(
-                                        color: _hasValue[index]
-                                            ? BleyaTheme.primary
-                                            : BleyaTheme.border,
-                                        width: 1,
+                          GestureDetector(
+                            behavior: HitTestBehavior.translucent,
+                            onTap: _focusCodeInput,
+                            child: Column(
+                              children: [
+                                Opacity(
+                                  opacity: 0,
+                                  child: SizedBox(
+                                    width: 1,
+                                    height: 1,
+                                    child: CupertinoTextField(
+                                      controller: _codeController,
+                                      focusNode: _codeFocusNode,
+                                      keyboardType: TextInputType.number,
+                                      textInputAction: TextInputAction.done,
+                                      maxLength: _digitCount,
+                                      enableInteractiveSelection: false,
+                                      autofillHints: const [
+                                        AutofillHints.oneTimeCode,
+                                      ],
+                                      inputFormatters: [
+                                        FilteringTextInputFormatter.digitsOnly,
+                                        LengthLimitingTextInputFormatter(
+                                            _digitCount),
+                                      ],
+                                      style: TextStyle(
+                                        color: Colors.transparent,
+                                        fontSize: 1,
                                       ),
-                                      boxShadow: _hasValue[index]
-                                          ? [
-                                              BoxShadow(
-                                                color: BleyaTheme.primary
-                                                    .withValues(alpha: 0.1),
-                                                blurRadius: 3,
-                                                offset: Offset(0, 0),
-                                              ),
-                                            ]
-                                          : BleyaTheme.glassShadow,
-                                    ),
-                                    child: GestureDetector(
-                                      // Prevent manual field selection - only allow keyboard input
-                                      onTap: () {
-                                        // Find the first empty field or last filled field
-                                        int targetIndex = index;
-                                        for (int i = 0; i < 6; i++) {
-                                          if (!_hasValue[i]) {
-                                            targetIndex = i;
-                                            break;
-                                          }
+                                      cursorColor: Colors.transparent,
+                                      decoration: BoxDecoration(
+                                        color: Colors.transparent,
+                                      ),
+                                      padding: EdgeInsets.zero,
+                                      onChanged: _handleCodeChange,
+                                      onSubmitted: (_) {
+                                        if (_isCodeComplete()) {
+                                          _verifyCode();
                                         }
-                                        _focusNodes[targetIndex].requestFocus();
                                       },
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(
-                                            BleyaTheme.radiusMedium),
-                                        child: BackdropFilter(
-                                          filter: ImageFilter.blur(
-                                              sigmaX: 20, sigmaY: 20),
-                                          child: CupertinoTextField(
-                                            controller: _codeControllers[index],
-                                            focusNode: _focusNodes[index],
-                                            textAlign: TextAlign.center,
-                                            keyboardType: TextInputType.number,
-                                            maxLength: 1,
-                                            enableInteractiveSelection: false,
-                                            showCursor: true,
-                                            autofillHints: index == 0
-                                                ? const [
-                                                    AutofillHints.oneTimeCode
-                                                  ]
-                                                : null,
-                                            inputFormatters: [
-                                              FilteringTextInputFormatter
-                                                  .digitsOnly,
-                                            ],
-                                            padding: EdgeInsets.only(
-                                              top: BleyaTheme.spacingLG,
-                                              left: BleyaTheme.spacingXS,
-                                              bottom: BleyaTheme.spacingSM,
-                                            ),
-                                            style: TextStyle(
-                                              fontSize: 24,
-                                              fontWeight: FontWeight.bold,
-                                              color: _hasValue[index]
-                                                  ? BleyaTheme.primary
-                                                  : BleyaTheme.foreground,
-                                            ),
-                                            decoration: BoxDecoration(
-                                                color: Colors.transparent),
-                                            onChanged: (value) =>
-                                                _handleCodeChange(index, value),
-                                            onSubmitted: (_) {
-                                              if (index < 5) {
-                                                _focusNodes[index + 1]
-                                                    .requestFocus();
-                                              } else {
-                                                _verifyCode();
-                                              }
-                                            },
-                                          ),
-                                        ),
-                                      ),
                                     ),
                                   ),
                                 ),
-                              );
-                            }),
+                                SizedBox(height: BleyaTheme.spacingXS),
+                                LayoutBuilder(
+                                  builder: (context, constraints) {
+                                    final gap = BleyaTheme.spacingXS;
+                                    final cellWidth = (constraints.maxWidth -
+                                            (gap * (_digitCount - 1))) /
+                                        _digitCount;
+
+                                    return Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children:
+                                          List.generate(_digitCount, (index) {
+                                        final isFilled = _isCellFilled(index);
+                                        final isActive = _isCellActive(index);
+                                        final showFrame = isFilled || isActive;
+                                        return Padding(
+                                          padding: EdgeInsets.only(
+                                            right: index == _digitCount - 1
+                                                ? 0
+                                                : gap,
+                                          ),
+                                          child: SizedBox(
+                                            width: cellWidth,
+                                            height: 60,
+                                            child: Container(
+                                              decoration: BoxDecoration(
+                                                color: BleyaTheme.glassSurface
+                                                    .withValues(
+                                                        alpha: BleyaTheme
+                                                            .glassOpacity),
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        BleyaTheme
+                                                            .radiusMedium),
+                                                border: Border.all(
+                                                  color: showFrame
+                                                      ? BleyaTheme.primary
+                                                      : BleyaTheme.border,
+                                                  width: 1,
+                                                ),
+                                                boxShadow:
+                                                    BleyaTheme.glassShadow,
+                                              ),
+                                              child: ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                        BleyaTheme
+                                                            .radiusMedium),
+                                                child: BackdropFilter(
+                                                  filter: ImageFilter.blur(
+                                                      sigmaX: 20, sigmaY: 20),
+                                                  child: Center(
+                                                    child: Text(
+                                                      _digitForCell(index),
+                                                      textAlign:
+                                                          TextAlign.center,
+                                                      style: TextStyle(
+                                                        fontSize: 24,
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        color: BleyaTheme
+                                                            .foreground,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        );
+                                      }),
+                                    );
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
 
                           if (authState.errorMessage != null) ...[

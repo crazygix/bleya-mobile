@@ -86,23 +86,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                     ),
                     child: Row(
                       children: [
-                        RichText(
-                          text: TextSpan(
-                            children: [
-                              TextSpan(
-                                text: 'Bleya',
-                                style: BleyaTheme.headingMedium
-                                    .copyWith(fontSize: 34),
-                              ),
-                              TextSpan(
-                                text: '.',
-                                style: BleyaTheme.headingMedium.copyWith(
-                                  fontSize: 34,
-                                  color: BleyaTheme.accent,
-                                ),
-                              ),
-                            ],
-                          ),
+                        Text(
+                          'Chats',
+                          style: BleyaTheme.headingMedium,
                         ),
                         Spacer(),
                         GlassCircleIconButton(

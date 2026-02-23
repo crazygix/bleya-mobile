@@ -37,23 +37,25 @@ class IntroPage extends StatelessWidget {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    ShaderMask(
-                      shaderCallback: (bounds) => LinearGradient(
-                        colors: [
-                          BleyaTheme.foreground,
-                          BleyaTheme.mutedForeground
+                    RichText(
+                      text: TextSpan(
+                        children: [
+                          TextSpan(
+                            text: 'Bleya',
+                            style: BleyaTheme.headingLarge,
+                          ),
+                          TextSpan(
+                            text: '.',
+                            style: BleyaTheme.headingLarge.copyWith(
+                              color: BleyaTheme.accent,
+                            ),
+                          ),
                         ],
-                      ).createShader(bounds),
-                      child: Text(
-                        'Bleya',
-                        style: BleyaTheme.headingLarge.copyWith(
-                          color: Colors.white,
-                        ),
                       ),
                     ),
                     const SizedBox(height: BleyaTheme.spacingSM),
                     Text(
-                      'Built for solo travelers. Open to everyone.',
+                      'Built for solo travelers.\nOpen to everyone.',
                       style: BleyaTheme.bodyLarge.copyWith(
                         fontSize: 18,
                         fontWeight: FontWeight.w500,

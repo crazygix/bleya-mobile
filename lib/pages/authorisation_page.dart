@@ -23,6 +23,11 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _phoneFocusNode.requestFocus();
+      }
+    });
     _phoneController.addListener(() {
       final digits =
           _phoneController.text.trim().replaceAll(RegExp(r'[^0-9]'), '');
@@ -146,6 +151,7 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         systemNavigationBarIconBrightness: Brightness.dark,
       ),
       child: Scaffold(
+        resizeToAvoidBottomInset: true,
         backgroundColor: BleyaTheme.background,
         body: Stack(
           children: [
@@ -164,7 +170,9 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
 
                   // Content
                   Expanded(
-                    child: Padding(
+                    child: SingleChildScrollView(
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
                       padding: EdgeInsets.symmetric(
                         horizontal: BleyaTheme.contentPadding,
                       ),
@@ -244,21 +252,24 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                       ),
                     ),
                   ),
-
-                  // Footer Button
-                  Padding(
-                    padding: EdgeInsets.only(
-                      left: BleyaTheme.footerPadding,
-                      right: BleyaTheme.footerPadding,
-                      top: BleyaTheme.footerPadding,
-                      bottom: MediaQuery.of(context).padding.bottom +
-                          BleyaTheme.footerBottomPadding,
-                    ),
-                    child: PrimaryButton(
-                      text: 'Get code',
-                      onPressed: _requestCode,
-                      isLoading: authState.isLoading,
-                      isEnabled: _hasPhoneNumber,
+                  Container(
+                    color: Colors.transparent,
+                    child: AnimatedPadding(
+                      duration: const Duration(milliseconds: 220),
+                      curve: Curves.easeOut,
+                      padding: EdgeInsets.only(
+                        left: BleyaTheme.footerPadding,
+                        right: BleyaTheme.footerPadding,
+                        top: BleyaTheme.footerPadding,
+                        bottom: MediaQuery.of(context).padding.bottom +
+                            BleyaTheme.footerBottomPadding,
+                      ),
+                      child: PrimaryButton(
+                        text: 'Get code',
+                        onPressed: _requestCode,
+                        isLoading: authState.isLoading,
+                        isEnabled: _hasPhoneNumber,
+                      ),
                     ),
                   ),
                 ],
