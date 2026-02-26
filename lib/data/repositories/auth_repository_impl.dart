@@ -103,12 +103,13 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> setUsername({required String username}) async {
+  Future<UserProfile> setUsername({required String username}) async {
     try {
-      await _dio.post(
+      final response = await _dio.post(
         '/auth/set-username',
         data: {'username': username},
       );
+      return UserProfileDto.fromJson(response.data as Map<String, dynamic>);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }

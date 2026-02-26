@@ -5,6 +5,7 @@ import '../use_cases/auth/check_username_use_case.dart';
 import '../use_cases/auth/set_username_use_case.dart';
 import '../use_cases/user/upload_profile_image_use_case.dart';
 import '../utils/app_errors.dart';
+import '../domain/entities/user_profile.dart';
 
 class UsernameState {
   final bool isValid;
@@ -59,6 +60,17 @@ class UsernameController extends StateNotifier<UsernameState> {
   void dispose() {
     _debounceTimer?.cancel();
     super.dispose();
+  }
+
+  void resetTransientUiState() {
+    _debounceTimer?.cancel();
+    state = state.copyWith(
+      isValid: false,
+      isChecking: false,
+      hasCheckedAvailability: false,
+      errorMessage: null,
+      isLoading: false,
+    );
   }
 
   void validateUsername(String username) {
@@ -131,12 +143,16 @@ class UsernameController extends StateNotifier<UsernameState> {
     state = state.copyWith(hasCheckedAvailability: false);
   }
 
-  Future<void> setUsername(String username) async {
+  Future<UserProfile> setUsername(String username) async {
+    if (state.isLoading) {
+      throw StateError('Username submission already in progress');
+    }
+
     final trimmed = username.trim().toLowerCase();
 
     if (trimmed.isEmpty) {
       state = state.copyWith(errorMessage: "How should we call you?");
-      return;
+      throw StateError('Username is empty');
     }
 
     if (!RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(trimmed)) {
@@ -144,7 +160,7 @@ class UsernameController extends StateNotifier<UsernameState> {
         errorMessage:
             "Keep it simple: 3-30 characters, just letters, numbers, and underscores.",
       );
-      return;
+      throw StateError('Username format is invalid');
     }
 
     state = state.copyWith(
@@ -157,7 +173,8 @@ class UsernameController extends StateNotifier<UsernameState> {
         await _uploadProfileImageUseCase(state.selectedImage!);
       }
 
-      await _setUsernameUseCase(username: trimmed);
+      final profile = await _setUsernameUseCase(username: trimmed);
+      return profile;
     } catch (e) {
       final errorMessage = e is AppError
           ? e.getUserMessage()
@@ -168,7 +185,7 @@ class UsernameController extends StateNotifier<UsernameState> {
       );
       rethrow;
     } finally {
-      if (!state.isLoading) {
+      if (state.isLoading) {
         state = state.copyWith(isLoading: false);
       }
     }

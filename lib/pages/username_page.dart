@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import '../constants/theme.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
+import '../providers/profile_providers.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/app_navigation_bar.dart';
@@ -27,6 +28,10 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      ref.read(usernameControllerProvider.notifier).resetTransientUiState();
+    });
     _usernameController.addListener(_onUsernameChanged);
   }
 
@@ -76,7 +81,8 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     final controller = ref.read(usernameControllerProvider.notifier);
 
     try {
-      await controller.setUsername(username);
+      final profile = await controller.setUsername(username);
+      ref.read(profileProvider.notifier).setProfile(profile);
       if (mounted) {
         Navigator.of(context).pushReplacementNamed('/home');
       }

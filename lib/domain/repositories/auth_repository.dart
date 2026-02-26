@@ -11,7 +11,7 @@ abstract class AuthRepository {
     required String code,
   });
   Future<bool> checkUsername({required String username});
-  Future<void> setUsername({required String username});
+  Future<UserProfile> setUsername({required String username});
   Future<UserProfile> getMyInfo();
   Future<String> refresh();
   Future<void> logout();
