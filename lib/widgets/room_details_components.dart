@@ -194,8 +194,7 @@ class RoomMemberTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final displayName =
-        member.username.isNotEmpty ? member.username : member.phoneNumber;
+    final displayName = member.username.isNotEmpty ? member.username : 'Member';
     final override = bioOverride?.trim() ?? '';
     final bioText = override.isNotEmpty ? override : member.bio.trim();
     final hasBio = bioText.isNotEmpty;

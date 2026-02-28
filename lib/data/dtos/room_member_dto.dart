@@ -4,9 +4,8 @@ import '../../domain/entities/room_member.dart';
 class RoomMemberDto {
   static RoomMember fromJson(Map<String, dynamic> json) {
     return RoomMember(
-      id: json['id'] as String,
+      id: (json['id'] ?? '').toString(),
       username: json['username'] as String? ?? '',
-      phoneNumber: json['phoneNumber'] as String,
       bio: json['bio'] as String? ?? '',
       profileImageUrl: json['profileImageUrl'] as String? ?? '',
     );

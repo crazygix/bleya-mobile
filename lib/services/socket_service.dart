@@ -41,7 +41,10 @@ class SocketService {
   void _ensureSocketInitialized() {
     if (_socket != null) return;
 
-    final serverUrl = EnvironmentConfig.baseUrl.replaceAll('/api', '');
+    final serverUrl = EnvironmentConfig.baseUrl.replaceFirst(
+      RegExp(r'/api(?:/v\d+)?$'),
+      '',
+    );
 
     _socket = io.io(
       serverUrl,

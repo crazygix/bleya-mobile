@@ -53,13 +53,18 @@ class NotificationModel extends Notification {
     final parentMessageText = json['parentMessageText'] as String?;
     final replyText = json['replyText'] as String?;
 
-    // Parse createdAt - can be int (milliseconds) or String (ISO)
+    // Parse createdAt from timestamp milliseconds.
     DateTime createdAt;
     final createdAtData = json['createdAt'];
     if (createdAtData is int) {
       createdAt = DateTime.fromMillisecondsSinceEpoch(createdAtData);
     } else if (createdAtData is String) {
-      createdAt = DateTime.parse(createdAtData);
+      final parsed = int.tryParse(createdAtData);
+      if (parsed != null) {
+        createdAt = DateTime.fromMillisecondsSinceEpoch(parsed);
+      } else {
+        createdAt = DateTime.now();
+      }
     } else {
       createdAt = DateTime.now();
     }

@@ -2,14 +2,12 @@
 class RoomMember {
   final String id;
   final String username;
-  final String phoneNumber;
   final String bio;
   final String profileImageUrl;
 
   RoomMember({
     required this.id,
     required this.username,
-    required this.phoneNumber,
     required this.bio,
     required this.profileImageUrl,
   });

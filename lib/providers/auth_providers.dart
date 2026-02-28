@@ -206,15 +206,13 @@ final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
   final decoded = JwtUtils.decodeToken(token);
   if (decoded == null) return null;
 
-  // Expect payload to include userId and phoneNumber
+  // Expect payload to include userId.
   final userId = decoded['userId'] ?? decoded['sub'];
-  final phoneNumber = decoded['phoneNumber'];
 
   if (userId == null) return null;
 
   return {
-    'id': userId as String,
-    'phoneNumber': phoneNumber,
+    'id': userId.toString(),
   };
 });
 

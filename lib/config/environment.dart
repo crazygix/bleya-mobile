@@ -12,9 +12,9 @@ class EnvironmentConfig {
   static String get baseUrl {
     switch (_environment) {
       case Environment.dev:
-        return 'http://192.168.1.4:8080/api';
+        return 'http://192.168.1.4:8080/api/v1';
       case Environment.prod:
-        return 'https://bleya.up.railway.app/api';
+        return 'https://bleya.up.railway.app/api/v1';
     }
   }
 

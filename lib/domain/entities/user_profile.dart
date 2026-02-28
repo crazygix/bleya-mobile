@@ -4,7 +4,6 @@ class UserProfile {
   final String? username;
   final String? bio;
   final String? profileImageUrl;
-  final String? phoneNumber;
   final DateTime? createdAt;
   final DateTime? lastLogin;
 
@@ -13,7 +12,6 @@ class UserProfile {
     this.username,
     this.bio,
     this.profileImageUrl,
-    this.phoneNumber,
     this.createdAt,
     this.lastLogin,
   });
