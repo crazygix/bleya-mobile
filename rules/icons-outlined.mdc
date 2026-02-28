@@ -10,8 +10,9 @@ Always use outlined (non-filled) icons throughout the app for a cleaner, more mo
 ## Rules
 
 - **Use outlined icons**: Always use the outlined version of CupertinoIcons
-- **No filled icons**: Avoid `_fill` suffix icons except for validation states
-- **Exception**: Form validation icons (error/success) should remain filled for visibility
+- **No filled icons**: Avoid `_fill` suffix icons except for the allowed exceptions below
+- **Exception – Validation**: Form validation icons (error/success) should remain filled for visibility
+- **Exception – Selected nav tabs**: Bottom navigation bar selected state may use filled variants (standard iOS convention)
 
 ## Examples
 

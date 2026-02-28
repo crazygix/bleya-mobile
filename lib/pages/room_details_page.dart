@@ -11,7 +11,10 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/error_state.dart';
 import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
-import '../widgets/room_details_components.dart';
+import '../widgets/empty_members_card.dart';
+import '../widgets/members_section_header.dart';
+import '../widgets/room_hero_card.dart';
+import '../widgets/room_member_tile.dart';
 import 'user_details_page.dart';
 
 class RoomDetailsPage extends ConsumerStatefulWidget {
