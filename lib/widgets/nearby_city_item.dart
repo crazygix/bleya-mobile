@@ -39,7 +39,7 @@ class NearbyCityItem extends StatelessWidget {
                 imageUrl: city.imageUrl,
                 size: 48,
                 backgroundColor: BleyaTheme.primaryLight,
-                fallbackIcon: CupertinoIcons.building_2_fill,
+                fallbackIcon: CupertinoIcons.location,
                 fallbackIconColor: BleyaTheme.primaryDark,
               ),
               SizedBox(width: BleyaTheme.spacingMD),

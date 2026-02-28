@@ -29,6 +29,8 @@ class AuthRepositoryImpl implements AuthRepository {
         data: {'phoneNumber': phone},
       );
       if (kDebugMode) {
+        // Intentionally kept for local/staging debugging only.
+        // Do not enable or mirror this in production telemetry.
         print("Code sent: ${response.data["code"]}");
       }
       return CodeRequestResult(
@@ -50,6 +52,8 @@ class AuthRepositoryImpl implements AuthRepository {
         data: {'phoneNumber': phone},
       );
       if (kDebugMode) {
+        // Intentionally kept for local/staging debugging only.
+        // Do not enable or mirror this in production telemetry.
         print("Code resent: ${response.data["code"]}");
       }
       return CodeRequestResult(

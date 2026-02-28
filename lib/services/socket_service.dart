@@ -2,7 +2,38 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
+import '../data/dtos/message_dto.dart';
+import '../data/dtos/notification_dto.dart';
+import '../data/dtos/room_dto.dart';
+import '../domain/entities/message.dart';
+import '../domain/entities/notification.dart';
 import '../domain/entities/room.dart';
+
+class RoomJoinedEventData {
+  final Room room;
+  final List<Message> messages;
+  final bool hasMore;
+  final String? nextCursor;
+  final DateTime? lastReadAt;
+
+  const RoomJoinedEventData({
+    required this.room,
+    required this.messages,
+    required this.hasMore,
+    required this.nextCursor,
+    required this.lastReadAt,
+  });
+}
+
+class SocketErrorData {
+  final String? code;
+  final String message;
+
+  const SocketErrorData({
+    required this.code,
+    required this.message,
+  });
+}
 
 class SocketService {
   io.Socket? _socket;
@@ -347,6 +378,77 @@ class SocketService {
     return {'message': data?.toString() ?? ''};
   }
 
+  RoomJoinedEventData? parseRoomJoinedPayload(Map<String, dynamic> data) {
+    try {
+      final roomData = data['room'];
+      if (roomData is! Map) {
+        return null;
+      }
+      final room = RoomDto.fromJson(Map<String, dynamic>.from(roomData));
+
+      final rawMessages = data['messages'];
+      final messages = rawMessages is List
+          ? rawMessages
+              .whereType<Map>()
+              .map((payload) =>
+                  MessageDto.fromJson(Map<String, dynamic>.from(payload)))
+              .toList()
+          : <Message>[];
+
+      final pagination = data['pagination'];
+      final paginationMap = pagination is Map
+          ? Map<String, dynamic>.from(pagination)
+          : const <String, dynamic>{};
+      final hasMore = paginationMap['hasMore'] as bool? ?? false;
+      final nextCursor = paginationMap['nextCursor'] as String?;
+      final lastReadAtMs = data['lastReadAt'];
+      final lastReadAt = lastReadAtMs is int
+          ? DateTime.fromMillisecondsSinceEpoch(lastReadAtMs)
+          : null;
+
+      return RoomJoinedEventData(
+        room: room,
+        messages: messages,
+        hasMore: hasMore,
+        nextCursor: nextCursor,
+        lastReadAt: lastReadAt,
+      );
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Message? parseMessagePayload(Map<String, dynamic> data) {
+    try {
+      return MessageDto.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
+  SocketErrorData parseErrorPayload(Map<String, dynamic> data) {
+    final rawError = data['error'];
+    final errorMap =
+        rawError is Map ? Map<String, dynamic>.from(rawError) : null;
+    final errorCode = errorMap?['code']?.toString();
+    final errorMsg = errorMap?['message']?.toString() ??
+        data['message']?.toString() ??
+        'An error occurred';
+
+    return SocketErrorData(
+      code: errorCode,
+      message: errorMsg,
+    );
+  }
+
+  Notification? parseNotificationPayload(Map<String, dynamic> data) {
+    try {
+      return NotificationDto.fromJson(data);
+    } catch (_) {
+      return null;
+    }
+  }
+
   void onRoomJoined(Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
       callback(_normalizePayload(data));
@@ -410,6 +512,15 @@ class SocketService {
     if (kDebugMode) {
       print('✅ SocketService: onNewNotification handler registered');
     }
+  }
+
+  void onNewNotificationEntity(Function(Notification notification) callback) {
+    onNewNotification((data) {
+      final notification = parseNotificationPayload(data);
+      if (notification != null) {
+        callback(notification);
+      }
+    });
   }
 
   /// Remove a specific callback listener for an event.

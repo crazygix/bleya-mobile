@@ -4,11 +4,13 @@ import '../domain/repositories/user_repository.dart';
 import '../domain/repositories/room_repository.dart';
 import '../domain/repositories/message_repository.dart';
 import '../domain/repositories/city_repository.dart';
+import '../domain/repositories/notification_repository.dart';
 import '../data/repositories/auth_repository_impl.dart';
 import '../data/repositories/user_repository_impl.dart';
 import '../data/repositories/room_repository_impl.dart';
 import '../data/repositories/message_repository_impl.dart';
 import '../data/repositories/city_repository_impl.dart';
+import '../data/repositories/notification_repository_impl.dart';
 import '../domain/repositories/location_repository.dart';
 import '../data/repositories/location_repository_impl.dart';
 import 'auth_providers.dart';
@@ -42,4 +44,9 @@ final locationRepositoryProvider = Provider<LocationRepository>((ref) {
 final cityRepositoryProvider = Provider<CityRepository>((ref) {
   final dio = ref.watch(dioProvider);
   return CityRepositoryImpl(dio);
+});
+
+final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
+  final dio = ref.watch(dioProvider);
+  return NotificationRepositoryImpl(dio);
 });

@@ -2,13 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
+import '../domain/entities/notification.dart' as app_notification;
 import '../providers/notification_provider.dart';
 import '../widgets/notification_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
+import '../widgets/app_spinner.dart';
 import '../utils/app_toast.dart';
 import 'thread_view_page.dart';
-import '../providers/repository_providers.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
   const NotificationsPage({super.key});
@@ -63,7 +64,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     ref.read(notificationStateProvider.notifier).dismissAll();
   }
 
-  Future<void> _navigateToThread(context, notification) async {
+  Future<void> _navigateToThread(
+    BuildContext context,
+    app_notification.Notification notification,
+  ) async {
     // 1. Dismiss from the Activity list immediately
     ref
         .read(notificationStateProvider.notifier)
@@ -73,22 +77,16 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     showCupertinoDialog(
       context: context,
       barrierDismissible: false,
-      builder: (context) => const Center(child: CupertinoActivityIndicator()),
+      builder: (context) => const Center(child: AppSpinner(size: 24)),
     );
 
     try {
-      final roomRepo = ref.read(roomRepositoryProvider);
-      final messageRepo = ref.read(messageRepositoryProvider);
-
-      // Parallel fetch
-      final results = await Future.wait([
-        roomRepo.getRoom(notification.roomId),
-        messageRepo.getMessage(notification.threadId), // Fetch parent message
-      ]);
-
-      final room = results[0]
-          as dynamic; // casting needed due to Future.wait return type inference
-      final parentMessage = results[1] as dynamic; // actually Message object
+      final threadContext = await ref
+          .read(notificationStateProvider.notifier)
+          .fetchThreadContext(
+            roomId: notification.roomId,
+            threadId: notification.threadId,
+          );
 
       if (context.mounted) {
         Navigator.pop(context); // Close loader
@@ -97,8 +95,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
           context,
           CupertinoPageRoute(
             builder: (context) => ThreadViewPage(
-              room: room,
-              parentMessage: parentMessage,
+              room: threadContext.room,
+              parentMessage: threadContext.parentMessage,
             ),
           ),
         );
@@ -162,7 +160,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.6,
                           child: const EmptyState(
-                            icon: CupertinoIcons.sun_max_fill,
+                            icon: CupertinoIcons.sun_max,
                             title: 'Nothing new here',
                             description:
                                 'Sit back and relax.\nYou\'re all caught up.',

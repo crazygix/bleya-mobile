@@ -3,8 +3,7 @@ import 'dart:async';
 import 'package:dio/dio.dart';
 import '../../core/errors/api_error_mapper.dart';
 import '../../domain/repositories/notification_repository.dart';
-
-import '../models/notification_model.dart';
+import '../dtos/notification_dto.dart';
 
 class NotificationRepositoryImpl implements NotificationRepository {
   final Dio _dio;
@@ -40,7 +39,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
         final data = response.data as Map<String, dynamic>;
         final list = (data['notifications'] as List)
-            .map((e) => NotificationModel.fromJson(e as Map<String, dynamic>))
+            .map((e) => NotificationDto.fromJson(e as Map<String, dynamic>))
             .toList();
 
         return NotificationPage(

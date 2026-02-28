@@ -9,6 +9,7 @@ import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/app_spinner.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/error_state.dart';
 import '../widgets/profile_avatar.dart';
@@ -409,7 +410,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     }
 
     if (isDirectStatusLoading && !_isRunningDirectAction) {
-      return const CupertinoActivityIndicator();
+      return const AppSpinner(size: 20);
     }
 
     if (directChatStatus == null || !directChatStatus.hasChat) {
@@ -426,7 +427,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
           ? null
           : () => _showDirectChatActions(directChatStatus),
       child: _isRunningDirectAction
-          ? const CupertinoActivityIndicator()
+          ? const AppSpinner(size: 20)
           : const Icon(
               CupertinoIcons.ellipsis_circle,
               size: 24,

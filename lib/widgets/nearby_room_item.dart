@@ -43,7 +43,7 @@ class NearbyRoomItem extends StatelessWidget {
                 imageUrl: room.imageUrl,
                 size: 48,
                 backgroundColor: BleyaTheme.primaryLight,
-                fallbackIcon: CupertinoIcons.building_2_fill,
+                fallbackIcon: CupertinoIcons.location,
                 fallbackIconColor: BleyaTheme.primaryDark,
               ),
               SizedBox(width: BleyaTheme.spacingMD),

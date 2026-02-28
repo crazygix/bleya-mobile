@@ -2,16 +2,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/notification.dart';
-import '../domain/repositories/notification_repository.dart';
-import '../data/repositories/notification_repository_impl.dart';
-import '../data/models/notification_model.dart';
+import '../use_cases/notification/get_notification_thread_context_use_case.dart';
 import 'auth_providers.dart';
 import 'chat_providers.dart';
-
-final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
-  final dio = ref.watch(dioProvider);
-  return NotificationRepositoryImpl(dio);
-});
+import 'repository_providers.dart';
+import 'use_case_providers.dart';
 
 class NotificationState {
   final List<Notification> notifications;
@@ -200,6 +195,14 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     }
   }
 
+  Future<NotificationThreadContext> fetchThreadContext({
+    required String roomId,
+    required String threadId,
+  }) async {
+    final useCase = ref.read(getNotificationThreadContextUseCaseProvider);
+    return await useCase(roomId: roomId, threadId: threadId);
+  }
+
   void handleNewNotification(Notification notification) {
     final current = state.valueOrNull;
     if (current == null) return; // Not loaded yet
@@ -262,23 +265,13 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     }
 
     // Register the listener
-    socketService.onNewNotification((data) {
+    socketService.onNewNotificationEntity((notification) {
       if (kDebugMode) {
-        print('🔔 NEW NOTIFICATION RECEIVED: $data');
+        print('🔔 NEW NOTIFICATION RECEIVED: ${notification.id}');
       }
-      try {
-        final notification = NotificationModel.fromJson(data);
-        if (kDebugMode) {
-          print('🔔 Parsed notification: ${notification.id}');
-        }
-        notifier.handleNewNotification(notification);
-        if (kDebugMode) {
-          print('🔔 Notification added to state');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('❌ Error parsing notification: $e');
-        }
+      notifier.handleNewNotification(notification);
+      if (kDebugMode) {
+        print('🔔 Notification added to state');
       }
     });
 

@@ -210,7 +210,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     ref.listen(threadMessagesProvider(widget.parentMessage.id),
         (previous, next) {
       next.whenData((data) {
-        final replies = data['replies'] as List<Message>;
+        final replies = data.replies;
         if (replies.length > _previousReplyCount) {
           _scrollToBottom();
         }
@@ -243,8 +243,8 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
               Expanded(
                 child: threadState.when(
                   data: (data) {
-                    final parentMessage = data['parentMessage'] as Message;
-                    final replies = data['replies'] as List<Message>;
+                    final parentMessage = data.parentMessage;
+                    final replies = data.replies;
                     final isParentCurrentUser = currentUserId != null &&
                         parentMessage.userId == currentUserId;
 

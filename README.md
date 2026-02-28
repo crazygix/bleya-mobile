@@ -52,7 +52,7 @@ Use the shared loading system across the app:
 
 Full policy and usage rules:
 
-- `LOADING_UI_RULES.md`
+- `rules/loading-ui-rules.md`
 
 ## Assets
 

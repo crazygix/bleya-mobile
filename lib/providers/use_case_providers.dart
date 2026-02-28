@@ -14,12 +14,14 @@ import '../use_cases/room/get_joined_rooms_use_case.dart';
 import '../use_cases/room/join_room_use_case.dart';
 import '../use_cases/room/leave_room_use_case.dart';
 import '../use_cases/room/create_direct_message_use_case.dart';
+import '../use_cases/room/get_room_members_use_case.dart';
 import '../use_cases/room/get_direct_chat_status_use_case.dart';
 import '../use_cases/room/delete_direct_chat_use_case.dart';
 import '../use_cases/room/block_direct_chat_use_case.dart';
 import '../use_cases/room/unblock_direct_chat_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
 import '../use_cases/message/get_room_messages_page_use_case.dart';
+import '../use_cases/notification/get_notification_thread_context_use_case.dart';
 import '../use_cases/location/get_current_location_use_case.dart';
 import '../use_cases/city/get_nearby_cities_use_case.dart';
 import '../use_cases/city/join_city_use_case.dart';
@@ -82,6 +84,11 @@ final joinRoomUseCaseProvider = Provider<JoinRoomUseCase>((ref) {
   return JoinRoomUseCase(repository);
 });
 
+final getRoomMembersUseCaseProvider = Provider<GetRoomMembersUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return GetRoomMembersUseCase(repository);
+});
+
 final leaveRoomUseCaseProvider = Provider<LeaveRoomUseCase>((ref) {
   final repository = ref.watch(roomRepositoryProvider);
   return LeaveRoomUseCase(repository);
@@ -119,6 +126,16 @@ final unblockDirectChatUseCaseProvider =
 final getThreadUseCaseProvider = Provider<GetThreadUseCase>((ref) {
   final repository = ref.watch(messageRepositoryProvider);
   return GetThreadUseCase(repository);
+});
+
+final getNotificationThreadContextUseCaseProvider =
+    Provider<GetNotificationThreadContextUseCase>((ref) {
+  final roomRepository = ref.watch(roomRepositoryProvider);
+  final messageRepository = ref.watch(messageRepositoryProvider);
+  return GetNotificationThreadContextUseCase(
+    roomRepository,
+    messageRepository,
+  );
 });
 
 final getRoomMessagesPageUseCaseProvider =

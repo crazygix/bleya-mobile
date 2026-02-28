@@ -5,12 +5,6 @@ class BlockedUserDto {
     if (value is int) {
       return DateTime.fromMillisecondsSinceEpoch(value);
     }
-    if (value is String) {
-      final parsed = int.tryParse(value);
-      if (parsed != null) {
-        return DateTime.fromMillisecondsSinceEpoch(parsed);
-      }
-    }
     return null;
   }
 
