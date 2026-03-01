@@ -277,31 +277,43 @@ Their content is preserved below as code for reference.
 // - lib/widgets/app_skeleton.dart
 //
 // ========================================
-// 12. TESTING GUIDELINES
+// 12. TESTING RULES
 // ========================================
 //
-// RULE: Test use cases with mocked repository interfaces
+// RULE: Every new use case and controller MUST have corresponding unit tests.
 //
-// Structure:
-// - Mock repository interfaces (not implementations)
-// - Test use cases in isolation
-// - Test controllers with mocked use cases
+// MANDATORY TEST COVERAGE:
+// - Every use case: test delegation to repository, test error propagation
+// - Every controller: test validation logic, state transitions, error handling
+// - Use cases with orchestration logic (e.g., Future.wait, conditional branching):
+//   test all code paths
 //
-// Example:
-// ```dart
-// class MockAuthRepository implements AuthRepository {
-//   @override
-//   Future<Map<String, dynamic>> requestCode({required String phone}) async {
-//     return {'codeSentAt': 1234567890};
-//   }
-// }
+// WHEN TO WRITE TESTS:
+// - New use case or controller → write tests in the same PR
+// - Bug fix in existing use case/controller → add a regression test
+// - Refactor that changes behavior → update existing tests
 //
-// test('RequestCodeUseCase calls repository', () async {
-//   final mockRepo = MockAuthRepository();
-//   final useCase = RequestCodeUseCase(mockRepo);
-//   // Test...
-// });
-// ```
+// TESTING PATTERNS:
+// - Use mocktail for mocking (no code generation needed)
+// - Mock repository interfaces for use case tests (not implementations)
+// - Mock use cases for controller tests (not repositories)
+// - Shared mocks live in test/mocks.dart
+// - Use fakeAsync for debounce/timer-based logic
+// - Use addListener((_) {}) for controllers that check `mounted`
+//
+// TEST FILE ORGANIZATION:
+// - test/mocks.dart — shared mock classes
+// - test/use_cases/<domain>_use_cases_test.dart — grouped by domain area
+// - test/controllers/<name>_controller_test.dart — one per controller
+//
+// WHAT NOT TO TEST (for now):
+// - Widget/UI tests (low ROI until UI stabilizes)
+// - Integration tests
+// - DTOs and JSON parsing (covered by repository impl tests later)
+//
+// RUNNING TESTS:
+// - Run `flutter test` before pushing
+// - All tests must pass before merging a PR
 //
 // ========================================
 // 13. FORBIDDEN PATTERNS
@@ -319,6 +331,7 @@ Their content is preserved below as code for reference.
 // - Treat DTOs as domain entities (DTOs are boundary/contract objects only)
 // - Use CupertinoActivityIndicator/CircularProgressIndicator directly in UI screens
 // - Mix concerns (e.g., network + business logic in same class)
+// - Add use cases or controllers without corresponding unit tests
 //
 // ========================================
 // 14. MIGRATION CHECKLIST
@@ -332,7 +345,8 @@ Their content is preserved below as code for reference.
 // 5. ✅ Create use case(s)
 // 6. ✅ Wire in providers
 // 7. ✅ Create controller (if UI state needed)
-// 8. ✅ Create page/widget
+// 8. ✅ Write unit tests for new use cases and controllers
+// 9. ✅ Create page/widget
 //
 // ========================================
 // 15. CODE REVIEW CHECKLIST
@@ -349,6 +363,9 @@ Their content is preserved below as code for reference.
 // - [ ] Files in correct folders
 // - [ ] Loading states follow LOADING_UI_RULES.md
 // - [ ] No direct spinner widget usage outside app_spinner.dart
+// - [ ] New use cases have unit tests
+// - [ ] New controllers have unit tests
+// - [ ] All tests pass (`flutter test`)
 //
 // ========================================
 // END OF ARCHITECTURE RULES
