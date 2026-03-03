@@ -1,7 +1,7 @@
 enum Environment { dev, prod }
 
 class EnvironmentConfig {
-  static const String _defaultDevBaseUrl = 'http://192.168.1.4:8080/api/v1';
+  static const String _defaultDevBaseUrl = 'http://127.0.0.1:8080/api/v1';
   static const String _defaultProdBaseUrl =
       'https://bleya.up.railway.app/api/v1';
   static const String _devBaseUrlOverride = String.fromEnvironment(

@@ -1,0 +1,4 @@
+{
+  "FLUTTER_ENV": "prod",
+  "API_BASE_URL_PROD": "https://bleya.up.railway.app/api/v1"
+}

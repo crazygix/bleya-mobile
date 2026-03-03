@@ -1,0 +1,205 @@
+{
+  "folders": [
+    {
+      "name": "Backend (Node.js)",
+      "path": "../backend"
+    },
+    {
+      "name": "Mobile (Flutter)",
+      "path": "."
+    }
+  ],
+  "settings": {
+    "typescript.preferences.includePackageJsonAutoImports": "auto",
+    "dart.flutterSdkPath": "/Users/ivan.kokanovic/flutter",
+    "dart.flutterSdkPaths": [
+      "/Users/ivan.kokanovic/flutter"
+    ],
+    "dart.projectSearchDepth": 6,
+    "git.detectSubmodules": false,
+    "git.autoRepositoryDetection": "subFolders",
+    "files.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.dart_tool": true,
+      "**/build": true
+    },
+    "search.exclude": {
+      "**/node_modules": true,
+      "**/dist": true,
+      "**/.dart_tool": true,
+      "**/build": true,
+      "**/ios/Pods": true,
+      "**/android/.gradle": true
+    }
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Backend: Start Dev Server",
+        "type": "shell",
+        "command": "npm run build && npm start",
+        "options": {
+          "cwd": "${workspaceFolder:Backend (Node.js)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Backend: Build",
+        "type": "shell",
+        "command": "npm run build",
+        "options": {
+          "cwd": "${workspaceFolder:Backend (Node.js)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Backend: Install Dependencies",
+        "type": "shell",
+        "command": "npm install",
+        "options": {
+          "cwd": "${workspaceFolder:Backend (Node.js)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Flutter: Run App",
+        "type": "shell",
+        "command": "flutter run",
+        "options": {
+          "cwd": "${workspaceFolder:Mobile (Flutter)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Flutter: Run App (Debug)",
+        "type": "shell",
+        "command": "flutter run --debug",
+        "options": {
+          "cwd": "${workspaceFolder:Mobile (Flutter)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Flutter: Build APK",
+        "type": "shell",
+        "command": "flutter build apk",
+        "options": {
+          "cwd": "${workspaceFolder:Mobile (Flutter)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Flutter: Get Dependencies",
+        "type": "shell",
+        "command": "flutter pub get",
+        "options": {
+          "cwd": "${workspaceFolder:Mobile (Flutter)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Flutter: Clean",
+        "type": "shell",
+        "command": "flutter clean",
+        "options": {
+          "cwd": "${workspaceFolder:Mobile (Flutter)}"
+        },
+        "group": "build",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      }
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Mobile dev",
+        "type": "dart",
+        "request": "launch",
+        "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
+        "cwd": "${workspaceFolder:Mobile (Flutter)}",
+        "args": [
+          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/dev.local.json"
+        ]
+      },
+      {
+        "name": "Mobile prod",
+        "type": "dart",
+        "request": "launch",
+        "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
+        "cwd": "${workspaceFolder:Mobile (Flutter)}",
+        "args": [
+          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.example.json"
+        ]
+      },
+      {
+        "name": "Mobile release",
+        "type": "dart",
+        "request": "launch",
+        "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
+        "cwd": "${workspaceFolder:Mobile (Flutter)}",
+        "args": [
+          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.example.json"
+        ],
+        "flutterMode": "release"
+      }
+    ]
+  }
+}

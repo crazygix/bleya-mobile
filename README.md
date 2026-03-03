@@ -14,16 +14,52 @@ samples, guidance on mobile development, and a full API reference.
 
 ## Run from Cursor (Multi-root Workspace)
 
-1) Open [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/bleya.code-workspace) in Cursor.
+One-time setup:
+
+```bash
+cp config/env/dev.example.json config/env/dev.local.json
+```
+
+1) Open [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/mobile/bleya.code-workspace) in Cursor.
 2) Run task `Backend: Start Dev Server`.
 3) Start your Android emulator or iOS simulator/device.
 4) Run command `Flutter: Select Device` and pick Android or iOS.
-5) In Run and Debug, launch `Flutter: Run (Dev, Select Device)`.
+5) In Run and Debug, launch `Mobile dev`.
 
 Notes:
 - Workspace launch config is the single source of truth for Flutter runs.
-- Dev URL is set via `API_BASE_URL_DEV=http://192.168.1.4:8080/api/v1` in the workspace launch args.
-- If your LAN IP changes, update it in [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/bleya.code-workspace).
+- `Mobile dev` reads `config/env/dev.local.json` via `--dart-define-from-file`.
+- If your LAN IP changes, update `API_BASE_URL_DEV` in `config/env/dev.local.json` only.
+- `Mobile prod`/`Mobile release` read `config/env/prod.example.json`.
+- Available schemes: `Backend dev`, `Mobile dev`, `Mobile prod`, `Mobile release`.
+
+## Configuration Files
+
+Committed templates:
+
+- `config/env/dev.example.json`
+- `config/env/prod.example.json`
+
+Local-only files (gitignored):
+
+- `config/env/dev.local.json`
+- `config/env/prod.local.json` (optional, if you want a custom prod endpoint)
+
+Recommended local flow:
+
+1) Copy template:
+
+```bash
+cp config/env/dev.example.json config/env/dev.local.json
+```
+
+2) Set `API_BASE_URL_DEV` in `dev.local.json`:
+
+- Android emulator: `http://10.0.2.2:8080/api/v1`
+- iOS simulator: `http://127.0.0.1:8080/api/v1`
+- Physical device: `http://<LAN_IP_OF_MAC>:8080/api/v1`
+
+3) Run `Mobile dev` scheme in Cursor.
 
 ## Running on Android with Local Backend
 
@@ -46,7 +82,7 @@ curl http://127.0.0.1:8080/health
 Use Android emulator loopback (`10.0.2.2`) to reach your host machine:
 
 ```bash
-flutter run --dart-define=FLUTTER_ENV=dev --dart-define=API_BASE_URL_DEV=http://10.0.2.2:8080/api/v1
+flutter run --dart-define-from-file=config/env/dev.local.json
 ```
 
 ### 3) Run on physical Android device
@@ -54,7 +90,7 @@ flutter run --dart-define=FLUTTER_ENV=dev --dart-define=API_BASE_URL_DEV=http://
 Use your Mac LAN IP (same Wi-Fi network as the device):
 
 ```bash
-flutter run --dart-define=FLUTTER_ENV=dev --dart-define=API_BASE_URL_DEV=http://<LAN_IP_OF_MAC>:8080/api/v1
+flutter run --dart-define-from-file=config/env/dev.local.json
 ```
 
 If the device cannot connect:
@@ -70,7 +106,7 @@ Available compile-time flags:
 - `API_BASE_URL_PROD` (optional override for production API URL)
 
 Default URLs:
-- Dev: `http://192.168.1.4:8080/api/v1`
+- Dev: `http://127.0.0.1:8080/api/v1`
 - Prod: `https://bleya.up.railway.app/api/v1`
 
 Note: Android debug/profile builds are configured to allow cleartext HTTP for local development.
