@@ -12,6 +12,70 @@ For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
 
+## Run from Cursor (Multi-root Workspace)
+
+1) Open [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/bleya.code-workspace) in Cursor.
+2) Run task `Backend: Start Dev Server`.
+3) Start your Android emulator or iOS simulator/device.
+4) Run command `Flutter: Select Device` and pick Android or iOS.
+5) In Run and Debug, launch `Flutter: Run (Dev, Select Device)`.
+
+Notes:
+- Workspace launch config is the single source of truth for Flutter runs.
+- Dev URL is set via `API_BASE_URL_DEV=http://192.168.1.4:8080/api/v1` in the workspace launch args.
+- If your LAN IP changes, update it in [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/bleya.code-workspace).
+
+## Running on Android with Local Backend
+
+### 1) Start backend
+
+From `../backend`:
+
+```bash
+npm run build && npm start
+```
+
+Verify backend is up:
+
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+### 2) Run on Android emulator
+
+Use Android emulator loopback (`10.0.2.2`) to reach your host machine:
+
+```bash
+flutter run --dart-define=FLUTTER_ENV=dev --dart-define=API_BASE_URL_DEV=http://10.0.2.2:8080/api/v1
+```
+
+### 3) Run on physical Android device
+
+Use your Mac LAN IP (same Wi-Fi network as the device):
+
+```bash
+flutter run --dart-define=FLUTTER_ENV=dev --dart-define=API_BASE_URL_DEV=http://<LAN_IP_OF_MAC>:8080/api/v1
+```
+
+If the device cannot connect:
+- Ensure backend is reachable from LAN (set `HOST=0.0.0.0` for backend if needed)
+- Ensure macOS firewall allows inbound connections on port `8080`
+- Open `http://<LAN_IP_OF_MAC>:8080/health` in Android browser to confirm reachability
+
+### 4) Environment defines
+
+Available compile-time flags:
+- `FLUTTER_ENV=dev|prod`
+- `API_BASE_URL_DEV` (optional override for development API URL)
+- `API_BASE_URL_PROD` (optional override for production API URL)
+
+Default URLs:
+- Dev: `http://192.168.1.4:8080/api/v1`
+- Prod: `https://bleya.up.railway.app/api/v1`
+
+Note: Android debug/profile builds are configured to allow cleartext HTTP for local development.
+Release builds should continue using HTTPS endpoints.
+
 ## Building for Production
 
 **⚠️ IMPORTANT: Always use `--dart-define=FLUTTER_ENV=prod` for release builds**

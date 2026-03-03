@@ -16,11 +16,14 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // Set environment based on build configuration or environment variable
-  // Check for explicit environment variable first, then fall back to build mode
+  // Check explicit environment first, then fall back to build mode defaults.
   const envOverride = String.fromEnvironment('FLUTTER_ENV', defaultValue: '');
-  final environment = envOverride == 'prod'
-      ? Environment.prod
-      : (kDebugMode ? Environment.dev : Environment.prod);
+  final normalizedEnv = envOverride.trim().toLowerCase();
+  final environment = switch (normalizedEnv) {
+    'prod' || 'production' => Environment.prod,
+    'dev' || 'development' => Environment.dev,
+    _ => kDebugMode ? Environment.dev : Environment.prod,
+  };
 
   EnvironmentConfig.setEnvironment(environment);
 
