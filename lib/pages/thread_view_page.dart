@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../platform/app_button.dart';
+import '../platform/app_route.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/swipeable_message_bubble.dart';
@@ -97,7 +99,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
       isCurrentUser: isCurrentUser,
       onUsernameTap: () {
         Navigator.of(context).push(
-          MaterialPageRoute(
+          AppRoute.build(
             builder: (context) => UserDetailsPage(
               userId: message.userId,
               showSayHeyButton: !widget.room.isPrivate,
@@ -347,11 +349,20 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                             ),
                           ),
                           const SizedBox(height: 24),
-                          CupertinoButton.filled(
+                          AppButton(
                             onPressed: () {
                               ref.invalidate(threadMessagesProvider(
                                   widget.parentMessage.id));
                             },
+                            variant: AppButtonVariant.filled,
+                            color: BleyaTheme.primary,
+                            borderRadius: BorderRadius.circular(
+                              BleyaTheme.radiusSmall,
+                            ),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 20,
+                              vertical: 10,
+                            ),
                             child: const Text('Retry'),
                           ),
                         ],

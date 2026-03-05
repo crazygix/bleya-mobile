@@ -1,7 +1,7 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/theme.dart';
+import '../platform/app_text_field.dart';
 
 /// Glass Text Field Component
 ///
@@ -82,7 +82,7 @@ class GlassTextField extends StatelessWidget {
               SizedBox(width: 4),
             ],
             Expanded(
-              child: CupertinoTextField(
+              child: AppTextField(
                 controller: controller,
                 focusNode: focusNode,
                 placeholder: placeholder,
@@ -99,8 +99,8 @@ class GlassTextField extends StatelessWidget {
                 placeholderStyle: BleyaTheme.bodyLarge.copyWith(
                   color: BleyaTheme.mutedForeground.withValues(alpha: 0.6),
                 ),
-                decoration: BoxDecoration(color: Colors.transparent),
-                padding: EdgeInsets.symmetric(
+                decoration: const BoxDecoration(color: Colors.transparent),
+                contentPadding: EdgeInsets.symmetric(
                   vertical: BleyaTheme.spacingLG + 2,
                 ),
               ),

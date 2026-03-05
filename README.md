@@ -63,6 +63,17 @@ cp config/env/dev.example.json config/env/dev.local.json
 
 ## Running on Android with Local Backend
 
+Prerequisite: Android builds require JDK `17`.
+
+For release signing, create `android/key.properties` locally (gitignored):
+
+```properties
+storeFile=/absolute/path/to/keystore.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
 ### 1) Start backend
 
 From `../backend`:
@@ -142,6 +153,14 @@ Without `--dart-define=FLUTTER_ENV=prod`:
 ## CI/CD
 
 **Note:** Ensure your Railway CI/CD (or other CI/CD) includes `--dart-define=FLUTTER_ENV=prod` in build commands for production releases.
+
+## Adaptive UI Guardrail
+
+Run this check before committing UI changes:
+
+```bash
+./scripts/check_adaptive_ui.sh
+```
 
 ## Loading UI policy
 

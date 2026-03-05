@@ -21,6 +21,7 @@ migrate_working_dir/
 .idea/
 .gradle/
 local.properties
+key.properties
 *.jks
 *.keystore
 *.key

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../domain/entities/notification.dart' as app_notification;
+import '../platform/app_dialog.dart';
+import '../platform/app_route.dart';
 import '../providers/notification_provider.dart';
 import '../widgets/notification_tile.dart';
 import '../widgets/empty_state.dart';
@@ -74,26 +76,25 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
         .dismissNotification(notification.id);
 
     // 2. Fetch data needed for ThreadViewPage
-    showCupertinoDialog(
+    AppDialog.show(
       context: context,
       barrierDismissible: false,
       builder: (context) => const Center(child: AppSpinner(size: 24)),
     );
 
     try {
-      final threadContext = await ref
-          .read(notificationStateProvider.notifier)
-          .fetchThreadContext(
-            roomId: notification.roomId,
-            threadId: notification.threadId,
-          );
+      final threadContext =
+          await ref.read(notificationStateProvider.notifier).fetchThreadContext(
+                roomId: notification.roomId,
+                threadId: notification.threadId,
+              );
 
       if (context.mounted) {
         Navigator.pop(context); // Close loader
 
         Navigator.push(
           context,
-          CupertinoPageRoute(
+          AppRoute.build(
             builder: (context) => ThreadViewPage(
               room: threadContext.room,
               parentMessage: threadContext.parentMessage,

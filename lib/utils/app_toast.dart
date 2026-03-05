@@ -38,8 +38,7 @@ class AppToast {
       case TargetPlatform.fuchsia:
       case TargetPlatform.linux:
       case TargetPlatform.windows:
-        // Temporary: iOS look is used everywhere until Android visuals are defined.
-        _showIosToast(context, message, variant, duration);
+        _showAndroidToast(context, message, variant, duration);
         return;
     }
   }
@@ -142,6 +141,52 @@ class AppToast {
 
     final entry = OverlayEntry(
       builder: (_) => _IosToastBanner(
+        message: message,
+        variant: variant,
+        isVisibleListenable: visibilityNotifier,
+      ),
+    );
+
+    _activeToast = entry;
+    _visibilityNotifier = visibilityNotifier;
+    overlay.insert(entry);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_visibilityNotifier == visibilityNotifier) {
+        visibilityNotifier.value = true;
+      }
+    });
+
+    _dismissTimer = Timer(duration, dismiss);
+  }
+
+  static void _showAndroidToast(
+    BuildContext context,
+    String message,
+    AppToastVariant variant,
+    Duration duration,
+  ) {
+    final overlay = navigatorKey.currentState?.overlay ??
+        Overlay.maybeOf(context, rootOverlay: true);
+    if (overlay == null) {
+      final messenger = ScaffoldMessenger.maybeOf(context);
+      if (messenger != null) {
+        messenger.hideCurrentSnackBar();
+        messenger.showSnackBar(
+          SnackBar(
+            content: Text(message),
+            duration: duration,
+          ),
+        );
+      }
+      return;
+    }
+
+    dismiss(immediate: true);
+
+    final visibilityNotifier = ValueNotifier<bool>(false);
+    final entry = OverlayEntry(
+      builder: (_) => _AndroidToastBanner(
         message: message,
         variant: variant,
         isVisibleListenable: visibilityNotifier,
@@ -290,6 +335,129 @@ class _IosToastStyle {
         return _IosToastStyle(
           iconColor: const Color(0xFF93C5FD),
           icon: CupertinoIcons.info_circle,
+        );
+    }
+  }
+}
+
+class _AndroidToastBanner extends StatelessWidget {
+  final String message;
+  final AppToastVariant variant;
+  final ValueListenable<bool> isVisibleListenable;
+
+  const _AndroidToastBanner({
+    required this.message,
+    required this.variant,
+    required this.isVisibleListenable,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final style = _AndroidToastStyle.fromVariant(variant);
+
+    return IgnorePointer(
+      child: SafeArea(
+        child: Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+            child: ValueListenableBuilder<bool>(
+              valueListenable: isVisibleListenable,
+              builder: (context, isVisible, child) {
+                return AnimatedOpacity(
+                  opacity: isVisible ? 1 : 0,
+                  duration: AppToast._transitionDuration,
+                  curve: isVisible ? Curves.easeOutCubic : Curves.easeInCubic,
+                  child: AnimatedSlide(
+                    offset: isVisible ? Offset.zero : const Offset(0, -0.12),
+                    duration: AppToast._transitionDuration,
+                    curve: isVisible ? Curves.easeOutCubic : Curves.easeInCubic,
+                    child: child,
+                  ),
+                );
+              },
+              child: Material(
+                color: Colors.transparent,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 460),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: style.background,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: style.border, width: 1),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color(0x29000000),
+                          blurRadius: 12,
+                          offset: Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(style.icon, size: 18, color: style.iconColor),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            message,
+                            maxLines: 3,
+                            overflow: TextOverflow.ellipsis,
+                            style: BleyaTheme.bodyMedium.copyWith(
+                              color: const Color(0xFF0F172A),
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AndroidToastStyle {
+  final Color background;
+  final Color border;
+  final Color iconColor;
+  final IconData icon;
+
+  const _AndroidToastStyle({
+    required this.background,
+    required this.border,
+    required this.iconColor,
+    required this.icon,
+  });
+
+  factory _AndroidToastStyle.fromVariant(AppToastVariant variant) {
+    switch (variant) {
+      case AppToastVariant.success:
+        return const _AndroidToastStyle(
+          background: Color(0xFFE8F7EF),
+          border: Color(0xFFB8E6CA),
+          iconColor: Color(0xFF1B8D57),
+          icon: Icons.check_circle_outline,
+        );
+      case AppToastVariant.error:
+        return const _AndroidToastStyle(
+          background: Color(0xFFFFEBEE),
+          border: Color(0xFFFFCDD2),
+          iconColor: Color(0xFFD32F2F),
+          icon: Icons.error_outline,
+        );
+      case AppToastVariant.info:
+        return const _AndroidToastStyle(
+          background: Color(0xFFE3F2FD),
+          border: Color(0xFFBBDEFB),
+          iconColor: Color(0xFF1565C0),
+          icon: Icons.info_outline,
         );
     }
   }

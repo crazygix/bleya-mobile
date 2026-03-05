@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
+import '../platform/app_button.dart';
 
 /// Error State Component
 ///
@@ -55,7 +56,7 @@ class ErrorState extends StatelessWidget {
             ),
             if (retryText != null && onRetry != null) ...[
               SizedBox(height: BleyaTheme.spacing2XL),
-              CupertinoButton(
+              AppButton(
                 onPressed: onRetry,
                 child: Text(
                   retryText!,

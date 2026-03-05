@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../platform/app_button.dart';
+import '../platform/app_icon.dart';
+import '../platform/app_route.dart';
 import '../services/socket_service.dart';
 import '../constants/theme.dart';
 import '../utils/time_formatter.dart';
@@ -297,7 +300,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
             children: [
               GlassHeader(
                 title: roomDisplayTitle,
-                rightAction: CupertinoButton(
+                rightAction: AppButton(
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(
                     BleyaTheme.iconContainerSize,
@@ -307,7 +310,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                     if (widget.room.isPrivate &&
                         widget.room.otherUserId != null) {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
+                        AppRoute.build(
                           builder: (context) => UserDetailsPage(
                             userId: widget.room.otherUserId!,
                             showSayHeyButton: false,
@@ -317,7 +320,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                       );
                     } else {
                       Navigator.of(context).push(
-                        MaterialPageRoute(
+                        AppRoute.build(
                           builder: (context) => RoomDetailsPage(
                             roomId: widget.room.id,
                             roomName: widget.room.name,
@@ -327,8 +330,8 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                       );
                     }
                   },
-                  child: const Icon(
-                    CupertinoIcons.info,
+                  child: Icon(
+                    AppIcon.info(context),
                     size: 22,
                     color: BleyaTheme.primary,
                   ),
@@ -375,7 +378,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                   isCurrentUser: isCurrentUser,
                                   onTap: () {
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(
+                                      AppRoute.build(
                                         builder: (context) => ThreadViewPage(
                                           parentMessage: message,
                                           room: widget.room,
@@ -385,7 +388,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                   },
                                   onUsernameTap: () {
                                     Navigator.of(context).push(
-                                      MaterialPageRoute(
+                                      AppRoute.build(
                                         builder: (context) => UserDetailsPage(
                                           userId: message.userId,
                                           showSayHeyButton:

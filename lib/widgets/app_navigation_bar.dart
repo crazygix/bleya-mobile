@@ -1,5 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
+import '../constants/ui_tokens.dart';
+import '../platform/app_button.dart';
+import '../platform/app_icon.dart';
 
 /// iOS-style navigation bar component.
 class AppNavigationBar extends StatelessWidget {
@@ -32,7 +35,7 @@ class AppNavigationBar extends StatelessWidget {
             SizedBox(
               width: BleyaTheme.iconContainerSize, // 44pt minimum touch target
               height: BleyaTheme.iconContainerSize,
-              child: CupertinoButton(
+              child: AppButton(
                 padding: EdgeInsets.zero,
                 minimumSize: Size.zero,
                 onPressed: !canPop && onBackPressed == null
@@ -47,7 +50,7 @@ class AppNavigationBar extends StatelessWidget {
                 child: Align(
                   alignment: Alignment.centerLeft,
                   child: Icon(
-                    CupertinoIcons.chevron_left,
+                    AppIcon.back(context),
                     color: BleyaTheme.primary,
                     size: 28,
                   ),
@@ -63,8 +66,7 @@ class AppNavigationBar extends StatelessWidget {
                   fontSize: 17,
                   fontWeight: FontWeight.w600,
                   color: BleyaTheme.foreground,
-                  fontFamily: '.SF Pro Text',
-                ),
+                ).copyWith(fontFamily: UiTokens.systemFontFamily),
                 textAlign: TextAlign.center,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,

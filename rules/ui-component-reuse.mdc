@@ -14,7 +14,7 @@ The following widgets are available in `lib/widgets/`:
 
 ### Layout & Background
 - `LiquidGlassBackground` - Liquid glass background with blurred orbs
-- `AppNavigationBar` - iOS-style navigation bar with back button
+- `AppNavigationBar` - Adaptive navigation bar with back button
 
 ### Forms & Input
 - `FormField` - Complete form field with label, input, and feedback states (error/success/helper)
@@ -36,9 +36,10 @@ The following widgets are available in `lib/widgets/`:
 ## Process
 
 1. **Search first**: Check `lib/widgets/` for existing components
-2. **Adapt if possible**: Can an existing widget be extended with props?
-3. **Create only if needed**: If no suitable widget exists, create a new reusable one
-4. **Document**: Add clear documentation to new widgets
+2. **Use platform adapters**: For route/dialog/sheet/button/textfield/spinner, use `lib/platform/` wrappers
+3. **Adapt if possible**: Can an existing widget be extended with props?
+4. **Create only if needed**: If no suitable widget exists, create a new reusable one
+5. **Document**: Add clear documentation to new widgets
 
 ## Examples
 
@@ -82,4 +83,3 @@ ProfileAvatar(
   borderWidth: 2.0,
 )
 ```
-

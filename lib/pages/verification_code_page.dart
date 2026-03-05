@@ -1,10 +1,12 @@
 import 'dart:async';
 import 'dart:ui';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
+import '../platform/app_button.dart';
+import '../platform/app_route.dart';
+import '../platform/app_text_field.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
@@ -194,7 +196,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
 
         if (result.requiresUsername) {
           Navigator.of(context).pushReplacement(
-            CupertinoPageRoute(
+            AppRoute.build(
               builder: (context) => UsernamePage(),
             ),
           );
@@ -288,7 +290,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                                   child: SizedBox(
                                     width: 1,
                                     height: 1,
-                                    child: CupertinoTextField(
+                                    child: AppTextField(
                                       controller: _codeController,
                                       focusNode: _codeFocusNode,
                                       keyboardType: TextInputType.number,
@@ -308,10 +310,10 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                                         fontSize: 1,
                                       ),
                                       cursorColor: Colors.transparent,
-                                      decoration: BoxDecoration(
+                                      decoration: const BoxDecoration(
                                         color: Colors.transparent,
                                       ),
-                                      padding: EdgeInsets.zero,
+                                      contentPadding: EdgeInsets.zero,
                                       onChanged: _handleCodeChange,
                                       onSubmitted: (_) {
                                         if (_isCodeComplete()) {
@@ -435,7 +437,7 @@ class VerificationCodePageState extends ConsumerState<VerificationCodePage> {
                           isEnabled: _isCodeComplete(),
                         ),
                         SizedBox(height: BleyaTheme.spacingLG),
-                        CupertinoButton(
+                        AppButton(
                           padding: EdgeInsets.zero,
                           onPressed: _resendRemainingSeconds > 0 || _isResending
                               ? null

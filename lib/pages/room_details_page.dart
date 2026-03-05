@@ -4,6 +4,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
+import '../platform/app_button.dart';
+import '../platform/app_dialog.dart';
+import '../platform/app_route.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../constants/theme.dart';
@@ -118,28 +121,16 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
 
   Future<void> _leaveCurrentRoom() async {
     final cityName = _cityFromRoomName(widget.roomName);
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text('Leave $cityName?'),
-        content: const Text(
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Leave $cityName?',
+      message:
           "You'll leave this chat for now, but you can join again next time you visit",
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Leave'),
-          ),
-        ],
-      ),
+      confirmText: 'Leave',
+      destructive: true,
     );
 
-    if (confirmed != true || !mounted) return;
+    if (!confirmed || !mounted) return;
 
     setState(() => _isLeaving = true);
     try {
@@ -164,7 +155,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
 
   void _openUserDetails(String userId) {
     Navigator.of(context).push(
-      MaterialPageRoute(
+      AppRoute.build(
         builder: (context) => UserDetailsPage(userId: userId),
       ),
     );
@@ -322,7 +313,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
           Column(
             children: [
               GlassHeader(
-                rightAction: CupertinoButton(
+                rightAction: AppButton(
                   padding: EdgeInsets.zero,
                   minimumSize: const Size(
                     BleyaTheme.iconContainerSize,

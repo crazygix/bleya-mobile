@@ -1,6 +1,6 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
+import '../platform/app_button.dart';
 import 'app_spinner.dart';
 
 /// Danger button component.
@@ -27,11 +27,13 @@ class DangerButton extends StatelessWidget {
     return SizedBox(
       width: double.infinity,
       height: BleyaTheme.buttonHeight,
-      child: CupertinoButton(
+      child: AppButton(
         padding: EdgeInsets.zero,
-        color: Colors.transparent,
         onPressed: _isDisabled ? null : onPressed,
+        variant: AppButtonVariant.plain,
+        color: Colors.transparent,
         disabledColor: Colors.transparent,
+        borderRadius: BorderRadius.circular(BleyaTheme.radiusSmall),
         child: Container(
           decoration: BoxDecoration(
             color: _isDisabled

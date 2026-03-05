@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
@@ -11,6 +10,7 @@ import 'providers/auth_providers.dart';
 import 'providers/connectivity_provider.dart';
 import 'utils/navigation.dart';
 import 'constants/theme.dart';
+import 'platform/app_route.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,9 +51,8 @@ class MyApp extends ConsumerWidget {
       title: 'Bleya',
       theme: ThemeData(
         brightness: Brightness.light,
-        colorScheme:
-            ColorScheme.fromSeed(seedColor: CupertinoColors.systemBlue),
-        scaffoldBackgroundColor: CupertinoColors.systemBackground,
+        colorScheme: ColorScheme.fromSeed(seedColor: BleyaTheme.primary),
+        scaffoldBackgroundColor: BleyaTheme.background,
       ),
       debugShowCheckedModeBanner: false, // Disable default banner
       builder: (context, child) {
@@ -70,7 +69,7 @@ class MyApp extends ConsumerWidget {
       onGenerateRoute: (settings) {
         // Handle username page route if needed
         if (settings.name == '/username') {
-          return CupertinoPageRoute(
+          return AppRoute.build(
             builder: (context) => UsernamePage(),
           );
         }

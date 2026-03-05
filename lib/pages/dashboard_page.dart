@@ -10,6 +10,7 @@ import '../widgets/glass_circle_icon_button.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../platform/app_route.dart';
 import '../utils/time_formatter.dart';
 import 'chat_room_page.dart';
 import 'settings_page.dart';
@@ -271,7 +272,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                 unreadCount: item.unreadCount,
                 onTap: () {
                   Navigator.of(context).push(
-                    CupertinoPageRoute(
+                    AppRoute.build(
                       builder: (context) => ChatRoomPage(room: room),
                     ),
                   );

@@ -3,35 +3,36 @@ description: Always use outlined (non-filled) icons in the app
 alwaysApply: true
 ---
 
-# Icon Style - Outlined Only
+# Icon Style - Outlined + Adaptive
 
-Always use outlined (non-filled) icons throughout the app for a cleaner, more modern look.
+Use outlined icons throughout the app and route icon selection through adaptive helpers.
 
 ## Rules
 
-- **Use outlined icons**: Always use the outlined version of CupertinoIcons
+- **Use adaptive icons**: Prefer `AppIcon`/adaptive icon wrappers from `lib/platform/`
+- **Use outlined icons**: Prefer outlined variants over filled variants
 - **No filled icons**: Avoid `_fill` suffix icons except for the allowed exceptions below
 - **Exception – Validation**: Form validation icons (error/success) should remain filled for visibility
-- **Exception – Selected nav tabs**: Bottom navigation bar selected state may use filled variants (standard iOS convention)
+- **Exception – Selected nav tabs**: Selected tabs may use filled variants for platform conventions
 
 ## Examples
 
 ```dart
-// ❌ BAD - Filled icons
+// ❌ BAD - hard-coding platform-specific icons in feature screens
 CupertinoIcons.person_fill
 CupertinoIcons.chat_bubble_fill
 CupertinoIcons.camera_fill
 CupertinoIcons.location_fill
 CupertinoIcons.person_2_fill
 
-// ✅ GOOD - Outlined icons
+// ✅ GOOD - outlined + adaptive
 CupertinoIcons.person
 CupertinoIcons.chat_bubble
 CupertinoIcons.camera
 CupertinoIcons.location
 CupertinoIcons.person_2
 
-// ✅ EXCEPTION - Validation icons stay filled
+// ✅ EXCEPTION - validation icons stay filled
 CupertinoIcons.checkmark_circle_fill  // Success state
 CupertinoIcons.exclamationmark_circle_fill  // Error state
 ```
@@ -48,4 +49,3 @@ CupertinoIcons.exclamationmark_circle_fill  // Error state
 | `location_fill` | `location` |
 | `heart_fill` | `heart` |
 | `star_fill` | `star` |
-

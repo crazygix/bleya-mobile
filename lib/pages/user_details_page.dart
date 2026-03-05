@@ -5,6 +5,11 @@ import '../providers/auth_providers.dart';
 import '../providers/chat_providers.dart';
 import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
+import '../platform/app_button.dart';
+import '../platform/app_dialog.dart';
+import '../platform/app_icon.dart';
+import '../platform/app_route.dart';
+import '../platform/app_sheet.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../constants/theme.dart';
@@ -104,7 +109,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
 
       // Navigate to chat room
       Navigator.of(context).pushReplacement(
-        CupertinoPageRoute(
+        AppRoute.build(
           builder: (context) => ChatRoomPage(room: room),
         ),
       );
@@ -125,78 +130,37 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
   }
 
   Future<bool> _confirmDeleteChat() async {
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Delete chat?'),
-        content: const Text(
-          "This only hides it from the list of chats. If you reopen the chat, it will be restored.",
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete chat'),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Delete chat?',
+      message:
+          'This only hides it from the list of chats. If you reopen the chat, it will be restored.',
+      confirmText: 'Delete chat',
+      destructive: true,
     );
-
-    return confirmed == true;
+    return confirmed;
   }
 
   Future<bool> _confirmUnblockUser() async {
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Unblock user?'),
-        content: const Text(
-          'They will be able to message you again.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Unblock'),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Unblock user?',
+      message: 'They will be able to message you again.',
+      confirmText: 'Unblock',
+      destructive: true,
     );
-
-    return confirmed == true;
+    return confirmed;
   }
 
   Future<bool> _confirmBlockUser() async {
-    final confirmed = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Block user?'),
-        content: const Text(
-          'They will not be able to message you anymore.',
-        ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Block'),
-          ),
-        ],
-      ),
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Block user?',
+      message: 'They will not be able to message you anymore.',
+      confirmText: 'Block',
+      destructive: true,
     );
-
-    return confirmed == true;
+    return confirmed;
   }
 
   void _handleDirectActionResult(
@@ -290,26 +254,20 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
   }
 
   Future<void> _showBlockActions() async {
-    final selectedAction = await showCupertinoModalPopup<String>(
+    final selectedAction = await AppSheet.actions<String>(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop('delete'),
-            child: const Text('Delete chat'),
-          ),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop('block'),
-            child: const Text('Block user'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+      actions: const [
+        AppSheetAction<String>(
+          value: 'delete',
+          label: 'Delete chat',
+          isDestructive: true,
         ),
-      ),
+        AppSheetAction<String>(
+          value: 'block',
+          label: 'Block user',
+          isDestructive: true,
+        ),
+      ],
     );
 
     if (!mounted || selectedAction == null) {
@@ -331,21 +289,15 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
   }
 
   Future<void> _showUnblockOnlyActions() async {
-    final selectedAction = await showCupertinoModalPopup<String>(
+    final selectedAction = await AppSheet.actions<String>(
       context: context,
-      builder: (context) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop('unblock'),
-            child: const Text('Unblock user'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+      actions: const [
+        AppSheetAction<String>(
+          value: 'unblock',
+          label: 'Unblock user',
+          isDestructive: true,
         ),
-      ),
+      ],
     );
 
     if (!mounted || selectedAction == null) {
@@ -417,7 +369,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       return null;
     }
 
-    return CupertinoButton(
+    return AppButton(
       padding: EdgeInsets.zero,
       minimumSize: const Size(
         BleyaTheme.iconContainerSize,
@@ -428,8 +380,8 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
           : () => _showDirectChatActions(directChatStatus),
       child: _isRunningDirectAction
           ? const AppSpinner(size: 20)
-          : const Icon(
-              CupertinoIcons.ellipsis_circle,
+          : Icon(
+              AppIcon.more(context),
               size: 24,
               color: BleyaTheme.primary,
             ),

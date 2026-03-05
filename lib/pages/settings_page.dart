@@ -8,6 +8,8 @@ import '../widgets/profile_avatar.dart';
 import '../widgets/settings_menu_item.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
+import '../platform/app_dialog.dart';
+import '../platform/app_route.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import 'blocked_users_page.dart';
@@ -20,26 +22,15 @@ class SettingsPage extends ConsumerStatefulWidget {
 
 class _SettingsPageState extends ConsumerState<SettingsPage> {
   Future<void> _handleLogout() async {
-    final shouldLogout = await showCupertinoDialog<bool>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('Log out'),
-        content: const Text('Are you sure you want to log out?'),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Log out'),
-          ),
-        ],
-      ),
+    final shouldLogout = await AppDialog.confirm(
+      context,
+      title: 'Log out',
+      message: 'Are you sure you want to log out?',
+      confirmText: 'Log out',
+      destructive: true,
     );
 
-    if (shouldLogout == true) {
+    if (shouldLogout) {
       final logout = ref.read(logoutProvider);
       logout();
     }
@@ -47,7 +38,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _navigateToEditProfile() async {
     await Navigator.of(context).push(
-      CupertinoPageRoute(
+      AppRoute.build(
         builder: (context) => EditProfilePage(),
       ),
     );
@@ -55,25 +46,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
   Future<void> _navigateToBlockedUsers() async {
     await Navigator.of(context).push(
-      CupertinoPageRoute(
+      AppRoute.build(
         builder: (context) => const BlockedUsersPage(),
       ),
     );
   }
 
   void _showComingSoon(String feature) {
-    showCupertinoDialog(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(feature),
-        content: const Text('Coming soon!'),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('OK'),
-          ),
-        ],
-      ),
+    AppDialog.alert(
+      context,
+      title: feature,
+      message: 'Coming soon!',
+      buttonText: 'OK',
     );
   }
 

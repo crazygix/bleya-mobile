@@ -267,8 +267,8 @@ Their content is preserved below as code for reference.
 // - Ensure meaningful async loads have error + retry handling
 //
 // NEVER:
-// - Use CupertinoActivityIndicator directly in pages/widgets
-// - Use CircularProgressIndicator directly in pages/widgets
+// - Use CupertinoActivityIndicator directly outside lib/platform
+// - Use CircularProgressIndicator directly outside lib/platform
 // - Use full-screen spinners for content-heavy screens where skeletons are applicable
 //
 // Source of truth:
@@ -329,7 +329,7 @@ Their content is preserved below as code for reference.
 // - Put business logic in pages (use controllers)
 // - Return Map<String, dynamic> from domain repositories (use entities)
 // - Treat DTOs as domain entities (DTOs are boundary/contract objects only)
-// - Use CupertinoActivityIndicator/CircularProgressIndicator directly in UI screens
+// - Use CupertinoActivityIndicator/CircularProgressIndicator directly outside lib/platform
 // - Mix concerns (e.g., network + business logic in same class)
 // - Add use cases or controllers without corresponding unit tests
 //
@@ -371,4 +371,3 @@ Their content is preserved below as code for reference.
 // END OF ARCHITECTURE RULES
 // ========================================
 ```
-

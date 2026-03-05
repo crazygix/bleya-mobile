@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
+import '../platform/app_route.dart';
 import '../providers/controller_providers.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
@@ -126,7 +127,7 @@ class AuthorisationPageState extends ConsumerState<AuthorisationPage> {
       final result = await controller.requestCode(phoneNumber);
       if (mounted && result != null) {
         Navigator.of(context).push(
-          CupertinoPageRoute(
+          AppRoute.build(
             builder: (context) => VerificationCodePage(
               phoneNumber: phoneNumber,
               codeSentAt: result.codeSentAt,

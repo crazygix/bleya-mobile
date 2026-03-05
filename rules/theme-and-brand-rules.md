@@ -1,5 +1,12 @@
 ## Bleya Mobile - Theme, Brand, and Design System Rules
 
+## Cross-Platform Rule (Android + iOS)
+
+- Keep one shared token system for colors, spacing, copy, and motion.
+- Keep platform-specific behavior behind adapters in `lib/platform/`.
+- Do not call `showCupertinoDialog`, `showCupertinoModalPopup`, `CupertinoPageRoute`, `CupertinoButton`, `CupertinoTextField`, or `CupertinoActivityIndicator` directly outside `lib/platform/`.
+- Use `AppRoute`, `AppDialog`, `AppSheet`, `AppButton`, `AppTextField`, and `AppSpinner` wrappers in feature code.
+
 The original Bleya design system and brand guidance live at the top of `lib/constants/theme.dart`.
 Their content is preserved below as code for reference.
 
@@ -293,4 +300,3 @@ Apply these guardrails to new features, screens, and copy updates:
 - Keep first actions lightweight for users arriving alone in a new city.
 - Avoid copy that assumes users are already traveling with a group.
 - Keep flows inclusive: solo-first by default, but never exclusionary toward other travelers.
-

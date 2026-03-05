@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../constants/theme.dart';
+import '../platform/app_route.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
 import 'authorisation_page.dart';
@@ -136,7 +137,7 @@ class IntroPage extends StatelessWidget {
                     text: "Let's Go",
                     onPressed: () {
                       Navigator.of(context).push(
-                        CupertinoPageRoute(
+                        AppRoute.build(
                           builder: (context) => AuthorisationPage(),
                         ),
                       );

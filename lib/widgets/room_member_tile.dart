@@ -1,6 +1,8 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
 import '../domain/entities/room_member.dart';
+import '../platform/app_button.dart';
+import '../platform/app_icon.dart';
 import 'profile_avatar.dart';
 
 class RoomMemberTile extends StatelessWidget {
@@ -24,7 +26,7 @@ class RoomMemberTile extends StatelessWidget {
     final bioText = override.isNotEmpty ? override : member.bio.trim();
     final hasBio = bioText.isNotEmpty;
 
-    return CupertinoButton(
+    return AppButton(
       padding: EdgeInsets.zero,
       minimumSize: const Size.fromHeight(52),
       onPressed: onTap,
@@ -89,7 +91,7 @@ class RoomMemberTile extends StatelessWidget {
             ),
             const SizedBox(width: BleyaTheme.spacingSM),
             Icon(
-              CupertinoIcons.chevron_right,
+              AppIcon.chevronRight(context),
               size: 18,
               color: BleyaTheme.mutedForeground,
             ),

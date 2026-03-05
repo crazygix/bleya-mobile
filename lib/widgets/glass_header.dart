@@ -1,6 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
+import '../constants/ui_tokens.dart';
+import '../platform/app_button.dart';
+import '../platform/app_icon.dart';
 
 /// Glass Header Component
 ///
@@ -36,15 +39,15 @@ class GlassHeader extends StatelessWidget {
 
     Widget? resolvedLeftAction = leftAction;
     if (resolvedLeftAction == null && showBackButton && canPop) {
-      resolvedLeftAction = CupertinoButton(
+      resolvedLeftAction = AppButton(
         padding: EdgeInsets.zero,
         minimumSize: const Size(
           BleyaTheme.iconContainerSize,
           BleyaTheme.iconContainerSize,
         ),
         onPressed: () => Navigator.of(context).pop(),
-        child: const Icon(
-          CupertinoIcons.chevron_left,
+        child: Icon(
+          AppIcon.back(context),
           size: 28,
           color: BleyaTheme.primary,
         ),
@@ -97,8 +100,7 @@ class GlassHeader extends StatelessWidget {
                           fontSize: 17,
                           fontWeight: FontWeight.w600,
                           color: BleyaTheme.foreground,
-                          fontFamily: '.SF Pro Text',
-                        ),
+                        ).copyWith(fontFamily: UiTokens.systemFontFamily),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,
@@ -110,8 +112,7 @@ class GlassHeader extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 13,
                           color: BleyaTheme.mutedForeground,
-                          fontFamily: '.SF Pro Text',
-                        ),
+                        ).copyWith(fontFamily: UiTokens.systemFontFamily),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                         textAlign: TextAlign.center,

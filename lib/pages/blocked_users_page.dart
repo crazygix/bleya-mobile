@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../constants/theme.dart';
 import '../domain/entities/blocked_user.dart';
+import '../platform/app_route.dart';
 import '../providers/profile_providers.dart';
 import '../utils/app_errors.dart';
 import '../widgets/app_skeleton.dart';
@@ -26,7 +27,7 @@ class BlockedUsersPage extends ConsumerWidget {
   Future<void> _openUserDetails(
       BuildContext context, WidgetRef ref, String userId) async {
     await Navigator.of(context).push(
-      CupertinoPageRoute(
+      AppRoute.build(
         builder: (context) => UserDetailsPage(
           userId: userId,
         ),

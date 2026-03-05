@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
+import '../platform/app_text_field.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../domain/entities/user_profile.dart';
@@ -344,10 +345,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           ),
                           const SizedBox(height: 40),
                           // Username Field (Read-only)
-                          CupertinoTextField(
+                          AppTextField(
                             controller: _usernameController,
                             placeholder: 'Username',
-                            padding: const EdgeInsets.all(16),
+                            contentPadding: const EdgeInsets.all(16),
                             enabled: false,
                             decoration: BoxDecoration(
                               color: BleyaTheme.glassSurface.withValues(
@@ -365,10 +366,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           ),
                           const SizedBox(height: 20),
                           // Bio Field
-                          CupertinoTextField(
+                          AppTextField(
                             controller: _bioController,
                             placeholder: 'A little about you',
-                            padding: const EdgeInsets.all(16),
+                            contentPadding: const EdgeInsets.all(16),
                             maxLines: 4,
                             maxLength: _maxBioLength,
                             onChanged: (value) {

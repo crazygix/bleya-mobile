@@ -1,7 +1,7 @@
 import 'package:bleya/pages/authorisation_page.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../platform/app_route.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
 import '../widgets/app_spinner.dart';
@@ -35,7 +35,7 @@ class _InitialPageState extends ConsumerState<InitialPage> {
         // Token was cleared during bootstrap, navigate to login
         if (mounted) {
           Navigator.of(context).pushReplacement(
-            CupertinoPageRoute(builder: (context) => AuthorisationPage()),
+            AppRoute.build(builder: (context) => AuthorisationPage()),
           );
         }
         return;
@@ -52,7 +52,7 @@ class _InitialPageState extends ConsumerState<InitialPage> {
         if (!hasUsername) {
           // Navigate to username page if username is missing
           Navigator.of(context).pushReplacement(
-            CupertinoPageRoute(builder: (context) => UsernamePage()),
+            AppRoute.build(builder: (context) => UsernamePage()),
           );
         } else {
           // Navigate to home if username is set
