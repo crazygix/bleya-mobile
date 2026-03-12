@@ -163,6 +163,38 @@
           "panel": "new"
         },
         "problemMatcher": []
+      },
+      {
+        "label": "Test backend",
+        "type": "shell",
+        "command": "npm test",
+        "options": {
+          "cwd": "${workspaceFolder:Backend (Node.js)}"
+        },
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Test mobile",
+        "type": "shell",
+        "command": "flutter test",
+        "options": {
+          "cwd": "${workspaceFolder:Mobile (Flutter)}"
+        },
+        "group": "test",
+        "presentation": {
+          "echo": true,
+          "reveal": "always",
+          "focus": false,
+          "panel": "new"
+        },
+        "problemMatcher": []
       }
     ]
   },
