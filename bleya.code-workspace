@@ -33,171 +33,6 @@
       "**/android/.gradle": true
     }
   },
-  "tasks": {
-    "version": "2.0.0",
-    "tasks": [
-      {
-        "label": "Backend: Start Dev Server",
-        "type": "shell",
-        "command": "npm run build && npm start",
-        "options": {
-          "cwd": "${workspaceFolder:Backend (Node.js)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Backend: Build",
-        "type": "shell",
-        "command": "npm run build",
-        "options": {
-          "cwd": "${workspaceFolder:Backend (Node.js)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Backend: Install Dependencies",
-        "type": "shell",
-        "command": "npm install",
-        "options": {
-          "cwd": "${workspaceFolder:Backend (Node.js)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Flutter: Run App",
-        "type": "shell",
-        "command": "flutter run",
-        "options": {
-          "cwd": "${workspaceFolder:Mobile (Flutter)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Flutter: Run App (Debug)",
-        "type": "shell",
-        "command": "flutter run --debug",
-        "options": {
-          "cwd": "${workspaceFolder:Mobile (Flutter)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Flutter: Build APK",
-        "type": "shell",
-        "command": "flutter build apk",
-        "options": {
-          "cwd": "${workspaceFolder:Mobile (Flutter)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Flutter: Get Dependencies",
-        "type": "shell",
-        "command": "flutter pub get",
-        "options": {
-          "cwd": "${workspaceFolder:Mobile (Flutter)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Flutter: Clean",
-        "type": "shell",
-        "command": "flutter clean",
-        "options": {
-          "cwd": "${workspaceFolder:Mobile (Flutter)}"
-        },
-        "group": "build",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Test backend",
-        "type": "shell",
-        "command": "npm test",
-        "options": {
-          "cwd": "${workspaceFolder:Backend (Node.js)}"
-        },
-        "group": "test",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      },
-      {
-        "label": "Test mobile",
-        "type": "shell",
-        "command": "flutter test",
-        "options": {
-          "cwd": "${workspaceFolder:Mobile (Flutter)}"
-        },
-        "group": "test",
-        "presentation": {
-          "echo": true,
-          "reveal": "always",
-          "focus": false,
-          "panel": "new"
-        },
-        "problemMatcher": []
-      }
-    ]
-  },
   "launch": {
     "version": "0.2.0",
     "configurations": [
@@ -231,6 +66,27 @@
           "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.example.json"
         ],
         "flutterMode": "release"
+      },
+      {
+        "name": "Launch server",
+        "type": "node-terminal",
+        "request": "launch",
+        "command": "npm run build && npm start",
+        "cwd": "${workspaceFolder:Backend (Node.js)}"
+      },
+      {
+        "name": "Test backend",
+        "type": "node-terminal",
+        "request": "launch",
+        "command": "npm test",
+        "cwd": "${workspaceFolder:Backend (Node.js)}"
+      },
+      {
+        "name": "Test mobile",
+        "type": "node-terminal",
+        "request": "launch",
+        "command": "flutter test",
+        "cwd": "${workspaceFolder:Mobile (Flutter)}"
       }
     ]
   }
