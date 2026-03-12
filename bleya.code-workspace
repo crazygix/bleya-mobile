@@ -37,6 +37,13 @@
     "version": "0.2.0",
     "configurations": [
       {
+        "name": "Launch server",
+        "type": "node-terminal",
+        "request": "launch",
+        "command": "npm run build && npm start",
+        "cwd": "${workspaceFolder:Backend (Node.js)}"
+      },
+      {
         "name": "Mobile dev",
         "type": "dart",
         "request": "launch",
@@ -66,13 +73,6 @@
           "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.example.json"
         ],
         "flutterMode": "release"
-      },
-      {
-        "name": "Launch server",
-        "type": "node-terminal",
-        "request": "launch",
-        "command": "npm run build && npm start",
-        "cwd": "${workspaceFolder:Backend (Node.js)}"
       },
       {
         "name": "Test backend",
