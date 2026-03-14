@@ -284,8 +284,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
       },
       loading: _buildRoomsSkeleton,
       error: (_, __) => PullToRefreshErrorState(
-        title: "Oops, chats didn't load",
-        description: 'Pull down to try again.',
+        title: "Couldn't load your chats",
+        description: "Let's give it another shot.",
         onRefresh: _handleRefresh,
       ),
     );

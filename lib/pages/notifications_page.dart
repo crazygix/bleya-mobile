@@ -198,8 +198,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                   itemBuilder: (_, __) => const NotificationTileSkeleton(),
                 ),
                 error: (_, __) => PullToRefreshErrorState(
-                  title: "Oops, activities didn't load",
-                  description: 'Pull down to try again.',
+                  title: "Couldn't load your activity",
+                  description: "Let's give it another shot.",
                   onRefresh: _handleRefresh,
                 ),
               ),
