@@ -234,6 +234,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         return RefreshIndicator(
           onRefresh: _handleRefresh,
           child: ListView.builder(
+            physics: const AlwaysScrollableScrollPhysics(),
             padding: EdgeInsets.symmetric(
               horizontal: BleyaTheme.contentPadding,
             ).copyWith(

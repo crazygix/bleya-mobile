@@ -205,7 +205,7 @@ class RoomsListController
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
       final rooms = await getJoinedRoomsUseCase();
 
-      final existingItems = state.value ?? const <RoomListItem>[];
+      final existingItems = state.valueOrNull ?? const <RoomListItem>[];
       final existingUnreadByRoomId = <String, int>{
         for (final item in existingItems) item.room.id: item.unreadCount,
       };

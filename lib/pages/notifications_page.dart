@@ -175,6 +175,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                   return RefreshIndicator(
                     onRefresh: _handleRefresh,
                     child: ListView.builder(
+                      physics: const AlwaysScrollableScrollPhysics(),
                       controller: _scrollController,
                       padding: const EdgeInsets.only(bottom: 100),
                       itemCount:
