@@ -29,7 +29,7 @@ cp config/env/dev.example.json config/env/dev.local.json
 Notes:
 - Workspace launch config is the single source of truth for Flutter runs.
 - `Mobile dev` reads `config/env/dev.local.json` via `--dart-define-from-file`.
-- If your LAN IP changes, update `API_BASE_URL_DEV` in `config/env/dev.local.json` only.
+- If your LAN IP changes, update `API_BASE_URL` in `config/env/dev.local.json` only.
 - `Mobile prod`/`Mobile release` read `config/env/prod.example.json`.
 - Available schemes: `Backend dev`, `Mobile dev`, `Mobile prod`, `Mobile release`.
 
@@ -43,7 +43,11 @@ Committed templates:
 Local-only files (gitignored):
 
 - `config/env/dev.local.json`
-- `config/env/prod.local.json` (optional, if you want a custom prod endpoint)
+
+Both files use the same schema:
+
+- `FLUTTER_ENV`
+- `API_BASE_URL`
 
 Recommended local flow:
 
@@ -53,11 +57,11 @@ Recommended local flow:
 cp config/env/dev.example.json config/env/dev.local.json
 ```
 
-2) Set `API_BASE_URL_DEV` in `dev.local.json`:
+2) Set `API_BASE_URL` in `dev.local.json`:
 
-- Android emulator: `http://10.0.2.2:8080/api/v1`
-- iOS simulator: `http://127.0.0.1:8080/api/v1`
-- Physical device: `http://<LAN_IP_OF_MAC>:8080/api/v1`
+- Android emulator: `http://10.0.2.2:8080/v1`
+- iOS simulator: `http://127.0.0.1:8080/v1`
+- Physical device: `http://<LAN_IP_OF_MAC>:8080/v1`
 
 3) Run `Mobile dev` scheme in Cursor.
 
@@ -105,7 +109,7 @@ flutter run --dart-define-from-file=config/env/dev.local.json
 ```
 
 If the device cannot connect:
-- Ensure backend is reachable from LAN (set `HOST=0.0.0.0` for backend if needed)
+- Ensure backend is reachable from LAN and not blocked by a local firewall rule
 - Ensure macOS firewall allows inbound connections on port `8080`
 - Open `http://<LAN_IP_OF_MAC>:8080/health` in Android browser to confirm reachability
 
@@ -113,12 +117,11 @@ If the device cannot connect:
 
 Available compile-time flags:
 - `FLUTTER_ENV=dev|prod`
-- `API_BASE_URL_DEV` (optional override for development API URL)
-- `API_BASE_URL_PROD` (optional override for production API URL)
+- `API_BASE_URL` (optional override for the current environment API URL)
 
 Default URLs:
-- Dev: `http://127.0.0.1:8080/api/v1`
-- Prod: `https://bleya.up.railway.app/api/v1`
+- Dev: `http://127.0.0.1:8080/v1`
+- Prod: `https://api.bleyachat.com/v1`
 
 Note: Android debug/profile builds are configured to allow cleartext HTTP for local development.
 Release builds should continue using HTTPS endpoints.

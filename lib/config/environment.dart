@@ -1,16 +1,11 @@
 enum Environment { dev, prod }
 
 class EnvironmentConfig {
-  static const String _defaultDevBaseUrl = 'http://127.0.0.1:8080/api/v1';
-  static const String _defaultProdBaseUrl =
-      'https://bleya.up.railway.app/api/v1';
-  static const String _devBaseUrlOverride = String.fromEnvironment(
-    'API_BASE_URL_DEV',
-    defaultValue: _defaultDevBaseUrl,
-  );
-  static const String _prodBaseUrlOverride = String.fromEnvironment(
-    'API_BASE_URL_PROD',
-    defaultValue: _defaultProdBaseUrl,
+  static const String _defaultDevApiBaseUrl = 'http://127.0.0.1:8080/v1';
+  static const String _defaultProdApiBaseUrl = 'https://api.bleyachat.com/v1';
+  static const String _apiBaseUrlOverride = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: '',
   );
 
   static Environment _environment = Environment.dev;
@@ -32,13 +27,25 @@ class EnvironmentConfig {
         : trimmed;
   }
 
-  static String get baseUrl {
-    switch (_environment) {
+  static String _defaultApiBaseUrl(Environment environment) {
+    switch (environment) {
       case Environment.dev:
-        return _resolveBaseUrl(_devBaseUrlOverride, _defaultDevBaseUrl);
+        return _defaultDevApiBaseUrl;
       case Environment.prod:
-        return _resolveBaseUrl(_prodBaseUrlOverride, _defaultProdBaseUrl);
+        return _defaultProdApiBaseUrl;
     }
+  }
+
+  static String get apiBaseUrl {
+    final fallback = _defaultApiBaseUrl(_environment);
+    return _resolveBaseUrl(_apiBaseUrlOverride, fallback);
+  }
+
+  static String get socketBaseUrl {
+    return apiBaseUrl.replaceFirst(
+      RegExp(r'/v\d+$'),
+      '',
+    );
   }
 
   static String get environmentName {

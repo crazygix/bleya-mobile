@@ -72,13 +72,8 @@ class SocketService {
   void _ensureSocketInitialized() {
     if (_socket != null) return;
 
-    final serverUrl = EnvironmentConfig.baseUrl.replaceFirst(
-      RegExp(r'/api(?:/v\d+)?$'),
-      '',
-    );
-
     _socket = io.io(
-      serverUrl,
+      EnvironmentConfig.socketBaseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
           // We'll update auth/headers right before connect.

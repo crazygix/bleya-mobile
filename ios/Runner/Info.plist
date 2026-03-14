@@ -22,10 +22,27 @@
 	<string>$(FLUTTER_BUILD_NAME)</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.676518923946-b5g3hg24ralf3dqicbdmm6i0hussb160</string>
+			</array>
+		</dict>
+	</array>
 	<key>CFBundleVersion</key>
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo for your profile</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>Use your location to discover nearby city chat rooms</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>Pick a photo for your profile</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>
@@ -43,22 +60,5 @@
 		<string>UIInterfaceOrientationPortrait</string>
 		<string>UIInterfaceOrientationPortraitUpsideDown</string>
 	</array>
-	<key>CFBundleURLTypes</key>
-    	<array>
-    		<dict>
-    			<key>CFBundleTypeRole</key>
-    			<string>Editor</string>
-    			<key>CFBundleURLSchemes</key>
-    			<array>
-    				<string>com.googleusercontent.apps.676518923946-b5g3hg24ralf3dqicbdmm6i0hussb160</string>
-    			</array>
-    		</dict>
-    	</array>
-	<key>NSPhotoLibraryUsageDescription</key>
-	<string>Pick a photo for your profile</string>
-	<key>NSCameraUsageDescription</key>
-	<string>Take a photo for your profile</string>
-	<key>NSLocationWhenInUseUsageDescription</key>
-	<string>Use your location to discover nearby city chat rooms</string>
 </dict>
 </plist>
