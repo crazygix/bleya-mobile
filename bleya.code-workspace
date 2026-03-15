@@ -33,15 +33,40 @@
       "**/android/.gradle": true
     }
   },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "Backend: Build",
+        "type": "shell",
+        "command": "npm run build",
+        "options": {
+          "cwd": "${workspaceFolder:Backend (Node.js)}"
+        },
+        "problemMatcher": "$tsc"
+      }
+    ]
+  },
   "launch": {
     "version": "0.2.0",
     "configurations": [
       {
         "name": "Launch server",
-        "type": "node-terminal",
+        "type": "node",
         "request": "launch",
-        "command": "npm run build && npm start",
-        "cwd": "${workspaceFolder:Backend (Node.js)}"
+        "preLaunchTask": "Backend: Build",
+        "program": "${workspaceFolder:Backend (Node.js)}/dist/server/server.js",
+        "cwd": "${workspaceFolder:Backend (Node.js)}",
+        "outFiles": [
+          "${workspaceFolder:Backend (Node.js)}/dist/**/*.js"
+        ],
+        "sourceMaps": true,
+        "console": "internalConsole",
+        "internalConsoleOptions": "openOnSessionStart",
+        "outputCapture": "std",
+        "skipFiles": [
+          "<node_internals>/**"
+        ]
       },
       {
         "name": "Mobile dev",
