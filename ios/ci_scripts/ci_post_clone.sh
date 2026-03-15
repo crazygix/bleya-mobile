@@ -5,7 +5,7 @@ set -eu
 if [ -n "${CI_PRIMARY_REPOSITORY_PATH:-}" ]; then
   REPO_ROOT="${CI_PRIMARY_REPOSITORY_PATH}"
 else
-  REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+  REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 fi
 
 cd "${REPO_ROOT}"
