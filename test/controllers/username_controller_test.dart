@@ -10,6 +10,7 @@ void main() {
   late MockCheckUsernameUseCase mockCheckUsername;
   late MockSetUsernameUseCase mockSetUsername;
   late MockUploadProfileImageUseCase mockUploadImage;
+  late bool canOfferPasskey;
   late UsernameController controller;
 
   setUpAll(() {
@@ -20,8 +21,13 @@ void main() {
     mockCheckUsername = MockCheckUsernameUseCase();
     mockSetUsername = MockSetUsernameUseCase();
     mockUploadImage = MockUploadProfileImageUseCase();
+    canOfferPasskey = false;
     controller = UsernameController(
-        mockCheckUsername, mockSetUsername, mockUploadImage);
+      mockCheckUsername,
+      mockSetUsername,
+      mockUploadImage,
+      () async => canOfferPasskey,
+    );
   });
 
   group('validateUsername', () {
@@ -84,10 +90,13 @@ void main() {
     });
   });
 
-  group('setUsername', () {
+  group('submitUsername', () {
     test('throws for empty username', () async {
       await expectLater(
-        controller.setUsername(''),
+        controller.submitUsername(
+          '',
+          showPasskeyPromptAfterCompletion: false,
+        ),
         throwsA(isA<StateError>()),
       );
       expect(controller.state.errorMessage, isNotNull);
@@ -95,7 +104,10 @@ void main() {
 
     test('throws for invalid format', () async {
       await expectLater(
-        controller.setUsername('a b!'),
+        controller.submitUsername(
+          'a b!',
+          showPasskeyPromptAfterCompletion: false,
+        ),
         throwsA(isA<StateError>()),
       );
       expect(controller.state.errorMessage, isNotNull);
@@ -106,10 +118,18 @@ void main() {
       when(() => mockSetUsername(username: any(named: 'username')))
           .thenAnswer((_) async => profile);
 
-      final result = await controller.setUsername('testuser');
+      final result = await controller.submitUsername(
+        'testuser',
+        showPasskeyPromptAfterCompletion: false,
+      );
 
       expect(result, profile);
       verify(() => mockSetUsername(username: 'testuser')).called(1);
+      expect(controller.state.completedProfile, profile);
+      expect(
+        controller.state.completionRequest?.target,
+        UsernameCompletionTarget.home,
+      );
     });
 
     test('uploads image before setting username if selected', () async {
@@ -122,7 +142,10 @@ void main() {
       when(() => mockSetUsername(username: any(named: 'username')))
           .thenAnswer((_) async => profile);
 
-      await controller.setUsername('testuser');
+      await controller.submitUsername(
+        'testuser',
+        showPasskeyPromptAfterCompletion: false,
+      );
 
       verifyInOrder([
         () => mockUploadImage(mockFile),
@@ -135,7 +158,10 @@ void main() {
           .thenThrow(BadRequestError(userMessage: 'Username taken'));
 
       await expectLater(
-        controller.setUsername('testuser'),
+        controller.submitUsername(
+          'testuser',
+          showPasskeyPromptAfterCompletion: false,
+        ),
         throwsA(isA<AppError>()),
       );
       expect(controller.state.errorMessage, 'Username taken');
@@ -147,18 +173,43 @@ void main() {
           .thenThrow(Exception('something'));
 
       await expectLater(
-        controller.setUsername('testuser'),
+        controller.submitUsername(
+          'testuser',
+          showPasskeyPromptAfterCompletion: false,
+        ),
         throwsA(isA<Exception>()),
       );
       expect(controller.state.errorMessage, contains('Something went wrong'));
       expect(controller.state.isLoading, false);
+    });
+
+    test('routes to passkey prompt when available after completion', () async {
+      canOfferPasskey = true;
+      final profile = UserProfile(id: 'u1', username: 'testuser');
+      when(() => mockSetUsername(username: any(named: 'username')))
+          .thenAnswer((_) async => profile);
+
+      await controller.submitUsername(
+        'testuser',
+        showPasskeyPromptAfterCompletion: true,
+      );
+
+      expect(
+        controller.state.completionRequest?.target,
+        UsernameCompletionTarget.passkeyPrompt,
+      );
     });
   });
 
   group('clearError', () {
     test('resets error message', () async {
       await expectLater(
-          controller.setUsername(''), throwsA(isA<StateError>()));
+        controller.submitUsername(
+          '',
+          showPasskeyPromptAfterCompletion: false,
+        ),
+        throwsA(isA<StateError>()),
+      );
 
       controller.clearError();
       expect(controller.state.errorMessage, isNull);
@@ -174,6 +225,24 @@ void main() {
       expect(controller.state.hasCheckedAvailability, false);
       expect(controller.state.errorMessage, isNull);
       expect(controller.state.isLoading, false);
+    });
+  });
+
+  group('consumeCompletion', () {
+    test('clears completion state', () async {
+      final profile = UserProfile(id: 'u1', username: 'testuser');
+      when(() => mockSetUsername(username: any(named: 'username')))
+          .thenAnswer((_) async => profile);
+
+      await controller.submitUsername(
+        'testuser',
+        showPasskeyPromptAfterCompletion: false,
+      );
+
+      controller.consumeCompletion();
+
+      expect(controller.state.completedProfile, isNull);
+      expect(controller.state.completionRequest, isNull);
     });
   });
 }

@@ -2,7 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import '../domain/entities/auth_result.dart';
 import '../services/auth_manager.dart';
+import '../services/passkey_auth_service.dart';
+import '../services/provider_auth_service.dart';
 import '../services/socket_service.dart';
 import '../constants/urls.dart';
 import '../utils/jwt_utils.dart';
@@ -28,6 +31,14 @@ final tokenInitializerProvider = FutureProvider<void>((ref) async {
 
 final secureStorageProvider = Provider<FlutterSecureStorage>((ref) {
   return const FlutterSecureStorage();
+});
+
+final providerAuthServiceProvider = Provider<ProviderAuthService>((ref) {
+  return ProviderAuthService();
+});
+
+final passkeyAuthServiceProvider = Provider<PasskeyAuthService>((ref) {
+  return PasskeyAuthService();
 });
 
 // Auth manager provider
@@ -57,16 +68,17 @@ final dioProvider = Provider<Dio>((ref) {
       error: true,
       logPrint: (object) {
         // Sanitize sensitive data in logs
-        String sanitized = object.toString();
+        var sanitized = object.toString();
         // Remove token previews
         sanitized = sanitized.replaceAll(
           RegExp(r'Token preview: [^\s]+'),
           'Token preview: [REDACTED]',
         );
-        // Remove verification codes
-        sanitized = sanitized.replaceAll(
-          RegExp(r'"code":\s*"\d{6}"'),
-          '"code": "[REDACTED]"',
+        sanitized = sanitized.replaceAllMapped(
+          RegExp(
+            r'"(idToken|identityToken|authorizationCode|rawNonce|challenge|token)"\s*:\s*"[^"]+"',
+          ),
+          (match) => '"${match.group(1)}": "[REDACTED]"',
         );
         print('API: $sanitized');
       },
@@ -264,6 +276,24 @@ final socketServiceProvider = Provider<SocketService>((ref) {
   });
 
   return service;
+});
+
+final appleSignInAvailableProvider = FutureProvider<bool>((ref) async {
+  final providerAuth = ref.read(providerAuthServiceProvider);
+  return providerAuth.isAppleSignInAvailable();
+});
+
+final authSecurityStatusProvider = FutureProvider<AuthSecurityStatus>((ref) async {
+  final token = ref.watch(tokenProvider);
+  if (token == null || token.isEmpty) {
+    return const AuthSecurityStatus(
+      hasPasskey: false,
+      linkedProviders: [],
+    );
+  }
+
+  final getSecurityStatus = ref.read(getAuthSecurityStatusUseCaseProvider);
+  return getSecurityStatus();
 });
 
 // Logout provider to allow logout from UI

@@ -40,7 +40,6 @@ class UserProfileDto {
       username: json['username'] as String?,
       bio: json['bio'] as String?,
       profileImageUrl: json['profileImageUrl'] as String?,
-      phoneNumber: json['phoneNumber'] as String?,
       createdAt: _parseTimestamp(json['createdAt']),
       lastLogin: _parseTimestamp(json['lastLogin']),
     );
@@ -60,4 +59,3 @@ class UserProfileDto {
   }
 }
 ```
-

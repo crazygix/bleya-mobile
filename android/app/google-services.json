@@ -7,12 +7,17 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:676518923946:android:413a37d39dbf1e91644ad3",
+        "mobilesdk_app_id": "1:676518923946:android:460b22db5c6281c3644ad3",
         "android_client_info": {
           "package_name": "com.bleyachat"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "676518923946-dfrcif4mlgjlf276u6i54blgk8t33otm.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCQC7FHRnzb-ksz2ws5vLNPcUMgVv8QqMw"
@@ -20,7 +25,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "676518923946-dfrcif4mlgjlf276u6i54blgk8t33otm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bleyachat"
+              }
+            }
+          ]
         }
       }
     }

@@ -1,9 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../use_cases/auth/request_code_use_case.dart';
-import '../use_cases/auth/resend_code_use_case.dart';
-import '../use_cases/auth/verify_code_use_case.dart';
 import '../use_cases/auth/check_username_use_case.dart';
+import '../use_cases/auth/get_auth_security_status_use_case.dart';
+import '../use_cases/auth/link_auth_provider_use_case.dart';
+import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/set_username_use_case.dart';
+import '../use_cases/auth/sign_in_with_apple_use_case.dart';
+import '../use_cases/auth/sign_in_with_google_use_case.dart';
+import '../use_cases/auth/sign_in_with_passkey_use_case.dart';
 import '../use_cases/user/get_profile_use_case.dart';
 import '../use_cases/user/get_blocked_users_use_case.dart';
 import '../use_cases/user/upload_profile_image_use_case.dart';
@@ -27,19 +30,36 @@ import '../use_cases/city/get_nearby_cities_use_case.dart';
 import '../use_cases/city/join_city_use_case.dart';
 import 'repository_providers.dart';
 
-final requestCodeUseCaseProvider = Provider<RequestCodeUseCase>((ref) {
+final signInWithGoogleUseCaseProvider = Provider<SignInWithGoogleUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return RequestCodeUseCase(repository);
+  return SignInWithGoogleUseCase(repository);
 });
 
-final resendCodeUseCaseProvider = Provider<ResendCodeUseCase>((ref) {
+final signInWithAppleUseCaseProvider = Provider<SignInWithAppleUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return ResendCodeUseCase(repository);
+  return SignInWithAppleUseCase(repository);
 });
 
-final verifyCodeUseCaseProvider = Provider<VerifyCodeUseCase>((ref) {
+final signInWithPasskeyUseCaseProvider =
+    Provider<SignInWithPasskeyUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
-  return VerifyCodeUseCase(repository);
+  return SignInWithPasskeyUseCase(repository);
+});
+
+final getAuthSecurityStatusUseCaseProvider =
+    Provider<GetAuthSecurityStatusUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return GetAuthSecurityStatusUseCase(repository);
+});
+
+final linkAuthProviderUseCaseProvider = Provider<LinkAuthProviderUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return LinkAuthProviderUseCase(repository);
+});
+
+final registerPasskeyUseCaseProvider = Provider<RegisterPasskeyUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return RegisterPasskeyUseCase(repository);
 });
 
 final checkUsernameUseCaseProvider = Provider<CheckUsernameUseCase>((ref) {

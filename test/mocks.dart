@@ -6,11 +6,13 @@ import 'package:bleya/domain/repositories/user_repository.dart';
 import 'package:bleya/domain/repositories/message_repository.dart';
 import 'package:bleya/domain/repositories/city_repository.dart';
 import 'package:bleya/domain/repositories/location_repository.dart';
-import 'package:bleya/use_cases/auth/request_code_use_case.dart';
-import 'package:bleya/use_cases/auth/resend_code_use_case.dart';
-import 'package:bleya/use_cases/auth/verify_code_use_case.dart';
 import 'package:bleya/use_cases/auth/check_username_use_case.dart';
+import 'package:bleya/use_cases/auth/link_auth_provider_use_case.dart';
+import 'package:bleya/use_cases/auth/register_passkey_use_case.dart';
 import 'package:bleya/use_cases/auth/set_username_use_case.dart';
+import 'package:bleya/use_cases/auth/sign_in_with_apple_use_case.dart';
+import 'package:bleya/use_cases/auth/sign_in_with_google_use_case.dart';
+import 'package:bleya/use_cases/auth/sign_in_with_passkey_use_case.dart';
 import 'package:bleya/use_cases/user/upload_profile_image_use_case.dart';
 import 'package:bleya/use_cases/city/get_nearby_cities_use_case.dart';
 import 'package:bleya/use_cases/city/join_city_use_case.dart';
@@ -30,11 +32,20 @@ class MockCityRepository extends Mock implements CityRepository {}
 class MockLocationRepository extends Mock implements LocationRepository {}
 
 // Use case mocks (for controller tests)
-class MockRequestCodeUseCase extends Mock implements RequestCodeUseCase {}
+class MockSignInWithGoogleUseCase extends Mock
+    implements SignInWithGoogleUseCase {}
 
-class MockResendCodeUseCase extends Mock implements ResendCodeUseCase {}
+class MockSignInWithAppleUseCase extends Mock
+    implements SignInWithAppleUseCase {}
 
-class MockVerifyCodeUseCase extends Mock implements VerifyCodeUseCase {}
+class MockSignInWithPasskeyUseCase extends Mock
+    implements SignInWithPasskeyUseCase {}
+
+class MockLinkAuthProviderUseCase extends Mock
+    implements LinkAuthProviderUseCase {}
+
+class MockRegisterPasskeyUseCase extends Mock
+    implements RegisterPasskeyUseCase {}
 
 class MockCheckUsernameUseCase extends Mock implements CheckUsernameUseCase {}
 

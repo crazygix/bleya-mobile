@@ -18,6 +18,7 @@ One-time setup:
 
 ```bash
 cp config/env/dev.example.json config/env/dev.local.json
+cp config/env/prod.example.json config/env/prod.local.json
 ```
 
 1) Open [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/mobile/bleya.code-workspace) in Cursor.
@@ -29,6 +30,7 @@ cp config/env/dev.example.json config/env/dev.local.json
 Notes:
 - Workspace launch config is the single source of truth for Flutter runs.
 - `Mobile dev` reads `config/env/dev.local.json` via `--dart-define-from-file`.
+- `Mobile prod`/`Mobile release` can use `config/env/prod.local.json` for local production overrides.
 - If your LAN IP changes, update `API_BASE_URL` in `config/env/dev.local.json` only.
 - `Mobile prod`/`Mobile release` read `config/env/prod.example.json`.
 - Available schemes: `Backend dev`, `Mobile dev`, `Mobile prod`, `Mobile release`.
@@ -43,11 +45,17 @@ Committed templates:
 Local-only files (gitignored):
 
 - `config/env/dev.local.json`
+- `config/env/prod.local.json`
 
 Both files use the same schema:
 
 - `FLUTTER_ENV`
 - `API_BASE_URL`
+- `GOOGLE_SERVER_CLIENT_ID`
+- `GOOGLE_IOS_CLIENT_ID`
+- `APPLE_SERVICE_ID`
+- `APPLE_REDIRECT_URI`
+- `PASSKEY_DOMAIN`
 
 Recommended local flow:
 
@@ -55,6 +63,7 @@ Recommended local flow:
 
 ```bash
 cp config/env/dev.example.json config/env/dev.local.json
+cp config/env/prod.example.json config/env/prod.local.json
 ```
 
 2) Set `API_BASE_URL` in `dev.local.json`:
@@ -118,6 +127,11 @@ If the device cannot connect:
 Available compile-time flags:
 - `FLUTTER_ENV=dev|prod`
 - `API_BASE_URL` (optional override for the current environment API URL)
+- `GOOGLE_SERVER_CLIENT_ID`
+- `GOOGLE_IOS_CLIENT_ID`
+- `APPLE_SERVICE_ID`
+- `APPLE_REDIRECT_URI`
+- `PASSKEY_DOMAIN`
 
 Default URLs:
 - Dev: `http://127.0.0.1:8080/v1`
@@ -128,34 +142,35 @@ Release builds should continue using HTTPS endpoints.
 
 ## Building for Production
 
-**⚠️ IMPORTANT: Always use `--dart-define=FLUTTER_ENV=prod` for release builds**
+**⚠️ IMPORTANT: Always pass the production dart-defines for release builds**
 
 ### Manual Build Commands
 
 **Android:**
 ```bash
 # APK
-flutter build apk --release --dart-define=FLUTTER_ENV=prod
+flutter build apk --release --dart-define-from-file=config/env/prod.local.json
 
 # App Bundle (for Play Store)
-flutter build appbundle --release --dart-define=FLUTTER_ENV=prod
+flutter build appbundle --release --dart-define-from-file=config/env/prod.local.json
 ```
 
 **iOS:**
 ```bash
-flutter build ios --release --dart-define=FLUTTER_ENV=prod
+flutter build ios --release --dart-define-from-file=config/env/prod.local.json
 ```
 
 ### Why This Matters
 
-Without `--dart-define=FLUTTER_ENV=prod`:
+Without production dart-defines:
 - ❌ App may point to `localhost` instead of production API
+- ❌ Google sign-in is not configured
 - ❌ Dev banner may show in production
 - ❌ Debug logging may be enabled
 
 ## CI/CD
 
-**Note:** Ensure your Railway CI/CD (or other CI/CD) includes `--dart-define=FLUTTER_ENV=prod` in build commands for production releases.
+**Note:** Ensure your Railway CI/CD (or other CI/CD) passes the production dart-defines, either through `--dart-define-from-file` or explicit `--dart-define` flags.
 
 ## Adaptive UI Guardrail
 

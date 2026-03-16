@@ -14,6 +14,8 @@ class UsernameState {
   final String? errorMessage;
   final File? selectedImage;
   final bool isLoading;
+  final UserProfile? completedProfile;
+  final UsernameCompletionRequest? completionRequest;
 
   UsernameState({
     this.isValid = false,
@@ -22,6 +24,8 @@ class UsernameState {
     this.errorMessage,
     this.selectedImage,
     this.isLoading = false,
+    this.completedProfile,
+    this.completionRequest,
   });
 
   UsernameState copyWith({
@@ -31,6 +35,9 @@ class UsernameState {
     String? errorMessage,
     File? selectedImage,
     bool? isLoading,
+    UserProfile? completedProfile,
+    UsernameCompletionRequest? completionRequest,
+    bool clearCompletion = false,
   }) {
     return UsernameState(
       isValid: isValid ?? this.isValid,
@@ -40,20 +47,42 @@ class UsernameState {
       errorMessage: errorMessage,
       selectedImage: selectedImage ?? this.selectedImage,
       isLoading: isLoading ?? this.isLoading,
+      completedProfile:
+          clearCompletion ? null : completedProfile ?? this.completedProfile,
+      completionRequest: clearCompletion
+          ? null
+          : completionRequest ?? this.completionRequest,
     );
   }
 }
+
+enum UsernameCompletionTarget {
+  passkeyPrompt,
+  home,
+}
+
+class UsernameCompletionRequest {
+  final UsernameCompletionTarget target;
+
+  const UsernameCompletionRequest({
+    required this.target,
+  });
+}
+
+typedef LoadPasskeyAvailability = Future<bool> Function();
 
 class UsernameController extends StateNotifier<UsernameState> {
   final CheckUsernameUseCase _checkUsernameUseCase;
   final SetUsernameUseCase _setUsernameUseCase;
   final UploadProfileImageUseCase _uploadProfileImageUseCase;
+  final LoadPasskeyAvailability _loadPasskeyAvailability;
   Timer? _debounceTimer;
 
   UsernameController(
     this._checkUsernameUseCase,
     this._setUsernameUseCase,
     this._uploadProfileImageUseCase,
+    this._loadPasskeyAvailability,
   ) : super(UsernameState());
 
   @override
@@ -70,6 +99,7 @@ class UsernameController extends StateNotifier<UsernameState> {
       hasCheckedAvailability: false,
       errorMessage: null,
       isLoading: false,
+      clearCompletion: true,
     );
   }
 
@@ -143,7 +173,10 @@ class UsernameController extends StateNotifier<UsernameState> {
     state = state.copyWith(hasCheckedAvailability: false);
   }
 
-  Future<UserProfile> setUsername(String username) async {
+  Future<UserProfile> submitUsername(
+    String username, {
+    required bool showPasskeyPromptAfterCompletion,
+  }) async {
     if (state.isLoading) {
       throw StateError('Username submission already in progress');
     }
@@ -174,6 +207,18 @@ class UsernameController extends StateNotifier<UsernameState> {
       }
 
       final profile = await _setUsernameUseCase(username: trimmed);
+      final canOfferPasskey = showPasskeyPromptAfterCompletion
+          ? await _loadPasskeyAvailability().catchError((_) => false)
+          : false;
+
+      state = state.copyWith(
+        completedProfile: profile,
+        completionRequest: UsernameCompletionRequest(
+          target: canOfferPasskey
+              ? UsernameCompletionTarget.passkeyPrompt
+              : UsernameCompletionTarget.home,
+        ),
+      );
       return profile;
     } catch (e) {
       final errorMessage = e is AppError
@@ -189,5 +234,9 @@ class UsernameController extends StateNotifier<UsernameState> {
         state = state.copyWith(isLoading: false);
       }
     }
+  }
+
+  void consumeCompletion() {
+    state = state.copyWith(clearCompletion: true);
   }
 }

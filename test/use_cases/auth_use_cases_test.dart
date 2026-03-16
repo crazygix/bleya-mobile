@@ -1,97 +1,95 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
-import 'package:bleya/use_cases/auth/request_code_use_case.dart';
-import 'package:bleya/use_cases/auth/resend_code_use_case.dart';
-import 'package:bleya/use_cases/auth/verify_code_use_case.dart';
-import 'package:bleya/use_cases/auth/check_username_use_case.dart';
-import 'package:bleya/use_cases/auth/set_username_use_case.dart';
 import 'package:bleya/domain/entities/auth_result.dart';
 import 'package:bleya/domain/entities/user_profile.dart';
+import 'package:bleya/use_cases/auth/check_username_use_case.dart';
+import 'package:bleya/use_cases/auth/link_auth_provider_use_case.dart';
+import 'package:bleya/use_cases/auth/register_passkey_use_case.dart';
+import 'package:bleya/use_cases/auth/set_username_use_case.dart';
+import 'package:bleya/use_cases/auth/sign_in_with_apple_use_case.dart';
+import 'package:bleya/use_cases/auth/sign_in_with_google_use_case.dart';
+import 'package:bleya/use_cases/auth/sign_in_with_passkey_use_case.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import '../mocks.dart';
 
 void main() {
   late MockAuthRepository mockRepo;
 
+  const session = AuthSessionResult(
+    token: 'token123',
+    requiresUsername: true,
+    hasPasskey: false,
+  );
+  const securityStatus = AuthSecurityStatus(
+    hasPasskey: true,
+    linkedProviders: [],
+  );
+
   setUp(() {
     mockRepo = MockAuthRepository();
   });
 
-  group('RequestCodeUseCase', () {
-    late RequestCodeUseCase useCase;
+  group('provider sign-in use cases', () {
+    test('SignInWithGoogleUseCase delegates to repository', () async {
+      final useCase = SignInWithGoogleUseCase(mockRepo);
+      when(() => mockRepo.signInWithGoogle())
+          .thenAnswer((_) async => session);
 
-    setUp(() {
-      useCase = RequestCodeUseCase(mockRepo);
+      final result = await useCase();
+
+      expect(result, session);
+      verify(() => mockRepo.signInWithGoogle()).called(1);
     });
 
-    test('delegates to repository.requestCode', () async {
-      const expected = CodeRequestResult(codeSentAt: 1234567890);
-      when(() => mockRepo.requestCode(phone: any(named: 'phone')))
-          .thenAnswer((_) async => expected);
+    test('SignInWithAppleUseCase delegates to repository', () async {
+      final useCase = SignInWithAppleUseCase(mockRepo);
+      when(() => mockRepo.signInWithApple())
+          .thenAnswer((_) async => session);
 
-      final result = await useCase(phone: '+1234567890');
+      final result = await useCase();
 
-      expect(result, expected);
-      verify(() => mockRepo.requestCode(phone: '+1234567890')).called(1);
+      expect(result, session);
+      verify(() => mockRepo.signInWithApple()).called(1);
     });
 
-    test('propagates repository exceptions', () async {
-      when(() => mockRepo.requestCode(phone: any(named: 'phone')))
-          .thenThrow(Exception('network error'));
+    test('SignInWithPasskeyUseCase delegates to repository', () async {
+      final useCase = SignInWithPasskeyUseCase(mockRepo);
+      when(() => mockRepo.signInWithPasskey())
+          .thenAnswer((_) async => session);
 
-      expect(() => useCase(phone: '+1234567890'), throwsException);
-    });
-  });
+      final result = await useCase();
 
-  group('ResendCodeUseCase', () {
-    late ResendCodeUseCase useCase;
-
-    setUp(() {
-      useCase = ResendCodeUseCase(mockRepo);
-    });
-
-    test('delegates to repository.resendCode', () async {
-      const expected = CodeRequestResult(codeSentAt: 1234567890);
-      when(() => mockRepo.resendCode(phone: any(named: 'phone')))
-          .thenAnswer((_) async => expected);
-
-      final result = await useCase(phone: '+1234567890');
-
-      expect(result, expected);
-      verify(() => mockRepo.resendCode(phone: '+1234567890')).called(1);
+      expect(result, session);
+      verify(() => mockRepo.signInWithPasskey()).called(1);
     });
   });
 
-  group('VerifyCodeUseCase', () {
-    late VerifyCodeUseCase useCase;
+  group('security use cases', () {
+    test('LinkAuthProviderUseCase delegates to repository', () async {
+      final useCase = LinkAuthProviderUseCase(mockRepo);
+      when(() => mockRepo.linkProvider(AuthProvider.google))
+          .thenAnswer((_) async => securityStatus);
 
-    setUp(() {
-      useCase = VerifyCodeUseCase(mockRepo);
+      final result = await useCase(provider: AuthProvider.google);
+
+      expect(result, securityStatus);
+      verify(() => mockRepo.linkProvider(AuthProvider.google)).called(1);
     });
 
-    test('delegates to repository.verifyCode', () async {
-      const expected =
-          VerifyCodeResult(token: 'token123', requiresUsername: true);
-      when(() => mockRepo.verifyCode(
-            phone: any(named: 'phone'),
-            code: any(named: 'code'),
-          )).thenAnswer((_) async => expected);
+    test('RegisterPasskeyUseCase delegates to repository', () async {
+      final useCase = RegisterPasskeyUseCase(mockRepo);
+      when(() => mockRepo.registerPasskey())
+          .thenAnswer((_) async => securityStatus);
 
-      final result = await useCase(phone: '+123', code: '123456');
+      final result = await useCase();
 
-      expect(result, expected);
-      verify(() => mockRepo.verifyCode(phone: '+123', code: '123456'))
-          .called(1);
+      expect(result, securityStatus);
+      verify(() => mockRepo.registerPasskey()).called(1);
     });
   });
 
-  group('CheckUsernameUseCase', () {
-    late CheckUsernameUseCase useCase;
-
-    setUp(() {
-      useCase = CheckUsernameUseCase(mockRepo);
-    });
-
-    test('returns true when username is available', () async {
+  group('username use cases', () {
+    test('CheckUsernameUseCase returns repository result', () async {
+      final useCase = CheckUsernameUseCase(mockRepo);
       when(() => mockRepo.checkUsername(username: any(named: 'username')))
           .thenAnswer((_) async => true);
 
@@ -101,22 +99,8 @@ void main() {
       verify(() => mockRepo.checkUsername(username: 'newuser')).called(1);
     });
 
-    test('returns false when username is taken', () async {
-      when(() => mockRepo.checkUsername(username: any(named: 'username')))
-          .thenAnswer((_) async => false);
-
-      expect(await useCase(username: 'taken'), false);
-    });
-  });
-
-  group('SetUsernameUseCase', () {
-    late SetUsernameUseCase useCase;
-
-    setUp(() {
-      useCase = SetUsernameUseCase(mockRepo);
-    });
-
-    test('delegates to repository.setUsername', () async {
+    test('SetUsernameUseCase delegates to repository', () async {
+      final useCase = SetUsernameUseCase(mockRepo);
       final expected = UserProfile(id: '1', username: 'testuser');
       when(() => mockRepo.setUsername(username: any(named: 'username')))
           .thenAnswer((_) async => expected);

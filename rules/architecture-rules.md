@@ -80,13 +80,14 @@ Their content is preserved below as code for reference.
 // ```dart
 // // Domain interface
 // abstract class AuthRepository {
-//   Future<RequestCodeResult> requestCode({required String phone});
+//   Future<AuthSessionResult> signInWithGoogle();
 // }
 //
 // // Domain model (keep it small and explicit)
-// class RequestCodeResult {
-//   final int codeSentAt; // timestamp (ms since epoch)
-//   RequestCodeResult({required this.codeSentAt});
+// class AuthSessionResult {
+//   final String token;
+//   final bool requiresUsername;
+//   AuthSessionResult({required this.token, required this.requiresUsername});
 // }
 //
 // // Data implementation
@@ -95,7 +96,7 @@ Their content is preserved below as code for reference.
 // }
 //
 // // Use case depends on interface
-// class RequestCodeUseCase {
+// class SignInWithGoogleUseCase {
 //   final AuthRepository _repository; // Interface, not implementation
 // }
 // ```
@@ -163,7 +164,7 @@ Their content is preserved below as code for reference.
 // - All side effects (network, storage) happen in repositories
 //
 // Naming:
-// - RequestCodeUseCase (not AuthRequestCodeUseCase)
+// - SignInWithGoogleUseCase (not AuthSignInWithGoogleUseCase)
 // - GetProfileUseCase (not UserGetProfileUseCase)
 // - CreateDirectMessageUseCase (not RoomCreateDirectMessageUseCase)
 //
@@ -184,12 +185,12 @@ Their content is preserved below as code for reference.
 // Example:
 // ```dart
 // class AuthController extends StateNotifier<AuthState> {
-//   final RequestCodeUseCase _requestCodeUseCase; // ✅ Use case
+//   final SignInWithGoogleUseCase _signInWithGoogleUseCase; // ✅ Use case
 //
-//   Future<void> requestCode(String phone) async {
+//   Future<void> signInWithGoogle() async {
 //     state = state.copyWith(isLoading: true);
 //     try {
-//       await _requestCodeUseCase(phone: phone);
+//       await _signInWithGoogleUseCase();
 //     } catch (e) {
 //       state = state.copyWith(errorMessage: e.toString());
 //     }
@@ -231,7 +232,7 @@ Their content is preserved below as code for reference.
 // Classes:
 // - Entities: Message, Room, RoomMember (PascalCase, singular)
 // - Repositories: AuthRepository (interface), AuthRepositoryImpl (implementation)
-// - Use Cases: RequestCodeUseCase (Action + Entity + UseCase)
+// - Use Cases: SignInWithGoogleUseCase (Action + Entity + UseCase)
 // - Controllers: AuthController, UsernameController
 // - DTOs: MessageDto, RoomDto
 //

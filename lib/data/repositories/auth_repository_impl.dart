@@ -1,89 +1,155 @@
 import 'package:dio/dio.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../core/errors/api_error_mapper.dart';
+import '../dtos/auth_dto.dart';
 import '../dtos/user_profile_dto.dart';
 import '../../domain/entities/auth_result.dart';
 import '../../domain/entities/user_profile.dart';
 import '../../domain/repositories/auth_repository.dart';
+import '../../services/provider_auth_service.dart';
+import '../../services/passkey_auth_service.dart';
 
 /// Data layer implementation of AuthRepository
 /// Handles all Dio/network concerns and JSON parsing
 class AuthRepositoryImpl implements AuthRepository {
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
+  final ProviderAuthService _providerAuthService;
+  final PasskeyAuthService _passkeyAuthService;
 
-  AuthRepositoryImpl(this._dio, this._secureStorage);
+  AuthRepositoryImpl(
+    this._dio,
+    this._secureStorage,
+    this._providerAuthService,
+    this._passkeyAuthService,
+  );
 
-  int? _parseNullableTimestamp(dynamic value) {
-    if (value is int) return value;
-    if (value is String) return int.tryParse(value);
-    return null;
+  Future<AuthSessionResult> _persistSessionResult(dynamic data) async {
+    final result = authSessionResultFromJson(
+      Map<String, dynamic>.from(data as Map? ?? const <String, dynamic>{}),
+    );
+    await _secureStorage.write(key: 'auth_token', value: result.token);
+    return result;
+  }
+
+  Map<String, dynamic> _asJson(dynamic value) {
+    return Map<String, dynamic>.from(
+      value as Map? ?? const <String, dynamic>{},
+    );
+  }
+
+  PasskeyRequestOptions _asPasskeyOptions(dynamic value) {
+    final json = _asJson(value);
+    return PasskeyRequestOptions(
+      challengeId: json['challengeId'] as String? ?? '',
+      payload: Map<String, dynamic>.from(
+        json['options'] as Map? ?? const <String, dynamic>{},
+      ),
+    );
   }
 
   @override
-  Future<CodeRequestResult> requestCode({required String phone}) async {
+  Future<AuthSessionResult> signInWithGoogle() async {
     try {
+      final credential = await _providerAuthService.signInWithGoogle();
       final response = await _dio.post(
-        '/auth/request-code',
-        data: {'phoneNumber': phone},
-      );
-      if (kDebugMode) {
-        // Intentionally kept for local/staging debugging only.
-        // Do not enable or mirror this in production telemetry.
-        print("Code sent: ${response.data["code"]}");
-      }
-      return CodeRequestResult(
-        codeSentAt: _parseNullableTimestamp(response.data['codeSentAt']),
-      );
-    } on DioException catch (e) {
-      if (kDebugMode) {
-        print('Auth repository error: $e');
-      }
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
-  Future<CodeRequestResult> resendCode({required String phone}) async {
-    try {
-      final response = await _dio.post(
-        '/auth/resend-code',
-        data: {'phoneNumber': phone},
-      );
-      if (kDebugMode) {
-        // Intentionally kept for local/staging debugging only.
-        // Do not enable or mirror this in production telemetry.
-        print("Code resent: ${response.data["code"]}");
-      }
-      return CodeRequestResult(
-        codeSentAt: _parseNullableTimestamp(response.data['codeSentAt']),
-      );
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
-  Future<VerifyCodeResult> verifyCode({
-    required String phone,
-    required String code,
-  }) async {
-    try {
-      final response = await _dio.post(
-        '/auth/verify-code',
+        '/auth/provider-sign-in',
         data: {
-          'phoneNumber': phone,
-          'code': code,
+          'provider': credential.provider.apiValue,
+          'idToken': credential.idToken,
+          if (credential.rawNonce != null) 'rawNonce': credential.rawNonce,
+          'platform': 'mobile',
         },
       );
-      final String token = response.data['token'];
-      final bool requiresUsername = response.data['requiresUsername'] ?? false;
-      await _secureStorage.write(key: 'auth_token', value: token);
-      return VerifyCodeResult(
-        token: token,
-        requiresUsername: requiresUsername,
+      return _persistSessionResult(response.data);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<AuthSessionResult> signInWithApple() async {
+    try {
+      final credential = await _providerAuthService.signInWithApple();
+      final response = await _dio.post(
+        '/auth/provider-sign-in',
+        data: {
+          'provider': credential.provider.apiValue,
+          'idToken': credential.idToken,
+          if (credential.rawNonce != null) 'rawNonce': credential.rawNonce,
+          'platform': 'mobile',
+        },
       );
+      return _persistSessionResult(response.data);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<AuthSessionResult> signInWithPasskey() async {
+    try {
+      final optionsResponse = await _dio.post('/auth/passkeys/authentication/options');
+      final options = _asPasskeyOptions(optionsResponse.data);
+      final credential = await _passkeyAuthService.authenticate(options);
+      final verifyResponse = await _dio.post(
+        '/auth/passkeys/authentication/verify',
+        data: {
+          'challengeId': options.challengeId,
+          'response': credential,
+        },
+      );
+      return _persistSessionResult(verifyResponse.data);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<AuthSecurityStatus> getSecurityStatus() async {
+    try {
+      final response = await _dio.get('/auth/identities');
+      return authSecurityStatusFromJson(_asJson(response.data));
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<AuthSecurityStatus> linkProvider(AuthProvider provider) async {
+    try {
+      final credential = provider == AuthProvider.apple
+          ? await _providerAuthService.signInWithApple()
+          : await _providerAuthService.signInWithGoogle();
+
+      final response = await _dio.post(
+        '/auth/identities/link',
+        data: {
+          'provider': credential.provider.apiValue,
+          'idToken': credential.idToken,
+          if (credential.rawNonce != null) 'rawNonce': credential.rawNonce,
+        },
+      );
+      return authSecurityStatusFromJson(_asJson(response.data));
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<AuthSecurityStatus> registerPasskey() async {
+    try {
+      final optionsResponse = await _dio.post('/auth/passkeys/registration/options');
+      final options = _asPasskeyOptions(optionsResponse.data);
+      final credential = await _passkeyAuthService.register(options);
+      final verifyResponse = await _dio.post(
+        '/auth/passkeys/registration/verify',
+        data: {
+          'challengeId': options.challengeId,
+          'response': credential,
+        },
+      );
+      return authSecurityStatusFromJson(_asJson(verifyResponse.data));
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
@@ -156,6 +222,7 @@ class AuthRepositoryImpl implements AuthRepository {
         ),
       );
     } catch (_) {}
+    await _providerAuthService.clearCachedProviderSession();
     await _secureStorage.delete(key: 'auth_token');
   }
 }

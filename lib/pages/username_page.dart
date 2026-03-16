@@ -5,6 +5,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/theme.dart';
+import '../controllers/username_controller.dart';
+import '../platform/app_route.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../providers/profile_providers.dart';
@@ -12,9 +14,15 @@ import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/form_field.dart' as bleya;
+import 'passkey_prompt_page.dart';
 
 class UsernamePage extends ConsumerStatefulWidget {
-  const UsernamePage({super.key});
+  final bool showPasskeyPromptAfterCompletion;
+
+  const UsernamePage({
+    super.key,
+    this.showPasskeyPromptAfterCompletion = false,
+  });
 
   @override
   UsernamePageState createState() => UsernamePageState();
@@ -81,11 +89,11 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
     final controller = ref.read(usernameControllerProvider.notifier);
 
     try {
-      final profile = await controller.setUsername(username);
-      ref.read(profileProvider.notifier).setProfile(profile);
-      if (mounted) {
-        Navigator.of(context).pushReplacementNamed('/home');
-      }
+      await controller.submitUsername(
+        username,
+        showPasskeyPromptAfterCompletion:
+            widget.showPasskeyPromptAfterCompletion,
+      );
     } catch (e) {
       // Error is already set in controller state
     }
@@ -108,6 +116,33 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   @override
   Widget build(BuildContext context) {
     final usernameState = ref.watch(usernameControllerProvider);
+    ref.listen<UsernameState>(usernameControllerProvider, (previous, next) {
+      final request = next.completionRequest;
+      final profile = next.completedProfile;
+      if (request == null ||
+          profile == null ||
+          identical(request, previous?.completionRequest)) {
+        return;
+      }
+
+      ref.read(profileProvider.notifier).setProfile(profile);
+      ref.read(usernameControllerProvider.notifier).consumeCompletion();
+
+      switch (request.target) {
+        case UsernameCompletionTarget.passkeyPrompt:
+          Navigator.of(context).pushReplacement(
+            AppRoute.build(
+              builder: (context) =>
+                  const PasskeyPromptPage(onboardingFlow: true),
+            ),
+          );
+          return;
+        case UsernameCompletionTarget.home:
+          Navigator.of(context).pushReplacementNamed('/home');
+          return;
+      }
+    });
+
     final username = _usernameController.text.trim().toLowerCase();
     final isUnavailable = usernameState.hasCheckedAvailability &&
         !usernameState.isValid &&

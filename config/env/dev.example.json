@@ -1,4 +1,9 @@
 {
   "FLUTTER_ENV": "dev",
-  "API_BASE_URL": "http://<LAN_IP_OF_MAC>:8080/v1"
+  "API_BASE_URL": "http://<LAN_IP_OF_MAC>:8080/v1",
+  "GOOGLE_SERVER_CLIENT_ID": "676518923946-dfrcif4mlgjlf276u6i54blgk8t33otm.apps.googleusercontent.com",
+  "GOOGLE_IOS_CLIENT_ID": "676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6.apps.googleusercontent.com",
+  "APPLE_SERVICE_ID": "com.bleyachat.signin",
+  "APPLE_REDIRECT_URI": "https://api.bleyachat.com/v1/auth/apple/android/callback",
+  "PASSKEY_DOMAIN": "bleyachat.com"
 }

@@ -19,7 +19,14 @@ import 'auth_providers.dart';
 final authRepositoryProvider = Provider<AuthRepository>((ref) {
   final dio = ref.watch(dioProvider);
   final storage = ref.watch(secureStorageProvider);
-  return AuthRepositoryImpl(dio, storage);
+  final providerAuthService = ref.watch(providerAuthServiceProvider);
+  final passkeyAuthService = ref.watch(passkeyAuthServiceProvider);
+  return AuthRepositoryImpl(
+    dio,
+    storage,
+    providerAuthService,
+    passkeyAuthService,
+  );
 });
 
 final userRepositoryProvider = Provider<UserRepository>((ref) {

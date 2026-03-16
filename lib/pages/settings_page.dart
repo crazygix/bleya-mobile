@@ -14,6 +14,8 @@ import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import 'blocked_users_page.dart';
 import 'edit_profile_page.dart';
+import 'linked_accounts_page.dart';
+import 'passkey_prompt_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -52,6 +54,26 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
+  Future<void> _navigateToPasskeySetup() async {
+    final result = await Navigator.of(context).push<bool>(
+      AppRoute.build(
+        builder: (context) => const PasskeyPromptPage(onboardingFlow: false),
+      ),
+    );
+
+    if (result == true) {
+      ref.invalidate(authSecurityStatusProvider);
+    }
+  }
+
+  Future<void> _navigateToLinkedAccounts() async {
+    await Navigator.of(context).push(
+      AppRoute.build(
+        builder: (context) => const LinkedAccountsPage(),
+      ),
+    );
+  }
+
   void _showComingSoon(String feature) {
     AppDialog.alert(
       context,
@@ -73,6 +95,9 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final bio = profile?.bio;
     final profileImageUrl = profile?.profileImageUrl;
     final hasBio = bio != null && bio.trim().isNotEmpty;
+    final securityStatus = ref.watch(authSecurityStatusProvider).valueOrNull;
+    final hasPasskey = securityStatus?.hasPasskey ?? false;
+    final linkedProviders = securityStatus?.linkedProviders.length ?? 0;
 
     ref.listen(profileProvider, (previous, next) {
       final isNewError =
@@ -214,6 +239,23 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           ),
                         ),
                         const SizedBox(height: BleyaTheme.spacing3XL),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.lock_shield,
+                          iconColor: BleyaTheme.primary,
+                          label:
+                              hasPasskey ? 'Add another passkey' : 'Add passkey',
+                          onTap: _navigateToPasskeySetup,
+                        ),
+                        const SizedBox(height: 4.0),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.link,
+                          iconColor: const Color(0xFF0F766E),
+                          label: linkedProviders > 1
+                              ? 'Linked accounts ($linkedProviders)'
+                              : 'Linked accounts',
+                          onTap: _navigateToLinkedAccounts,
+                        ),
+                        const SizedBox(height: 4.0),
                         // Menu Items
                         SettingsMenuItem(
                           icon: CupertinoIcons.shield,

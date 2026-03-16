@@ -1,136 +1,171 @@
-import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
 import 'package:bleya/controllers/auth_controller.dart';
 import 'package:bleya/domain/entities/auth_result.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import '../mocks.dart';
 
 void main() {
-  late MockRequestCodeUseCase mockRequestCode;
-  late MockResendCodeUseCase mockResendCode;
-  late MockVerifyCodeUseCase mockVerifyCode;
+  late MockSignInWithGoogleUseCase mockSignInWithGoogle;
+  late MockSignInWithAppleUseCase mockSignInWithApple;
+  late MockSignInWithPasskeyUseCase mockSignInWithPasskey;
+  late MockLinkAuthProviderUseCase mockLinkAuthProvider;
+  late MockRegisterPasskeyUseCase mockRegisterPasskey;
+  late List<String> storedTokens;
+  late bool canOfferPasskey;
   late AuthController controller;
 
+  const session = AuthSessionResult(
+    token: 'token-123',
+    requiresUsername: false,
+    hasPasskey: false,
+  );
+  const securityStatus = AuthSecurityStatus(
+    hasPasskey: true,
+    linkedProviders: [],
+  );
+
   setUp(() {
-    mockRequestCode = MockRequestCodeUseCase();
-    mockResendCode = MockResendCodeUseCase();
-    mockVerifyCode = MockVerifyCodeUseCase();
-    controller =
-        AuthController(mockRequestCode, mockResendCode, mockVerifyCode);
+    mockSignInWithGoogle = MockSignInWithGoogleUseCase();
+    mockSignInWithApple = MockSignInWithAppleUseCase();
+    mockSignInWithPasskey = MockSignInWithPasskeyUseCase();
+    mockLinkAuthProvider = MockLinkAuthProviderUseCase();
+    mockRegisterPasskey = MockRegisterPasskeyUseCase();
+    storedTokens = [];
+    canOfferPasskey = false;
+
+    controller = AuthController(
+      mockSignInWithGoogle,
+      mockSignInWithApple,
+      mockSignInWithPasskey,
+      mockLinkAuthProvider,
+      mockRegisterPasskey,
+      storedTokens.add,
+      () async => canOfferPasskey,
+    );
   });
 
-  group('requestCode', () {
-    test('sets error when phone is empty', () async {
-      final result = await controller.requestCode('');
+  group('signInWithGoogle', () {
+    test('returns session result on success', () async {
+      when(() => mockSignInWithGoogle()).thenAnswer((_) async => session);
+
+      final result = await controller.signInWithGoogle();
+
+      expect(result, session);
+      expect(controller.state.isLoading, false);
+      expect(controller.state.errorMessage, isNull);
+      expect(storedTokens, ['token-123']);
+      expect(
+        controller.state.navigationRequest?.target,
+        AuthNavigationTarget.home,
+      );
+    });
+
+    test('stores user-facing error on failure', () async {
+      when(() => mockSignInWithGoogle())
+          .thenThrow(Exception('Google failed'));
+
+      final result = await controller.signInWithGoogle();
 
       expect(result, isNull);
-      expect(controller.state.errorMessage, isNotNull);
       expect(controller.state.isLoading, false);
-      verifyNever(() => mockRequestCode(phone: any(named: 'phone')));
+      expect(controller.state.errorMessage, 'Google failed');
+      expect(storedTokens, isEmpty);
     });
 
-    test('returns result on success', () async {
-      const expected = CodeRequestResult(codeSentAt: 123);
-      when(() => mockRequestCode(phone: any(named: 'phone')))
-          .thenAnswer((_) async => expected);
-
-      final result = await controller.requestCode('+123');
-
-      expect(result, expected);
-      expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, isNull);
-    });
-
-    test('sets error and rethrows on failure', () async {
-      when(() => mockRequestCode(phone: any(named: 'phone')))
-          .thenThrow(Exception('network'));
-
-      await expectLater(
-        controller.requestCode('+123'),
-        throwsA(isA<Exception>()),
+    test('routes new users to username flow', () async {
+      const newUserSession = AuthSessionResult(
+        token: 'token-456',
+        requiresUsername: true,
+        hasPasskey: false,
       );
-      expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, isNotNull);
+      when(() => mockSignInWithGoogle()).thenAnswer((_) async => newUserSession);
+
+      await controller.signInWithGoogle();
+
+      expect(
+        controller.state.navigationRequest?.target,
+        AuthNavigationTarget.username,
+      );
+      expect(
+        controller.state.navigationRequest?.showPasskeyPromptAfterCompletion,
+        true,
+      );
+    });
+
+    test('routes existing users without a passkey to passkey prompt when available', () async {
+      canOfferPasskey = true;
+      when(() => mockSignInWithGoogle()).thenAnswer((_) async => session);
+
+      await controller.signInWithGoogle();
+
+      expect(
+        controller.state.navigationRequest?.target,
+        AuthNavigationTarget.passkeyPrompt,
+      );
     });
   });
 
-  group('resendCode', () {
-    test('returns result on success', () async {
-      const expected = CodeRequestResult(codeSentAt: 123);
-      when(() => mockResendCode(phone: any(named: 'phone')))
-          .thenAnswer((_) async => expected);
+  group('signInWithPasskey', () {
+    test('tracks the active action while running', () async {
+      when(() => mockSignInWithPasskey()).thenAnswer((_) async => session);
 
-      final result = await controller.resendCode('+123');
+      final future = controller.signInWithPasskey();
 
-      expect(result, expected);
-      expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, isNull);
-    });
-
-    test('sets error and rethrows on failure', () async {
-      when(() => mockResendCode(phone: any(named: 'phone')))
-          .thenThrow(Exception('error'));
-
-      await expectLater(
-        controller.resendCode('+123'),
-        throwsA(isA<Exception>()),
-      );
-      expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, isNotNull);
+      expect(controller.state.activeAction, AuthAction.signInWithPasskey);
+      await future;
+      expect(controller.state.activeAction, isNull);
     });
   });
 
-  group('verifyCode', () {
-    test('sets error when code is less than 6 chars', () async {
-      final result =
-          await controller.verifyCode(phone: '+123', code: '123');
+  group('linkProvider', () {
+    test('delegates to the matching use case', () async {
+      when(() => mockLinkAuthProvider(provider: AuthProvider.apple))
+          .thenAnswer((_) async => securityStatus);
 
-      expect(result, isNull);
-      expect(controller.state.errorMessage, isNotNull);
-      expect(controller.state.isLoading, false);
-      verifyNever(() => mockVerifyCode(
-            phone: any(named: 'phone'),
-            code: any(named: 'code'),
-          ));
+      final result = await controller.linkProvider(AuthProvider.apple);
+
+      expect(result, securityStatus);
+      verify(() => mockLinkAuthProvider(provider: AuthProvider.apple))
+          .called(1);
     });
+  });
 
-    test('returns result on success', () async {
-      const expected =
-          VerifyCodeResult(token: 'tok', requiresUsername: false);
-      when(() => mockVerifyCode(
-            phone: any(named: 'phone'),
-            code: any(named: 'code'),
-          )).thenAnswer((_) async => expected);
+  group('registerPasskey', () {
+    test('returns updated security state on success', () async {
+      when(() => mockRegisterPasskey())
+          .thenAnswer((_) async => securityStatus);
 
-      final result =
-          await controller.verifyCode(phone: '+123', code: '123456');
+      final result = await controller.registerPasskey();
 
-      expect(result, expected);
-      expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, isNull);
-    });
-
-    test('sets error and rethrows on failure', () async {
-      when(() => mockVerifyCode(
-            phone: any(named: 'phone'),
-            code: any(named: 'code'),
-          )).thenThrow(Exception('invalid'));
-
-      await expectLater(
-        controller.verifyCode(phone: '+123', code: '123456'),
-        throwsA(isA<Exception>()),
-      );
-      expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, isNotNull);
+      expect(result, securityStatus);
+      verify(() => mockRegisterPasskey()).called(1);
     });
   });
 
   group('clearError', () {
-    test('resets error message', () async {
-      await controller.requestCode('');
+    test('removes an existing error message', () async {
+      when(() => mockSignInWithGoogle())
+          .thenThrow(Exception('temporary issue'));
+
+      await controller.signInWithGoogle();
       expect(controller.state.errorMessage, isNotNull);
 
       controller.clearError();
+
       expect(controller.state.errorMessage, isNull);
+    });
+  });
+
+  group('consumeNavigation', () {
+    test('clears an existing navigation request', () async {
+      when(() => mockSignInWithGoogle()).thenAnswer((_) async => session);
+
+      await controller.signInWithGoogle();
+      expect(controller.state.navigationRequest, isNotNull);
+
+      controller.consumeNavigation();
+
+      expect(controller.state.navigationRequest, isNull);
     });
   });
 }

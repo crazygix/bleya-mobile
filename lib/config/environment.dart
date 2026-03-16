@@ -7,6 +7,26 @@ class EnvironmentConfig {
     'API_BASE_URL',
     defaultValue: '',
   );
+  static const String _googleIosClientIdOverride = String.fromEnvironment(
+    'GOOGLE_IOS_CLIENT_ID',
+    defaultValue: '',
+  );
+  static const String _googleServerClientIdOverride = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue: '',
+  );
+  static const String _appleServiceIdOverride = String.fromEnvironment(
+    'APPLE_SERVICE_ID',
+    defaultValue: '',
+  );
+  static const String _appleRedirectUriOverride = String.fromEnvironment(
+    'APPLE_REDIRECT_URI',
+    defaultValue: 'https://api.bleyachat.com/v1/auth/apple/android/callback',
+  );
+  static const String _passkeyDomainOverride = String.fromEnvironment(
+    'PASSKEY_DOMAIN',
+    defaultValue: 'bleyachat.com',
+  );
 
   static Environment _environment = Environment.dev;
 
@@ -59,4 +79,21 @@ class EnvironmentConfig {
 
   static bool get isDevelopment => _environment == Environment.dev;
   static bool get isProduction => _environment == Environment.prod;
+
+  static String? _resolveOptional(String value) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? get googleIosClientId =>
+      _resolveOptional(_googleIosClientIdOverride);
+
+  static String? get googleServerClientId =>
+      _resolveOptional(_googleServerClientIdOverride);
+
+  static String? get appleServiceId => _resolveOptional(_appleServiceIdOverride);
+
+  static Uri get appleRedirectUri => Uri.parse(_appleRedirectUriOverride.trim());
+
+  static String get passkeyDomain => _passkeyDomainOverride.trim();
 }

@@ -4,12 +4,12 @@ import '../entities/user_profile.dart';
 /// Domain repository interface for authentication
 /// Use cases depend on this interface, not concrete implementations
 abstract class AuthRepository {
-  Future<CodeRequestResult> requestCode({required String phone});
-  Future<CodeRequestResult> resendCode({required String phone});
-  Future<VerifyCodeResult> verifyCode({
-    required String phone,
-    required String code,
-  });
+  Future<AuthSessionResult> signInWithGoogle();
+  Future<AuthSessionResult> signInWithApple();
+  Future<AuthSessionResult> signInWithPasskey();
+  Future<AuthSecurityStatus> getSecurityStatus();
+  Future<AuthSecurityStatus> linkProvider(AuthProvider provider);
+  Future<AuthSecurityStatus> registerPasskey();
   Future<bool> checkUsername({required String username});
   Future<UserProfile> setUsername({required String username});
   Future<UserProfile> getMyInfo();

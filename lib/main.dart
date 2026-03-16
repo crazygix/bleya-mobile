@@ -28,7 +28,7 @@ void main() async {
   EnvironmentConfig.setEnvironment(environment);
 
   // Resolve cookie storage directory BEFORE any Dio requests can run, so we never
-  // miss the Set-Cookie(refreshToken) coming from /auth/verify-code.
+  // miss the Set-Cookie(refreshToken) coming from auth sign-in or refresh calls.
   final supportDir = await getApplicationSupportDirectory();
   final cookieStoragePath = '${supportDir.path}/bleya';
 
