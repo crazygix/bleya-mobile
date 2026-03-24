@@ -36,10 +36,13 @@ class FormField extends StatelessWidget {
   final IconData? leadingIcon;
   final Widget? prefix;
   final TextInputType keyboardType;
+  final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
   final TextInputAction? textInputAction;
   final List<String>? autofillHints;
   final bool obscureText;
+  final bool autocorrect;
+  final bool enableSuggestions;
   final int maxLines;
 
   // Feedback states (priority: error > success > helper)
@@ -57,10 +60,13 @@ class FormField extends StatelessWidget {
     this.leadingIcon,
     this.prefix,
     this.keyboardType = TextInputType.text,
+    this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
     this.textInputAction,
     this.autofillHints,
     this.obscureText = false,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
     this.maxLines = 1,
     this.errorMessage,
     this.showSuccess = false,
@@ -95,10 +101,13 @@ class FormField extends StatelessWidget {
           trailingIconColor: _shouldShowFeedback ? _feedbackColor : null,
           prefix: prefix,
           keyboardType: keyboardType,
+          textCapitalization: textCapitalization,
           inputFormatters: inputFormatters,
           textInputAction: textInputAction,
           autofillHints: autofillHints,
           obscureText: obscureText,
+          autocorrect: autocorrect,
+          enableSuggestions: enableSuggestions,
           maxLines: maxLines,
           errorMessage: errorMessage, // Used for border color
         ),

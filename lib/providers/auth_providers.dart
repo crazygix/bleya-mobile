@@ -283,12 +283,12 @@ final appleSignInAvailableProvider = FutureProvider<bool>((ref) async {
   return providerAuth.isAppleSignInAvailable();
 });
 
-final authSecurityStatusProvider = FutureProvider<AuthSecurityStatus>((ref) async {
+final authSecurityStatusProvider =
+    FutureProvider<AuthSecurityStatus>((ref) async {
   final token = ref.watch(tokenProvider);
   if (token == null || token.isEmpty) {
     return const AuthSecurityStatus(
       hasPasskey: false,
-      linkedProviders: [],
     );
   }
 

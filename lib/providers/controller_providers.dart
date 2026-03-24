@@ -24,14 +24,12 @@ final authControllerProvider =
   final signInWithGoogle = ref.watch(signInWithGoogleUseCaseProvider);
   final signInWithApple = ref.watch(signInWithAppleUseCaseProvider);
   final signInWithPasskey = ref.watch(signInWithPasskeyUseCaseProvider);
-  final linkAuthProvider = ref.watch(linkAuthProviderUseCaseProvider);
   final registerPasskey = ref.watch(registerPasskeyUseCaseProvider);
   final passkeyAuthService = ref.watch(passkeyAuthServiceProvider);
   return AuthController(
     signInWithGoogle,
     signInWithApple,
     signInWithPasskey,
-    linkAuthProvider,
     registerPasskey,
     (token) => ref.read(tokenProvider.notifier).state = token,
     () => passkeyAuthService.isAvailable(),

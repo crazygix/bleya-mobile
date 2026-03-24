@@ -8,7 +8,6 @@ void main() {
   late MockSignInWithGoogleUseCase mockSignInWithGoogle;
   late MockSignInWithAppleUseCase mockSignInWithApple;
   late MockSignInWithPasskeyUseCase mockSignInWithPasskey;
-  late MockLinkAuthProviderUseCase mockLinkAuthProvider;
   late MockRegisterPasskeyUseCase mockRegisterPasskey;
   late List<String> storedTokens;
   late bool canOfferPasskey;
@@ -21,14 +20,12 @@ void main() {
   );
   const securityStatus = AuthSecurityStatus(
     hasPasskey: true,
-    linkedProviders: [],
   );
 
   setUp(() {
     mockSignInWithGoogle = MockSignInWithGoogleUseCase();
     mockSignInWithApple = MockSignInWithAppleUseCase();
     mockSignInWithPasskey = MockSignInWithPasskeyUseCase();
-    mockLinkAuthProvider = MockLinkAuthProviderUseCase();
     mockRegisterPasskey = MockRegisterPasskeyUseCase();
     storedTokens = [];
     canOfferPasskey = false;
@@ -37,7 +34,6 @@ void main() {
       mockSignInWithGoogle,
       mockSignInWithApple,
       mockSignInWithPasskey,
-      mockLinkAuthProvider,
       mockRegisterPasskey,
       storedTokens.add,
       () async => canOfferPasskey,
@@ -61,8 +57,7 @@ void main() {
     });
 
     test('stores user-facing error on failure', () async {
-      when(() => mockSignInWithGoogle())
-          .thenThrow(Exception('Google failed'));
+      when(() => mockSignInWithGoogle()).thenThrow(Exception('Google failed'));
 
       final result = await controller.signInWithGoogle();
 
@@ -78,7 +73,8 @@ void main() {
         requiresUsername: true,
         hasPasskey: false,
       );
-      when(() => mockSignInWithGoogle()).thenAnswer((_) async => newUserSession);
+      when(() => mockSignInWithGoogle())
+          .thenAnswer((_) async => newUserSession);
 
       await controller.signInWithGoogle();
 
@@ -92,7 +88,9 @@ void main() {
       );
     });
 
-    test('routes existing users without a passkey to passkey prompt when available', () async {
+    test(
+        'routes existing users without a passkey to passkey prompt when available',
+        () async {
       canOfferPasskey = true;
       when(() => mockSignInWithGoogle()).thenAnswer((_) async => session);
 
@@ -117,23 +115,9 @@ void main() {
     });
   });
 
-  group('linkProvider', () {
-    test('delegates to the matching use case', () async {
-      when(() => mockLinkAuthProvider(provider: AuthProvider.apple))
-          .thenAnswer((_) async => securityStatus);
-
-      final result = await controller.linkProvider(AuthProvider.apple);
-
-      expect(result, securityStatus);
-      verify(() => mockLinkAuthProvider(provider: AuthProvider.apple))
-          .called(1);
-    });
-  });
-
   group('registerPasskey', () {
     test('returns updated security state on success', () async {
-      when(() => mockRegisterPasskey())
-          .thenAnswer((_) async => securityStatus);
+      when(() => mockRegisterPasskey()).thenAnswer((_) async => securityStatus);
 
       final result = await controller.registerPasskey();
 

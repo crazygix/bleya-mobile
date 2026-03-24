@@ -6,6 +6,7 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/settings_menu_item.dart';
+import '../providers/controller_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
 import '../platform/app_dialog.dart';
@@ -14,8 +15,6 @@ import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import 'blocked_users_page.dart';
 import 'edit_profile_page.dart';
-import 'linked_accounts_page.dart';
-import 'passkey_prompt_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -54,24 +53,33 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  Future<void> _navigateToPasskeySetup() async {
-    final result = await Navigator.of(context).push<bool>(
-      AppRoute.build(
-        builder: (context) => const PasskeyPromptPage(onboardingFlow: false),
-      ),
-    );
-
-    if (result == true) {
-      ref.invalidate(authSecurityStatusProvider);
+  Future<void> _registerPasskey() async {
+    final authState = ref.read(authControllerProvider);
+    if (authState.isLoading) {
+      return;
     }
-  }
 
-  Future<void> _navigateToLinkedAccounts() async {
-    await Navigator.of(context).push(
-      AppRoute.build(
-        builder: (context) => const LinkedAccountsPage(),
-      ),
-    );
+    final controller = ref.read(authControllerProvider.notifier);
+    final result = await controller.registerPasskey();
+
+    if (!mounted) {
+      return;
+    }
+
+    if (result != null) {
+      ref.invalidate(authSecurityStatusProvider);
+      AppToast.showSuccess(context, 'Passkey added.');
+      return;
+    }
+
+    final errorMessage =
+        ref.read(authControllerProvider).errorMessage?.trim() ?? '';
+    if (errorMessage.isEmpty) {
+      return;
+    }
+
+    AppToast.showError(context, errorMessage);
+    controller.clearError();
   }
 
   void _showComingSoon(String feature) {
@@ -97,7 +105,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final hasBio = bio != null && bio.trim().isNotEmpty;
     final securityStatus = ref.watch(authSecurityStatusProvider).valueOrNull;
     final hasPasskey = securityStatus?.hasPasskey ?? false;
-    final linkedProviders = securityStatus?.linkedProviders.length ?? 0;
 
     ref.listen(profileProvider, (previous, next) {
       final isNewError =
@@ -242,18 +249,10 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         SettingsMenuItem(
                           icon: CupertinoIcons.lock_shield,
                           iconColor: BleyaTheme.primary,
-                          label:
-                              hasPasskey ? 'Add another passkey' : 'Add passkey',
-                          onTap: _navigateToPasskeySetup,
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.link,
-                          iconColor: const Color(0xFF0F766E),
-                          label: linkedProviders > 1
-                              ? 'Linked accounts ($linkedProviders)'
-                              : 'Linked accounts',
-                          onTap: _navigateToLinkedAccounts,
+                          label: hasPasskey
+                              ? 'Add another passkey'
+                              : 'Add passkey',
+                          onTap: _registerPasskey,
                         ),
                         const SizedBox(height: 4.0),
                         // Menu Items

@@ -1,7 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../use_cases/auth/check_username_use_case.dart';
 import '../use_cases/auth/get_auth_security_status_use_case.dart';
-import '../use_cases/auth/link_auth_provider_use_case.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/set_username_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
@@ -30,7 +29,8 @@ import '../use_cases/city/get_nearby_cities_use_case.dart';
 import '../use_cases/city/join_city_use_case.dart';
 import 'repository_providers.dart';
 
-final signInWithGoogleUseCaseProvider = Provider<SignInWithGoogleUseCase>((ref) {
+final signInWithGoogleUseCaseProvider =
+    Provider<SignInWithGoogleUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return SignInWithGoogleUseCase(repository);
 });
@@ -50,11 +50,6 @@ final getAuthSecurityStatusUseCaseProvider =
     Provider<GetAuthSecurityStatusUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return GetAuthSecurityStatusUseCase(repository);
-});
-
-final linkAuthProviderUseCaseProvider = Provider<LinkAuthProviderUseCase>((ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  return LinkAuthProviderUseCase(repository);
 });
 
 final registerPasskeyUseCaseProvider = Provider<RegisterPasskeyUseCase>((ref) {

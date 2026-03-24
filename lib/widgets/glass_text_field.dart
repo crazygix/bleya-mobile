@@ -23,11 +23,14 @@ class GlassTextField extends StatelessWidget {
   final Color? trailingIconColor;
   final String? errorMessage;
   final TextInputType keyboardType;
+  final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
   final TextInputAction? textInputAction;
   final List<String>? autofillHints;
   final Widget? prefix;
   final bool obscureText;
+  final bool autocorrect;
+  final bool enableSuggestions;
   final int maxLines;
 
   const GlassTextField({
@@ -40,11 +43,14 @@ class GlassTextField extends StatelessWidget {
     this.trailingIconColor,
     this.errorMessage,
     this.keyboardType = TextInputType.text,
+    this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
     this.textInputAction,
     this.autofillHints,
     this.prefix,
     this.obscureText = false,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
     this.maxLines = 1,
   });
 
@@ -89,8 +95,11 @@ class GlassTextField extends StatelessWidget {
                 autofillHints: autofillHints,
                 textInputAction: textInputAction,
                 keyboardType: keyboardType,
+                textCapitalization: textCapitalization,
                 inputFormatters: inputFormatters,
                 obscureText: obscureText,
+                autocorrect: autocorrect,
+                enableSuggestions: enableSuggestions,
                 maxLines: maxLines,
                 style: BleyaTheme.bodyLarge.copyWith(
                   color: BleyaTheme.foreground,

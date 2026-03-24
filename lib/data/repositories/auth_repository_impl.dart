@@ -89,7 +89,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<AuthSessionResult> signInWithPasskey() async {
     try {
-      final optionsResponse = await _dio.post('/auth/passkeys/authentication/options');
+      final optionsResponse =
+          await _dio.post('/auth/passkeys/authentication/options');
       final options = _asPasskeyOptions(optionsResponse.data);
       final credential = await _passkeyAuthService.authenticate(options);
       final verifyResponse = await _dio.post(
@@ -108,28 +109,7 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<AuthSecurityStatus> getSecurityStatus() async {
     try {
-      final response = await _dio.get('/auth/identities');
-      return authSecurityStatusFromJson(_asJson(response.data));
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
-  Future<AuthSecurityStatus> linkProvider(AuthProvider provider) async {
-    try {
-      final credential = provider == AuthProvider.apple
-          ? await _providerAuthService.signInWithApple()
-          : await _providerAuthService.signInWithGoogle();
-
-      final response = await _dio.post(
-        '/auth/identities/link',
-        data: {
-          'provider': credential.provider.apiValue,
-          'idToken': credential.idToken,
-          if (credential.rawNonce != null) 'rawNonce': credential.rawNonce,
-        },
-      );
+      final response = await _dio.get('/auth/security');
       return authSecurityStatusFromJson(_asJson(response.data));
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
@@ -139,7 +119,8 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<AuthSecurityStatus> registerPasskey() async {
     try {
-      final optionsResponse = await _dio.post('/auth/passkeys/registration/options');
+      final optionsResponse =
+          await _dio.post('/auth/passkeys/registration/options');
       final options = _asPasskeyOptions(optionsResponse.data);
       final credential = await _passkeyAuthService.register(options);
       final verifyResponse = await _dio.post(

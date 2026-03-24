@@ -1,7 +1,6 @@
 import 'package:bleya/domain/entities/auth_result.dart';
 import 'package:bleya/domain/entities/user_profile.dart';
 import 'package:bleya/use_cases/auth/check_username_use_case.dart';
-import 'package:bleya/use_cases/auth/link_auth_provider_use_case.dart';
 import 'package:bleya/use_cases/auth/register_passkey_use_case.dart';
 import 'package:bleya/use_cases/auth/set_username_use_case.dart';
 import 'package:bleya/use_cases/auth/sign_in_with_apple_use_case.dart';
@@ -21,7 +20,6 @@ void main() {
   );
   const securityStatus = AuthSecurityStatus(
     hasPasskey: true,
-    linkedProviders: [],
   );
 
   setUp(() {
@@ -31,8 +29,7 @@ void main() {
   group('provider sign-in use cases', () {
     test('SignInWithGoogleUseCase delegates to repository', () async {
       final useCase = SignInWithGoogleUseCase(mockRepo);
-      when(() => mockRepo.signInWithGoogle())
-          .thenAnswer((_) async => session);
+      when(() => mockRepo.signInWithGoogle()).thenAnswer((_) async => session);
 
       final result = await useCase();
 
@@ -42,8 +39,7 @@ void main() {
 
     test('SignInWithAppleUseCase delegates to repository', () async {
       final useCase = SignInWithAppleUseCase(mockRepo);
-      when(() => mockRepo.signInWithApple())
-          .thenAnswer((_) async => session);
+      when(() => mockRepo.signInWithApple()).thenAnswer((_) async => session);
 
       final result = await useCase();
 
@@ -53,8 +49,7 @@ void main() {
 
     test('SignInWithPasskeyUseCase delegates to repository', () async {
       final useCase = SignInWithPasskeyUseCase(mockRepo);
-      when(() => mockRepo.signInWithPasskey())
-          .thenAnswer((_) async => session);
+      when(() => mockRepo.signInWithPasskey()).thenAnswer((_) async => session);
 
       final result = await useCase();
 
@@ -64,17 +59,6 @@ void main() {
   });
 
   group('security use cases', () {
-    test('LinkAuthProviderUseCase delegates to repository', () async {
-      final useCase = LinkAuthProviderUseCase(mockRepo);
-      when(() => mockRepo.linkProvider(AuthProvider.google))
-          .thenAnswer((_) async => securityStatus);
-
-      final result = await useCase(provider: AuthProvider.google);
-
-      expect(result, securityStatus);
-      verify(() => mockRepo.linkProvider(AuthProvider.google)).called(1);
-    });
-
     test('RegisterPasskeyUseCase delegates to repository', () async {
       final useCase = RegisterPasskeyUseCase(mockRepo);
       when(() => mockRepo.registerPasskey())

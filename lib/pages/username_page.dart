@@ -6,15 +6,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import '../constants/theme.dart';
 import '../controllers/username_controller.dart';
-import '../platform/app_route.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../providers/profile_providers.dart';
+import '../utils/app_toast.dart';
+import '../utils/lowercase_text_input_formatter.dart';
+import '../utils/passkey_onboarding.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/form_field.dart' as bleya;
-import 'passkey_prompt_page.dart';
 
 class UsernamePage extends ConsumerStatefulWidget {
   final bool showPasskeyPromptAfterCompletion;
@@ -32,6 +33,22 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
   final TextEditingController _usernameController = TextEditingController();
   final FocusNode _usernameFocusNode = FocusNode();
   bool _isTouched = false;
+
+  Future<void> _completePasskeyOnboarding() async {
+    final controller = ref.read(authControllerProvider.notifier);
+
+    await maybeRegisterOnboardingPasskey(
+      registerPasskey: controller.registerPasskey,
+      invalidateSecurityStatus: () =>
+          ref.invalidate(authSecurityStatusProvider),
+      readAuthState: () => ref.read(authControllerProvider),
+      clearAuthError: controller.clearError,
+      showError: (message) => AppToast.showError(context, message),
+    );
+
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacementNamed('/home');
+  }
 
   @override
   void initState() {
@@ -130,12 +147,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
 
       switch (request.target) {
         case UsernameCompletionTarget.passkeyPrompt:
-          Navigator.of(context).pushReplacement(
-            AppRoute.build(
-              builder: (context) =>
-                  const PasskeyPromptPage(onboardingFlow: true),
-            ),
-          );
+          _completePasskeyOnboarding();
           return;
         case UsernameCompletionTarget.home:
           Navigator.of(context).pushReplacementNamed('/home');
@@ -212,7 +224,14 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
                             focusNode: _usernameFocusNode,
                             placeholder: 'username',
                             keyboardType: TextInputType.text,
+                            textCapitalization: TextCapitalization.none,
+                            inputFormatters: const [
+                              LowercaseTextInputFormatter(),
+                            ],
                             textInputAction: TextInputAction.done,
+                            autofillHints: const [AutofillHints.username],
+                            autocorrect: false,
+                            enableSuggestions: false,
                             errorMessage: _getErrorMessage(
                               usernameState,
                               username,

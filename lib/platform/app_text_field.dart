@@ -11,11 +11,14 @@ class AppTextField extends StatelessWidget {
   final TextStyle? style;
   final TextStyle? placeholderStyle;
   final TextInputType keyboardType;
+  final TextCapitalization textCapitalization;
   final List<TextInputFormatter>? inputFormatters;
   final TextInputAction? textInputAction;
   final List<String>? autofillHints;
   final bool enabled;
   final bool obscureText;
+  final bool autocorrect;
+  final bool enableSuggestions;
   final int maxLines;
   final int? maxLength;
   final bool? enableInteractiveSelection;
@@ -33,11 +36,14 @@ class AppTextField extends StatelessWidget {
     this.style,
     this.placeholderStyle,
     this.keyboardType = TextInputType.text,
+    this.textCapitalization = TextCapitalization.none,
     this.inputFormatters,
     this.textInputAction,
     this.autofillHints,
     this.enabled = true,
     this.obscureText = false,
+    this.autocorrect = true,
+    this.enableSuggestions = true,
     this.maxLines = 1,
     this.maxLength,
     this.enableInteractiveSelection,
@@ -58,11 +64,14 @@ class AppTextField extends StatelessWidget {
         style: style,
         placeholderStyle: placeholderStyle,
         keyboardType: keyboardType,
+        textCapitalization: textCapitalization,
         inputFormatters: inputFormatters,
         textInputAction: textInputAction,
         autofillHints: autofillHints,
         enabled: enabled,
         obscureText: obscureText,
+        autocorrect: autocorrect,
+        enableSuggestions: enableSuggestions,
         maxLines: maxLines,
         maxLength: maxLength,
         enableInteractiveSelection: enableInteractiveSelection ?? true,
@@ -80,11 +89,14 @@ class AppTextField extends StatelessWidget {
       focusNode: focusNode,
       style: style,
       keyboardType: keyboardType,
+      textCapitalization: textCapitalization,
       inputFormatters: inputFormatters,
       textInputAction: textInputAction,
       autofillHints: autofillHints,
       enabled: enabled,
       obscureText: obscureText,
+      autocorrect: autocorrect,
+      enableSuggestions: enableSuggestions,
       maxLines: maxLines,
       maxLength: maxLength,
       enableInteractiveSelection: enableInteractiveSelection ?? true,

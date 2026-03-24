@@ -3,7 +3,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'package:passkeys/exceptions.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../domain/entities/auth_result.dart';
-import '../use_cases/auth/link_auth_provider_use_case.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
 import '../use_cases/auth/sign_in_with_google_use_case.dart';
@@ -13,8 +12,6 @@ enum AuthAction {
   signInWithGoogle,
   signInWithApple,
   signInWithPasskey,
-  linkGoogle,
-  linkApple,
   registerPasskey,
 }
 
@@ -60,9 +57,8 @@ class AuthState {
       isLoading: isLoading ?? this.isLoading,
       errorMessage: clearError ? null : errorMessage ?? this.errorMessage,
       activeAction: clearAction ? null : activeAction ?? this.activeAction,
-      navigationRequest: clearNavigation
-          ? null
-          : navigationRequest ?? this.navigationRequest,
+      navigationRequest:
+          clearNavigation ? null : navigationRequest ?? this.navigationRequest,
     );
   }
 }
@@ -74,7 +70,6 @@ class AuthController extends StateNotifier<AuthState> {
   final SignInWithGoogleUseCase _signInWithGoogleUseCase;
   final SignInWithAppleUseCase _signInWithAppleUseCase;
   final SignInWithPasskeyUseCase _signInWithPasskeyUseCase;
-  final LinkAuthProviderUseCase _linkAuthProviderUseCase;
   final RegisterPasskeyUseCase _registerPasskeyUseCase;
   final StoreAuthToken _storeAuthToken;
   final LoadPasskeyAvailability _loadPasskeyAvailability;
@@ -83,7 +78,6 @@ class AuthController extends StateNotifier<AuthState> {
     this._signInWithGoogleUseCase,
     this._signInWithAppleUseCase,
     this._signInWithPasskeyUseCase,
-    this._linkAuthProviderUseCase,
     this._registerPasskeyUseCase,
     this._storeAuthToken,
     this._loadPasskeyAvailability,
@@ -154,7 +148,8 @@ class AuthController extends StateNotifier<AuthState> {
       return 'Passkeys are not configured for this build yet.';
     }
 
-    if (error is PasskeyUnsupportedException || error is DeviceNotSupportedException) {
+    if (error is PasskeyUnsupportedException ||
+        error is DeviceNotSupportedException) {
       return "Passkeys aren't available on this device yet.";
     }
 
@@ -252,16 +247,6 @@ class AuthController extends StateNotifier<AuthState> {
     return _runSessionAction(
       AuthAction.signInWithPasskey,
       () => _signInWithPasskeyUseCase(),
-    );
-  }
-
-  Future<AuthSecurityStatus?> linkProvider(AuthProvider provider) {
-    final action = provider == AuthProvider.apple
-        ? AuthAction.linkApple
-        : AuthAction.linkGoogle;
-    return _runAction(
-      action,
-      () => _linkAuthProviderUseCase(provider: provider),
     );
   }
 

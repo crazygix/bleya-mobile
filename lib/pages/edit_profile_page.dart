@@ -369,6 +369,10 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                           AppTextField(
                             controller: _bioController,
                             placeholder: 'A little about you',
+                            placeholderStyle: BleyaTheme.bodyLarge.copyWith(
+                              color: BleyaTheme.mutedForeground
+                                  .withValues(alpha: 0.6),
+                            ),
                             contentPadding: const EdgeInsets.all(16),
                             maxLines: 4,
                             maxLength: _maxBioLength,

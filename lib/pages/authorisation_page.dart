@@ -9,10 +9,11 @@ import '../platform/app_route.dart';
 import '../platform/ui_platform.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
+import '../utils/app_toast.dart';
+import '../utils/passkey_onboarding.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/app_spinner.dart';
 import '../widgets/liquid_glass_background.dart';
-import 'passkey_prompt_page.dart';
 import 'username_page.dart';
 
 const double _providerButtonHeight = BleyaTheme.buttonHeight;
@@ -26,6 +27,22 @@ class AuthorisationPage extends ConsumerStatefulWidget {
 }
 
 class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
+  Future<void> _completePasskeyOnboarding() async {
+    final controller = ref.read(authControllerProvider.notifier);
+
+    await maybeRegisterOnboardingPasskey(
+      registerPasskey: controller.registerPasskey,
+      invalidateSecurityStatus: () =>
+          ref.invalidate(authSecurityStatusProvider),
+      readAuthState: () => ref.read(authControllerProvider),
+      clearAuthError: controller.clearError,
+      showError: (message) => AppToast.showError(context, message),
+    );
+
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacementNamed('/home');
+  }
+
   Future<void> _handleNavigation(
     AuthNavigationRequest request,
   ) async {
@@ -45,11 +62,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         );
         return;
       case AuthNavigationTarget.passkeyPrompt:
-        await Navigator.of(context).pushReplacement(
-          AppRoute.build(
-            builder: (context) => const PasskeyPromptPage(onboardingFlow: true),
-          ),
-        );
+        await _completePasskeyOnboarding();
         return;
       case AuthNavigationTarget.home:
         await Navigator.of(context).pushReplacementNamed('/home');
@@ -112,7 +125,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                         children: [
                           const SizedBox(height: BleyaTheme.spacingMD),
                           Text(
-                            'Connect in seconds.',
+                            'Connect in seconds',
                             style: BleyaTheme.headingMedium.copyWith(
                               fontSize: 34,
                               fontWeight: FontWeight.w800,
@@ -120,7 +133,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            'Pick Apple or Google and land straight in the room. Fast in, easy back.',
+                            'Use your Apple or Google account.\nFast, simple, and secure.',
                             style: BleyaTheme.bodyLarge,
                           ),
                           const Spacer(),
@@ -137,7 +150,8 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                                   BleyaTheme.radiusMedium,
                                 ),
                                 border: Border.all(
-                                  color: BleyaTheme.error.withValues(alpha: 0.3),
+                                  color:
+                                      BleyaTheme.error.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Text(
@@ -150,15 +164,15 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                             const SizedBox(height: BleyaTheme.spacingLG),
                           ],
                           for (final provider in platformPrimary) ...[
-                            if (provider == AuthProvider.apple && showApple) ...[
+                            if (provider == AuthProvider.apple &&
+                                showApple) ...[
                               _AppleButton(
                                 isLoading: authState.activeAction ==
                                     AuthAction.signInWithApple,
                                 disabled: authState.isLoading,
-                                onPressed: () =>
-                                    ref
-                                        .read(authControllerProvider.notifier)
-                                        .signInWithApple(),
+                                onPressed: () => ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithApple(),
                               ),
                               const SizedBox(height: BleyaTheme.spacingMD),
                             ],
@@ -168,10 +182,9 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                                 isLoading: authState.activeAction ==
                                     AuthAction.signInWithGoogle,
                                 disabled: authState.isLoading,
-                                onPressed: () =>
-                                  ref
-                                      .read(authControllerProvider.notifier)
-                                      .signInWithGoogle(),
+                                onPressed: () => ref
+                                    .read(authControllerProvider.notifier)
+                                    .signInWithGoogle(),
                               ),
                               const SizedBox(height: BleyaTheme.spacingMD),
                             ],

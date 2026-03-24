@@ -8,7 +8,6 @@ abstract class AuthRepository {
   Future<AuthSessionResult> signInWithApple();
   Future<AuthSessionResult> signInWithPasskey();
   Future<AuthSecurityStatus> getSecurityStatus();
-  Future<AuthSecurityStatus> linkProvider(AuthProvider provider);
   Future<AuthSecurityStatus> registerPasskey();
   Future<bool> checkUsername({required String username});
   Future<UserProfile> setUsername({required String username});

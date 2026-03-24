@@ -26,30 +26,10 @@ class AuthSessionResult {
   });
 }
 
-class LinkedIdentity {
-  final AuthProvider provider;
-  final String email;
-  final bool emailVerified;
-  final bool isPrivateRelay;
-  final int linkedAt;
-  final int lastUsedAt;
-
-  const LinkedIdentity({
-    required this.provider,
-    required this.email,
-    required this.emailVerified,
-    required this.isPrivateRelay,
-    required this.linkedAt,
-    required this.lastUsedAt,
-  });
-}
-
 class AuthSecurityStatus {
   final bool hasPasskey;
-  final List<LinkedIdentity> linkedProviders;
 
   const AuthSecurityStatus({
     required this.hasPasskey,
-    required this.linkedProviders,
   });
 }
