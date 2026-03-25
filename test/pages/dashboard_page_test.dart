@@ -40,6 +40,7 @@ void main() {
   ProviderScope buildApp() {
     return ProviderScope(
       overrides: [
+        tokenProvider.overrideWith((ref) => 'test-token'),
         roomRepositoryProvider.overrideWithValue(mockRoomRepository),
         socketServiceProvider.overrideWithValue(SocketService()),
         notificationStateProvider.overrideWith(TestNotificationNotifier.new),

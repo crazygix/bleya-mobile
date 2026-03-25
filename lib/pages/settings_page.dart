@@ -6,7 +6,6 @@ import '../widgets/app_skeleton.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/settings_menu_item.dart';
-import '../providers/controller_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
 import '../platform/app_dialog.dart';
@@ -33,7 +32,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     if (shouldLogout) {
       final logout = ref.read(logoutProvider);
-      logout();
+      await logout();
     }
   }
 
@@ -51,35 +50,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
         builder: (context) => const BlockedUsersPage(),
       ),
     );
-  }
-
-  Future<void> _registerPasskey() async {
-    final authState = ref.read(authControllerProvider);
-    if (authState.isLoading) {
-      return;
-    }
-
-    final controller = ref.read(authControllerProvider.notifier);
-    final result = await controller.registerPasskey();
-
-    if (!mounted) {
-      return;
-    }
-
-    if (result != null) {
-      ref.invalidate(authSecurityStatusProvider);
-      AppToast.showSuccess(context, 'Passkey added.');
-      return;
-    }
-
-    final errorMessage =
-        ref.read(authControllerProvider).errorMessage?.trim() ?? '';
-    if (errorMessage.isEmpty) {
-      return;
-    }
-
-    AppToast.showError(context, errorMessage);
-    controller.clearError();
   }
 
   void _showComingSoon(String feature) {
@@ -103,8 +73,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final bio = profile?.bio;
     final profileImageUrl = profile?.profileImageUrl;
     final hasBio = bio != null && bio.trim().isNotEmpty;
-    final securityStatus = ref.watch(authSecurityStatusProvider).valueOrNull;
-    final hasPasskey = securityStatus?.hasPasskey ?? false;
 
     ref.listen(profileProvider, (previous, next) {
       final isNewError =
@@ -246,16 +214,6 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           ),
                         ),
                         const SizedBox(height: BleyaTheme.spacing3XL),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.lock_shield,
-                          iconColor: BleyaTheme.primary,
-                          label: hasPasskey
-                              ? 'Add another passkey'
-                              : 'Add passkey',
-                          onTap: _registerPasskey,
-                        ),
-                        const SizedBox(height: 4.0),
-                        // Menu Items
                         SettingsMenuItem(
                           icon: CupertinoIcons.shield,
                           iconColor: Color(0xFF3B82F6), // Blue

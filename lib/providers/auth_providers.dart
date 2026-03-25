@@ -13,6 +13,7 @@ import '../utils/app_errors.dart';
 import 'use_case_providers.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
+final sessionVersionProvider = StateProvider<int>((ref) => 0);
 
 /// Path used by PersistCookieJar to store cookies on disk.
 ///
@@ -297,7 +298,7 @@ final authSecurityStatusProvider =
 });
 
 // Logout provider to allow logout from UI
-final logoutProvider = Provider<void Function()>((ref) {
+final logoutProvider = Provider<Future<void> Function()>((ref) {
   return () async {
     final authManager = ref.read(authManagerProvider);
     await authManager.logout();

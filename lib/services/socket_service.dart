@@ -126,7 +126,12 @@ class SocketService {
     if (_currentRoom != null) {
       leaveRoom();
     }
+    for (final event in _eventHandlers.keys.toList()) {
+      _socket?.off(event);
+    }
+    _eventHandlers.clear();
     _socket?.disconnect();
+    _socket = null;
     _currentRoom = null;
     _desiredRoom = null;
     _currentToken = null;

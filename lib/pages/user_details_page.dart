@@ -517,19 +517,9 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              const Icon(
-                CupertinoIcons.quote_bubble,
-                size: 20,
-                color: BleyaTheme.primary,
-              ),
-              const SizedBox(width: BleyaTheme.spacingSM),
-              Text(
-                'About',
-                style: BleyaTheme.listTitle.copyWith(fontSize: 18),
-              ),
-            ],
+          Text(
+            'About',
+            style: BleyaTheme.listTitle.copyWith(fontSize: 18),
           ),
           const SizedBox(height: BleyaTheme.spacingMD),
           Text(

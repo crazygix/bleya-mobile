@@ -9,7 +9,10 @@ import 'use_case_providers.dart';
 
 // Provider for current room messages
 final roomMessagesProvider =
-    StateProvider.family<List<Message>, String>((ref, roomId) => []);
+    StateProvider.autoDispose.family<List<Message>, String>((ref, roomId) {
+  ref.watch(sessionVersionProvider);
+  return [];
+});
 
 /// UI state for a chat room, excluding the actual message list which is kept
 /// in [roomMessagesProvider] as a single source of truth for messages.
@@ -171,7 +174,8 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
 
       // Confirm room join in socket service
       socketService.onRoomJoinedConfirmed(joinedData.room);
-      ref.read(roomMessagesProvider(roomId).notifier).state = joinedData.messages;
+      ref.read(roomMessagesProvider(roomId).notifier).state =
+          joinedData.messages;
 
       state = state.copyWith(
         isInitialLoading: false,

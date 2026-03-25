@@ -39,6 +39,17 @@ class NotificationState {
 class NotificationNotifier extends AsyncNotifier<NotificationState> {
   @override
   FutureOr<NotificationState> build() async {
+    ref.watch(sessionVersionProvider);
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      return const NotificationState(
+        notifications: [],
+        unreadCount: 0,
+        nextCursor: null,
+        hasMore: false,
+      );
+    }
+
     return _fetchPage();
   }
 
@@ -245,6 +256,12 @@ final notificationStateProvider =
 class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
   @override
   Future<void> build() async {
+    ref.watch(sessionVersionProvider);
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      return;
+    }
+
     if (kDebugMode) {
       print('📡 NotificationSocketListener: Initializing...');
     }

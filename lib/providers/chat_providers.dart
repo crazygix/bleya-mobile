@@ -14,10 +14,16 @@ export '../domain/entities/direct_chat_status.dart';
 export 'chat_room_providers.dart';
 
 /// Tracks which room (if any) is currently open in the chat UI.
-final currentOpenRoomIdProvider = StateProvider<String?>((ref) => null);
+final currentOpenRoomIdProvider = StateProvider<String?>((ref) {
+  ref.watch(sessionVersionProvider);
+  return null;
+});
 
 /// Tracks which thread (if any) is currently open in the chat UI.
-final currentOpenThreadIdProvider = StateProvider<String?>((ref) => null);
+final currentOpenThreadIdProvider = StateProvider<String?>((ref) {
+  ref.watch(sessionVersionProvider);
+  return null;
+});
 
 /// Wrapper model for a room along with its local unread count.
 class RoomListItem {
@@ -42,7 +48,13 @@ class RoomListItem {
 
 // Provider to fetch available rooms
 final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
+  ref.watch(sessionVersionProvider);
   try {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      return [];
+    }
+
     final useCase = ref.read(getAvailableRoomsUseCaseProvider);
     return await useCase();
   } catch (e, stack) {
@@ -57,6 +69,7 @@ final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
 // Provider to fetch joined rooms from backend (single source of truth)
 final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
     FutureProvider.autoDispose<List<Room>>((ref) async {
+  ref.watch(sessionVersionProvider);
   try {
     final token = ref.read(tokenProvider);
     if (token == null || token.isEmpty) {
@@ -76,6 +89,7 @@ final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
 final directChatStatusProvider =
     FutureProvider.autoDispose.family<DirectChatStatus, String>(
   (ref, otherUserId) async {
+    ref.watch(sessionVersionProvider);
     final useCase = ref.read(getDirectChatStatusUseCaseProvider);
     return await useCase(otherUserId);
   },
@@ -105,6 +119,12 @@ class RoomsListController
     _isInitialized = true;
 
     try {
+      final token = ref.read(tokenProvider);
+      if (token == null || token.isEmpty) {
+        state = const AsyncValue.data([]);
+        return;
+      }
+
       // Ensure socket is connected so per-user dashboard events can be received.
       await socketService.ensureConnectedForUserChannel();
 
@@ -406,6 +426,7 @@ class RoomsListController
 final roomsListProvider =
     StateNotifierProvider<RoomsListController, AsyncValue<List<RoomListItem>>>(
   (ref) {
+    ref.watch(sessionVersionProvider);
     final socketService = ref.read(socketServiceProvider);
     return RoomsListController(ref, socketService);
   },
@@ -414,7 +435,13 @@ final roomsListProvider =
 // Provider to fetch room members
 final roomMembersProvider =
     FutureProvider.family<List<RoomMember>, String>((ref, roomId) async {
+  ref.watch(sessionVersionProvider);
   try {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      return [];
+    }
+
     final useCase = ref.read(getRoomMembersUseCaseProvider);
     return await useCase(roomId);
   } catch (e) {
