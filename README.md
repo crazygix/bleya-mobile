@@ -1,25 +1,63 @@
-# bleya
+# Bleya Mobile
 
-A Flutter chat application.
+Flutter client for Bleya.
 
-## Getting Started
+This app connects to the Bleya backend in `../backend` and currently covers:
 
-This project is a starting point for a Flutter application that follows the
-[simple app state management
-tutorial](https://flutter.dev/to/state-management-sample).
+- Google, Apple, and passkey sign-in
+- Username onboarding
+- Public city-based chat rooms
+- Direct messages, blocking, and chat deletion
+- Thread replies and realtime socket updates
+- Activity/notification inbox
+- Profile editing and blocked-users management
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+## Requirements
 
-## Run from Cursor (Multi-root Workspace)
+- Flutter stable
+- Dart 3.6+
+- JDK `17` for Android builds
 
-One-time setup:
+Check your local toolchain:
+
+```bash
+flutter --version
+```
+
+## Quick Start
+
+1. Copy env templates:
 
 ```bash
 cp config/env/dev.example.json config/env/dev.local.json
 cp config/env/prod.example.json config/env/prod.local.json
 ```
+
+2. Set `API_BASE_URL` in `config/env/dev.local.json`:
+
+- Android emulator: `http://10.0.2.2:8080/v1`
+- iOS simulator: `http://127.0.0.1:8080/v1`
+- Physical device: `http://<LAN_IP_OF_MAC>:8080/v1`
+
+3. Start the backend from `../backend`:
+
+```bash
+npm run build && npm start
+```
+
+4. Verify the backend is reachable:
+
+```bash
+curl http://127.0.0.1:8080/health
+```
+
+5. Run the app:
+
+```bash
+flutter run --dart-define-from-file=config/env/dev.local.json
+```
+
+## Run from Cursor (Multi-root Workspace)
 
 1) Open [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/mobile/bleya.code-workspace) in Cursor.
 2) Run task `Backend: Start Dev Server`.
@@ -57,26 +95,7 @@ Both files use the same schema:
 - `APPLE_REDIRECT_URI`
 - `PASSKEY_DOMAIN`
 
-Recommended local flow:
-
-1) Copy template:
-
-```bash
-cp config/env/dev.example.json config/env/dev.local.json
-cp config/env/prod.example.json config/env/prod.local.json
-```
-
-2) Set `API_BASE_URL` in `dev.local.json`:
-
-- Android emulator: `http://10.0.2.2:8080/v1`
-- iOS simulator: `http://127.0.0.1:8080/v1`
-- Physical device: `http://<LAN_IP_OF_MAC>:8080/v1`
-
-3) Run `Mobile dev` scheme in Cursor.
-
 ## Running on Android with Local Backend
-
-Prerequisite: Android builds require JDK `17`.
 
 For release signing, create `android/key.properties` locally (gitignored):
 
@@ -140,6 +159,16 @@ Default URLs:
 Note: Android debug/profile builds are configured to allow cleartext HTTP for local development.
 Release builds should continue using HTTPS endpoints.
 
+## Quality Checks
+
+Run these before shipping changes:
+
+```bash
+flutter analyze
+flutter test
+./scripts/check_adaptive_ui.sh
+```
+
 ## Building for Production
 
 **⚠️ IMPORTANT: Always pass the production dart-defines for release builds**
@@ -172,37 +201,20 @@ Without production dart-defines:
 
 **Note:** Ensure your Railway CI/CD (or other CI/CD) passes the production dart-defines, either through `--dart-define-from-file` or explicit `--dart-define` flags.
 
-## Adaptive UI Guardrail
+## Project Rules
 
-Run this check before committing UI changes:
+Key local references:
 
-```bash
-./scripts/check_adaptive_ui.sh
-```
-
-## Loading UI policy
-
-Use the shared loading system across the app:
-
+- `rules/loading-ui-rules.md`
+- `rules/theme-and-brand-rules.md`
+- `rules/api-contract-rules.md`
 - `lib/widgets/app_spinner.dart` for action-level loading
 - `lib/widgets/app_skeleton.dart` for content loading
 
-Full policy and usage rules:
-
-- `rules/loading-ui-rules.md`
-
 ## Assets
 
-The `assets` directory houses images, fonts, and any other files you want to
-include with your application.
-
-The `assets/images` directory contains [resolution-aware
-images](https://flutter.dev/to/resolution-aware-images).
+Assets live under `assets/`.
 
 ## Localization
 
-This project generates localized messages based on arb files found in
-the `lib/src/localization` directory.
-
-To support additional languages, please visit the tutorial on
-[Internationalizing Flutter apps](https://flutter.dev/to/internationalization).
+Localization resources live under `lib/src/localization`.
