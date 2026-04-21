@@ -3,9 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6.apps.googleusercontent.com</string>
+	<string>676518923946-k4avu3sardihgc263jjrqmdvtsucn6tc.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6</string>
+	<string>com.googleusercontent.apps.676518923946-k4avu3sardihgc263jjrqmdvtsucn6tc</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>676518923946-15b86enkfkk1ahp1tbrd3937ojserhmu.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyDB9PX5p681OZL8q28gDa-GOE8B2ee3LHA</string>
 	<key>GCM_SENDER_ID</key>
@@ -13,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.bleyachat</string>
+	<string>com.bleyachat.dev</string>
 	<key>PROJECT_ID</key>
 	<string>bleya-ed88a</string>
 	<key>STORAGE_BUCKET</key>
@@ -29,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:676518923946:ios:15ddff856f34e93f644ad3</string>
+	<string>1:676518923946:ios:daa04d58c9e0dae7644ad3</string>
 </dict>
 </plist>

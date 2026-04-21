@@ -61,6 +61,38 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
+  Future<void> registerPushToken({
+    required String token,
+    required String platform,
+  }) async {
+    try {
+      await _dio.post(
+        '/notifications/push/register',
+        data: {
+          'token': token,
+          'platform': platform,
+        },
+      );
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> unregisterPushToken({required String token}) async {
+    try {
+      await _dio.post(
+        '/notifications/push/unregister',
+        data: {
+          'token': token,
+        },
+      );
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
   Future<void> markAsRead(String notificationId) async {
     try {
       await _dio.post('/notifications/$notificationId/read');

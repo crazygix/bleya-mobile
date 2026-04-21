@@ -28,6 +28,8 @@ dependencies:
   intl: ^0.19.0
   passkeys: ^2.0.1
   sign_in_with_apple: ^7.0.1
+  firebase_core: ^4.7.0
+  firebase_messaging: ^16.2.0
 
 dev_dependencies:
   flutter_test:

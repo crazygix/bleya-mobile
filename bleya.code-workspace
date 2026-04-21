@@ -75,6 +75,8 @@
         "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
         "cwd": "${workspaceFolder:Mobile (Flutter)}",
         "args": [
+          "--flavor",
+          "dev",
           "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/dev.local.json"
         ]
       },
@@ -85,7 +87,9 @@
         "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
         "cwd": "${workspaceFolder:Mobile (Flutter)}",
         "args": [
-          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.example.json"
+          "--flavor",
+          "prod",
+          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.local.json"
         ]
       },
       {
@@ -95,7 +99,9 @@
         "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
         "cwd": "${workspaceFolder:Mobile (Flutter)}",
         "args": [
-          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.example.json"
+          "--flavor",
+          "prod",
+          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.local.json"
         ],
         "flutterMode": "release"
       },

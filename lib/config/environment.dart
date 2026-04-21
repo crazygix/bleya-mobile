@@ -7,10 +7,6 @@ class EnvironmentConfig {
     'API_BASE_URL',
     defaultValue: '',
   );
-  static const String _googleIosClientIdOverride = String.fromEnvironment(
-    'GOOGLE_IOS_CLIENT_ID',
-    defaultValue: '',
-  );
   static const String _googleServerClientIdOverride = String.fromEnvironment(
     'GOOGLE_SERVER_CLIENT_ID',
     defaultValue: '',
@@ -84,9 +80,6 @@ class EnvironmentConfig {
     final trimmed = value.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
-
-  static String? get googleIosClientId =>
-      _resolveOptional(_googleIosClientIdOverride);
 
   static String? get googleServerClientId =>
       _resolveOptional(_googleServerClientIdOverride);

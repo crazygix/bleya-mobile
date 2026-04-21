@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6</string>
+	<key>ANDROID_CLIENT_ID</key>
+	<string>676518923946-15b86enkfkk1ahp1tbrd3937ojserhmu.apps.googleusercontent.com</string>
+	<key>API_KEY</key>
+	<string>AIzaSyDB9PX5p681OZL8q28gDa-GOE8B2ee3LHA</string>
+	<key>GCM_SENDER_ID</key>
+	<string>676518923946</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.bleyachat</string>
+	<key>PROJECT_ID</key>
+	<string>bleya-ed88a</string>
+	<key>STORAGE_BUCKET</key>
+	<string>bleya-ed88a.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:676518923946:ios:e7891393edbc37eb644ad3</string>
+</dict>
+</plist>

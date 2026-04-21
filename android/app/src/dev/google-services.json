@@ -1,0 +1,98 @@
+{
+  "project_info": {
+    "project_number": "676518923946",
+    "project_id": "bleya-ed88a",
+    "storage_bucket": "bleya-ed88a.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676518923946:android:22ad17672ad70e8e644ad3",
+        "android_client_info": {
+          "package_name": "com.bleyachat"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "676518923946-15b86enkfkk1ahp1tbrd3937ojserhmu.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bleyachat",
+            "certificate_hash": "01e5173e153b4d4bcde229c3252978ec7030a1d1"
+          }
+        },
+        {
+          "client_id": "676518923946-hh6b8fiit2kdq13pril2jcj0nmvgr9pt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQC7FHRnzb-ksz2ws5vLNPcUMgVv8QqMw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "676518923946-dfrcif4mlgjlf276u6i54blgk8t33otm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bleyachat"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:676518923946:android:9ace2262e9e73677644ad3",
+        "android_client_info": {
+          "package_name": "com.bleyachat.dev"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "676518923946-j7r51k7l32fu6ca90jh1876l6r0nmal3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bleyachat.dev",
+            "certificate_hash": "a1ed86ca4855902dc1f3e15e9cb6cfe740a6f938"
+          }
+        },
+        {
+          "client_id": "676518923946-hh6b8fiit2kdq13pril2jcj0nmvgr9pt.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCQC7FHRnzb-ksz2ws5vLNPcUMgVv8QqMw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "676518923946-dfrcif4mlgjlf276u6i54blgk8t33otm.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "676518923946-358kcpaqri3s3s0p0mvq40q88aiv87t6.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.bleyachat"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

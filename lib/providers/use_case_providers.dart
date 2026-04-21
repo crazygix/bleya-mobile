@@ -24,9 +24,12 @@ import '../use_cases/room/unblock_direct_chat_use_case.dart';
 import '../use_cases/message/get_thread_use_case.dart';
 import '../use_cases/message/get_room_messages_page_use_case.dart';
 import '../use_cases/notification/get_notification_thread_context_use_case.dart';
+import '../use_cases/notification/register_push_token_use_case.dart';
+import '../use_cases/notification/unregister_push_token_use_case.dart';
 import '../use_cases/location/get_current_location_use_case.dart';
 import '../use_cases/city/get_nearby_cities_use_case.dart';
 import '../use_cases/city/join_city_use_case.dart';
+import '../use_cases/room/get_room_use_case.dart';
 import 'repository_providers.dart';
 
 final signInWithGoogleUseCaseProvider =
@@ -104,6 +107,11 @@ final getRoomMembersUseCaseProvider = Provider<GetRoomMembersUseCase>((ref) {
   return GetRoomMembersUseCase(repository);
 });
 
+final getRoomUseCaseProvider = Provider<GetRoomUseCase>((ref) {
+  final repository = ref.watch(roomRepositoryProvider);
+  return GetRoomUseCase(repository);
+});
+
 final leaveRoomUseCaseProvider = Provider<LeaveRoomUseCase>((ref) {
   final repository = ref.watch(roomRepositoryProvider);
   return LeaveRoomUseCase(repository);
@@ -151,6 +159,18 @@ final getNotificationThreadContextUseCaseProvider =
     roomRepository,
     messageRepository,
   );
+});
+
+final registerPushTokenUseCaseProvider =
+    Provider<RegisterPushTokenUseCase>((ref) {
+  final repository = ref.watch(notificationRepositoryProvider);
+  return RegisterPushTokenUseCase(repository);
+});
+
+final unregisterPushTokenUseCaseProvider =
+    Provider<UnregisterPushTokenUseCase>((ref) {
+  final repository = ref.watch(notificationRepositoryProvider);
+  return UnregisterPushTokenUseCase(repository);
 });
 
 final getRoomMessagesPageUseCaseProvider =

@@ -54,7 +54,7 @@ curl http://127.0.0.1:8080/health
 5. Run the app:
 
 ```bash
-flutter run --dart-define-from-file=config/env/dev.local.json
+flutter run --flavor dev --dart-define-from-file=config/env/dev.local.json
 ```
 
 ## Run from Cursor (Multi-root Workspace)
@@ -67,10 +67,9 @@ flutter run --dart-define-from-file=config/env/dev.local.json
 
 Notes:
 - Workspace launch config is the single source of truth for Flutter runs.
-- `Mobile dev` reads `config/env/dev.local.json` via `--dart-define-from-file`.
-- `Mobile prod`/`Mobile release` can use `config/env/prod.local.json` for local production overrides.
+- `Mobile dev` uses flavor `dev` and reads `config/env/dev.local.json`.
+- `Mobile prod`/`Mobile release` use flavor `prod` and read `config/env/prod.local.json`.
 - If your LAN IP changes, update `API_BASE_URL` in `config/env/dev.local.json` only.
-- `Mobile prod`/`Mobile release` read `config/env/prod.example.json`.
 - Available schemes: `Backend dev`, `Mobile dev`, `Mobile prod`, `Mobile release`.
 
 ## Configuration Files
@@ -94,6 +93,41 @@ Both files use the same schema:
 - `APPLE_SERVICE_ID`
 - `APPLE_REDIRECT_URI`
 - `PASSKEY_DOMAIN`
+
+`GOOGLE_IOS_CLIENT_ID` is now only a fallback for iOS builds when the selected
+`GoogleService-Info.plist` does not include `CLIENT_ID`. The preferred source
+of truth is the flavor-specific iOS Firebase plist. Once `dev` and `prod`
+bundle IDs diverge, the iOS client IDs will usually diverge too.
+
+## Native Environment Split
+
+This project now uses native `dev` and `prod` app variants in addition to the
+existing Dart define files.
+
+Android:
+
+- `dev` flavor -> application ID `com.bleyachat.dev`
+- `prod` flavor -> application ID `com.bleyachat`
+- Firebase files:
+  - `android/app/src/dev/google-services.json`
+  - `android/app/src/prod/google-services.json`
+
+iOS:
+
+- `dev` scheme/config -> bundle ID `com.bleyachat.dev`
+- `prod` scheme/config -> bundle ID `com.bleyachat`
+- Firebase files:
+  - `ios/Runner/Firebase/Dev/GoogleService-Info.plist`
+  - `ios/Runner/Firebase/Prod/GoogleService-Info.plist`
+
+The dev Firebase files are in place. Add the production Firebase files before
+building the `prod` flavor or scheme.
+
+For iOS Google sign-in, each flavor also needs valid Google Sign-In metadata.
+The build now injects `GIDClientID` and the callback URL scheme from the
+selected `GoogleService-Info.plist`. If a plist is missing `CLIENT_ID`, the
+build falls back to `GOOGLE_IOS_CLIENT_ID` from the dart defines for that
+flavor.
 
 ## Running on Android with Local Backend
 
@@ -125,7 +159,7 @@ curl http://127.0.0.1:8080/health
 Use Android emulator loopback (`10.0.2.2`) to reach your host machine:
 
 ```bash
-flutter run --dart-define-from-file=config/env/dev.local.json
+flutter run --flavor dev --dart-define-from-file=config/env/dev.local.json
 ```
 
 ### 3) Run on physical Android device
@@ -133,7 +167,7 @@ flutter run --dart-define-from-file=config/env/dev.local.json
 Use your Mac LAN IP (same Wi-Fi network as the device):
 
 ```bash
-flutter run --dart-define-from-file=config/env/dev.local.json
+flutter run --flavor dev --dart-define-from-file=config/env/dev.local.json
 ```
 
 If the device cannot connect:
@@ -178,15 +212,15 @@ flutter test
 **Android:**
 ```bash
 # APK
-flutter build apk --release --dart-define-from-file=config/env/prod.local.json
+flutter build apk --flavor prod --release --dart-define-from-file=config/env/prod.local.json
 
 # App Bundle (for Play Store)
-flutter build appbundle --release --dart-define-from-file=config/env/prod.local.json
+flutter build appbundle --flavor prod --release --dart-define-from-file=config/env/prod.local.json
 ```
 
 **iOS:**
 ```bash
-flutter build ios --release --dart-define-from-file=config/env/prod.local.json
+flutter build ios --flavor prod --release --dart-define-from-file=config/env/prod.local.json
 ```
 
 ### Why This Matters

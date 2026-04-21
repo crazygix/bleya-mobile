@@ -28,7 +28,6 @@ class ProviderAuthService {
 
   Future<void> _ensureGoogleInitialized() {
     return _googleInitialization ??= _googleSignIn.initialize(
-      clientId: EnvironmentConfig.googleIosClientId,
       serverClientId: EnvironmentConfig.googleServerClientId,
     );
   }
