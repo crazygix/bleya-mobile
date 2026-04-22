@@ -5,6 +5,7 @@ import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../platform/app_button.dart';
 import '../platform/app_route.dart';
+import '../services/socket_service.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/swipeable_message_bubble.dart';
@@ -32,16 +33,19 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   final ScrollController _scrollController = ScrollController();
   int _previousReplyCount = 0;
   late ProviderContainer _container;
+  late SocketService _socketService;
 
   @override
   void initState() {
     super.initState();
+    _socketService = ref.read(socketServiceProvider);
+
     // Join the room to receive real-time updates for messages (including replies)
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      final socketService = ref.read(socketServiceProvider);
-      socketService.joinRoom(widget.room);
+      _socketService.joinRoom(widget.room);
+      _socketService.openThread(widget.parentMessage.id);
 
       // Track that this thread is currently open
       ref.read(currentOpenThreadIdProvider.notifier).state =
@@ -82,11 +86,10 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
 
   @override
   void dispose() {
-    // Clear the active thread safely using captured container
-    // Wrap in microtask to avoid "Tried to modify a provider while the widget tree was building"
-    Future.microtask(() {
-      _container.read(currentOpenThreadIdProvider.notifier).state = null;
-    });
+    _socketService.closeThread();
+
+    // Clear the active-thread marker while the provider scope is still alive.
+    _container.read(currentOpenThreadIdProvider.notifier).state = null;
 
     _replyController.dispose();
     _scrollController.dispose();

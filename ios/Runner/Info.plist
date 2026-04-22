@@ -30,6 +30,10 @@
 	<string>Use your location to discover nearby city chat rooms</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a photo for your profile</string>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>remote-notification</string>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

@@ -6,6 +6,7 @@ import '../domain/entities/auth_result.dart';
 import '../services/auth_manager.dart';
 import '../services/passkey_auth_service.dart';
 import '../services/provider_auth_service.dart';
+import '../services/push_messaging_service.dart';
 import '../services/socket_service.dart';
 import '../constants/urls.dart';
 import '../utils/jwt_utils.dart';
@@ -40,6 +41,10 @@ final providerAuthServiceProvider = Provider<ProviderAuthService>((ref) {
 
 final passkeyAuthServiceProvider = Provider<PasskeyAuthService>((ref) {
   return PasskeyAuthService();
+});
+
+final pushMessagingServiceProvider = Provider<PushMessagingService>((ref) {
+  return PushMessagingService();
 });
 
 // Auth manager provider

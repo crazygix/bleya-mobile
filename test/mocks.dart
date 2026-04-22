@@ -6,6 +6,7 @@ import 'package:bleya/domain/repositories/user_repository.dart';
 import 'package:bleya/domain/repositories/message_repository.dart';
 import 'package:bleya/domain/repositories/city_repository.dart';
 import 'package:bleya/domain/repositories/location_repository.dart';
+import 'package:bleya/domain/repositories/notification_repository.dart';
 import 'package:bleya/use_cases/auth/check_username_use_case.dart';
 import 'package:bleya/use_cases/auth/register_passkey_use_case.dart';
 import 'package:bleya/use_cases/auth/set_username_use_case.dart';
@@ -29,6 +30,8 @@ class MockMessageRepository extends Mock implements MessageRepository {}
 class MockCityRepository extends Mock implements CityRepository {}
 
 class MockLocationRepository extends Mock implements LocationRepository {}
+
+class MockNotificationRepository extends Mock implements NotificationRepository {}
 
 // Use case mocks (for controller tests)
 class MockSignInWithGoogleUseCase extends Mock

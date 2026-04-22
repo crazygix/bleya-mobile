@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../controllers/username_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/join_room_controller.dart';
+import '../controllers/push_notifications_controller.dart';
 import 'auth_providers.dart';
 import 'use_case_providers.dart';
 
@@ -42,4 +45,33 @@ final joinRoomControllerProvider =
   final joinCity = ref.watch(joinCityUseCaseProvider);
   final getCurrentLocation = ref.watch(getCurrentLocationUseCaseProvider);
   return JoinRoomController(getNearbyCities, joinCity, getCurrentLocation);
+});
+
+final pushNotificationsControllerProvider =
+    StateNotifierProvider<PushNotificationsController, PushNotificationsState>(
+        (ref) {
+  final pushMessagingService = ref.watch(pushMessagingServiceProvider);
+  final registerPushToken = ref.watch(registerPushTokenUseCaseProvider);
+  final getRoom = ref.watch(getRoomUseCaseProvider);
+  final getThreadContext =
+      ref.watch(getNotificationThreadContextUseCaseProvider);
+  final markNotificationAsRead =
+      ref.watch(markNotificationAsReadUseCaseProvider);
+
+  final controller = PushNotificationsController(
+    pushMessagingService,
+    registerPushToken,
+    getRoom,
+    getThreadContext,
+    markNotificationAsRead,
+    () => ref.read(tokenProvider),
+  );
+
+  ref.listen<String?>(tokenProvider, (previous, next) {
+    unawaited(controller.handleAuthTokenChanged(next));
+  });
+
+  controller.start();
+  unawaited(controller.handleAuthTokenChanged(ref.read(tokenProvider)));
+  return controller;
 });

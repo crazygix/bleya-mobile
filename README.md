@@ -129,6 +129,52 @@ selected `GoogleService-Info.plist`. If a plist is missing `CLIENT_ID`, the
 build falls back to `GOOGLE_IOS_CLIENT_ID` from the dart defines for that
 flavor.
 
+## Push Notifications
+
+Push delivery now uses Firebase Cloud Messaging on mobile and the existing
+backend push endpoints/socket presence flow.
+
+App behavior:
+
+- FCM is initialized at app startup.
+- After login, the app requests notification permission, fetches the FCM token,
+  and registers it with the backend.
+- On logout, the app unregisters the active push token from the backend.
+- Notification taps route into the correct screen:
+  - `message` -> open the room
+  - `reply` -> open the exact thread
+- Foreground realtime still comes from sockets. V1 does not show local
+  in-app banners while the user is already active in the app.
+- Thread presence is mirrored to the backend with socket events
+  `open_thread` and `close_thread`.
+
+To enable push end to end:
+
+1. Configure the backend Firebase Admin credentials.
+   - Set `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, and
+     `FIREBASE_PRIVATE_KEY` on the backend for each environment.
+
+2. Enable iOS push capabilities in Xcode for both app variants.
+   - Open `ios/Runner.xcworkspace`
+   - For both bundle IDs (`com.bleyachat.dev` and `com.bleyachat`), enable:
+     - `Push Notifications`
+     - `Background Modes` -> `Remote notifications`
+
+3. Upload an APNs auth key to Firebase.
+   - Apple Developer -> create/download an APNs Auth Key (`.p8`)
+   - Firebase Console -> Project settings -> Cloud Messaging -> Apple app
+   - Upload the key for each Firebase project you use
+
+4. Test on a real device.
+   - iOS simulator builds compile, but APNs push delivery requires a physical
+     iPhone.
+   - Android emulator/device can receive FCM once the app is installed and the
+     user logs in.
+
+5. Make sure the backend is already deployed with push enabled.
+   - Mobile registration alone is not enough; the backend must have the
+     Firebase Admin env vars set and running.
+
 ## Running on Android with Local Backend
 
 For release signing, create `android/key.properties` locally (gitignored):

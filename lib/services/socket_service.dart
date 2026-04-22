@@ -39,6 +39,8 @@ class SocketService {
   io.Socket? _socket;
   Room? _currentRoom;
   String? _currentToken;
+  String? _activeThreadId;
+  String? _desiredThreadId;
   bool _isReconnecting = false;
   bool _authRefreshInFlight = false;
   Room? _desiredRoom;
@@ -63,6 +65,8 @@ class SocketService {
       _socket?.disconnect();
       _currentRoom = null;
       _desiredRoom = null;
+      _activeThreadId = null;
+      _desiredThreadId = null;
       return;
     }
     // Ensure we have a socket instance ready; don't auto-join here.
@@ -101,6 +105,7 @@ class SocketService {
       if (kDebugMode) {
         print('Socket disconnected');
       }
+      _activeThreadId = null;
       if (!_isReconnecting) {
         _currentRoom = null;
       }
@@ -134,6 +139,8 @@ class SocketService {
     _socket = null;
     _currentRoom = null;
     _desiredRoom = null;
+    _activeThreadId = null;
+    _desiredThreadId = null;
     _currentToken = null;
   }
 
@@ -283,10 +290,18 @@ class SocketService {
   }
 
   void _doJoinRoom(Room room) {
+    final wasInDifferentRoom =
+        _currentRoom != null && _currentRoom?.id != room.id;
+    if (wasInDifferentRoom) {
+      _activeThreadId = null;
+      _desiredThreadId = null;
+    }
+
     if (_currentRoom?.id == room.id) {
       if (kDebugMode) {
         print('[Room] Already in $room, skipping');
       }
+      _emitOpenThreadIfNeeded();
       return;
     }
 
@@ -318,6 +333,8 @@ class SocketService {
       }
       _currentRoom = room;
     }
+
+    _emitOpenThreadIfNeeded();
   }
 
   void leaveRoom([String? specificRoomId]) {
@@ -328,6 +345,8 @@ class SocketService {
         }
         _socket?.emit('leave_room');
         _currentRoom = null;
+        _activeThreadId = null;
+        _desiredThreadId = null;
       } else {
         if (kDebugMode) {
           print(
@@ -341,7 +360,31 @@ class SocketService {
         }
         _socket?.emit('leave_room');
         _currentRoom = null;
+        _activeThreadId = null;
+        _desiredThreadId = null;
       }
+    }
+  }
+
+  void openThread(String threadId) {
+    final normalizedThreadId = threadId.trim();
+    if (normalizedThreadId.isEmpty) {
+      return;
+    }
+
+    _desiredThreadId = normalizedThreadId;
+    _emitOpenThreadIfNeeded();
+  }
+
+  void closeThread() {
+    if (_desiredThreadId == null) {
+      return;
+    }
+
+    _desiredThreadId = null;
+    _activeThreadId = null;
+    if (_socket?.connected == true) {
+      _socket?.emit('close_thread');
     }
   }
 
@@ -363,6 +406,20 @@ class SocketService {
       data['parentMessageId'] = parentMessageId;
     }
     _socket!.emit('send_message', data);
+  }
+
+  void _emitOpenThreadIfNeeded() {
+    final threadId = _desiredThreadId;
+    if (threadId == null || _socket?.connected != true || _currentRoom == null) {
+      return;
+    }
+
+    if (_activeThreadId == threadId) {
+      return;
+    }
+
+    _socket?.emit('open_thread', {'threadId': threadId});
+    _activeThreadId = threadId;
   }
 
   // Store registered handlers so we can remove specific ones

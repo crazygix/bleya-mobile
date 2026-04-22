@@ -7,6 +7,7 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
 import '../providers/repository_providers.dart';
+import '../providers/use_case_providers.dart';
 import '../utils/navigation.dart';
 
 /// Manages authentication state, token refresh, and logout flow
@@ -106,6 +107,20 @@ class AuthManager {
     _isLoggingOut = true;
 
     try {
+      final authToken = _ref.read(tokenProvider);
+      if (authToken != null && authToken.isNotEmpty) {
+        try {
+          final pushToken = await _ref.read(pushMessagingServiceProvider).getToken();
+          if (pushToken != null && pushToken.isNotEmpty) {
+            await _ref.read(unregisterPushTokenUseCaseProvider).call(
+                  token: pushToken,
+                );
+          }
+        } catch (_) {
+          // Best-effort cleanup only.
+        }
+      }
+
       // Disconnect socket first (before token clear to prevent reconnect attempts)
       final socketService = _ref.read(socketServiceProvider);
       socketService.disconnect();

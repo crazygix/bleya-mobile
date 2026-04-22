@@ -6,6 +6,7 @@ import 'package:bleya/use_cases/room/get_available_rooms_use_case.dart';
 import 'package:bleya/use_cases/room/leave_room_use_case.dart';
 import 'package:bleya/use_cases/room/create_direct_message_use_case.dart';
 import 'package:bleya/use_cases/room/get_room_members_use_case.dart';
+import 'package:bleya/use_cases/room/get_room_use_case.dart';
 import 'package:bleya/use_cases/room/get_direct_chat_status_use_case.dart';
 import 'package:bleya/use_cases/room/delete_direct_chat_use_case.dart';
 import 'package:bleya/use_cases/room/block_direct_chat_use_case.dart';
@@ -46,6 +47,18 @@ void main() {
 
       expect(result, [testRoom]);
       verify(() => mockRepo.getJoinedRooms()).called(1);
+    });
+  });
+
+  group('GetRoomUseCase', () {
+    test('delegates to repository.getRoom', () async {
+      when(() => mockRepo.getRoom(any())).thenAnswer((_) async => testRoom);
+      final useCase = GetRoomUseCase(mockRepo);
+
+      final result = await useCase('room1');
+
+      expect(result, testRoom);
+      verify(() => mockRepo.getRoom('room1')).called(1);
     });
   });
 
