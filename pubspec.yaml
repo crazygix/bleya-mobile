@@ -2,8 +2,7 @@ name: bleya
 
 publish_to: "none" # Remove this line if you wish to publish to pub.dev
 
-version: 0.0.1+1
-
+version: 0.0.1+5
 environment:
   sdk: ^3.6.0
 

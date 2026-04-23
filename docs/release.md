@@ -1,6 +1,6 @@
 # Release Process
 
-This project uses local Fastlane automation for the cheapest release path:
+This project uses local Fastlane automation for the easiest release path:
 
 - iOS testing: App Store Connect TestFlight
 - Android testing: Google Play Console internal testing
@@ -78,6 +78,13 @@ APP_STORE_CONNECT_ISSUER_ID=00000000-0000-0000-0000-000000000000
 APP_STORE_CONNECT_KEY_FILEPATH=fastlane/secrets/AuthKey_ABC123DEFG.p8
 ```
 
+This must be an App Store Connect API key. It is different from the Apple
+Developer APNs `.p8` key used for push notifications.
+
+Some individual App Store Connect API keys do not have an issuer ID. In that
+case, leave `APP_STORE_CONNECT_ISSUER_ID` blank. Team API keys usually require
+the issuer ID shown on the App Store Connect API page.
+
 Alternative: create a Fastlane API key JSON and set:
 
 ```sh
@@ -108,6 +115,15 @@ Create a Play Console service account JSON:
 ```sh
 GOOGLE_PLAY_JSON_KEY=fastlane/secrets/google-play-service-account.json
 ```
+
+Enable the Google Play Android Developer API for the same Google Cloud project
+used by that service account:
+
+```text
+https://console.developers.google.com/apis/api/androidpublisher.googleapis.com/overview
+```
+
+If you just enabled it, wait a few minutes before retrying the upload.
 
 Make sure Play Console already has an app record for:
 
@@ -141,8 +157,8 @@ This file is gitignored.
 Every App Store Connect and Play Console upload needs a new build number.
 
 By default, Fastlane reads the build number from `pubspec.yaml`, increments it
-by one, writes it back, and uses the same new build number for both iOS and
-Android.
+by one for the build it is creating, and uses the same new build number for both
+iOS and Android.
 
 ```text
 version: 0.0.1+1
@@ -153,6 +169,10 @@ becomes:
 ```text
 version: 0.0.1+2
 ```
+
+Fastlane writes the new number back to `pubspec.yaml` only after TestFlight
+accepts the upload. If the release fails before upload, the next retry uses the
+same next build number instead of skipping one.
 
 The version before `+` is the user-visible app version. The number after `+` is
 the iOS build number and Android version code.

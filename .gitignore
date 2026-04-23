@@ -67,4 +67,6 @@ config/env/*.local.json
 fastlane/.env
 fastlane/.env.*
 !fastlane/.env.example
+fastlane/README.md
+fastlane/report.xml
 fastlane/secrets/
