@@ -1,7 +1,7 @@
 {
   "FLUTTER_ENV": "dev",
   "API_BASE_URL": "http://<LAN_IP_OF_MAC>:8080/v1",
-  "GOOGLE_SERVER_CLIENT_ID": "676518923946-dfrcif4mlgjlf276u6i54blgk8t33otm.apps.googleusercontent.com",
+  "GOOGLE_SERVER_CLIENT_ID": "676518923946-hh6b8fiit2kdq13pril2jcj0nmvgr9pt.apps.googleusercontent.com",
   "GOOGLE_IOS_CLIENT_ID": "<DEV_IOS_CLIENT_ID_IF_DEV_PLIST_IS_MISSING_CLIENT_ID>",
   "APPLE_SERVICE_ID": "com.bleyachat.signin",
   "APPLE_REDIRECT_URI": "https://api.bleyachat.com/v1/auth/apple/android/callback",
