@@ -134,13 +134,108 @@ def google_play_json_key
   require_file!(require_env!("GOOGLE_PLAY_JSON_KEY"), "Google Play service account JSON")
 end
 
+def app_store_connect_app
+  @app_store_connect_app ||= begin
+    options = app_store_connect_options
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**options[:api_key]) if options[:api_key]
+
+    app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
+    UI.user_error!("App Store Connect app not found for bundle ID #{APP_IDENTIFIER}.") unless app
+    app
+  end
+end
+
+def testflight_group_names
+  configured_groups = ENV["TESTFLIGHT_GROUPS"].to_s.split(",").map(&:strip).reject(&:empty?)
+  beta_groups = app_store_connect_app.get_beta_groups
+
+  selected_groups = if configured_groups.empty?
+    beta_groups.select(&:is_internal_group)
+  else
+    beta_groups.select { |group| configured_groups.include?(group.name) }
+  end
+
+  if configured_groups.any?
+    missing_groups = configured_groups - selected_groups.map(&:name)
+    UI.user_error!("Missing TestFlight beta groups: #{missing_groups.join(', ')}") unless missing_groups.empty?
+  end
+
+  auto_access_groups = selected_groups.select(&:has_access_to_all_builds)
+  assignable_groups = selected_groups.reject(&:has_access_to_all_builds)
+
+  unless auto_access_groups.empty?
+    UI.message("Skipping explicit TestFlight assignment for groups that already have access to all builds: #{auto_access_groups.map(&:name).join(', ')}")
+  end
+
+  group_names = assignable_groups.map(&:name)
+  if selected_groups.empty?
+    UI.important("No internal TestFlight groups found. Build will upload but will not be auto-assigned to testers.")
+  elsif group_names.empty?
+    UI.message("No explicit TestFlight group assignment is needed for the selected internal groups.")
+  end
+
+  UI.message("Using TestFlight groups: #{group_names.join(', ')}") unless group_names.empty?
+  group_names
+end
+
+def existing_testflight_build(build_name:, build_number:)
+  builds = app_store_connect_app.get_builds(
+    includes: Spaceship::ConnectAPI::Build::ESSENTIAL_INCLUDES,
+    filter: {
+      "preReleaseVersion.version" => build_name,
+      version: build_number,
+      processingState: "PROCESSING,VALID"
+    },
+    sort: "-uploadedDate",
+    limit: 10
+  )
+
+  builds.find { |build| build.platform.to_s.casecmp("ios").zero? }
+end
+
+def testflight_upload_options(groups:)
+  {
+    app_identifier: APP_IDENTIFIER,
+    app_platform: "ios",
+    groups: groups.empty? ? nil : groups,
+    distribute_external: false,
+    notify_external_testers: false,
+    submit_beta_review: false,
+    uses_non_exempt_encryption: false,
+    **app_store_connect_options
+  }
+end
+
+def upload_android_release!(aab_path:, track:, release_status:)
+  upload_to_play_store(
+    package_name: ANDROID_PACKAGE_NAME,
+    json_key: google_play_json_key,
+    aab: aab_path,
+    track: track,
+    release_status: release_status,
+    skip_upload_metadata: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end
+
+def upload_android_internal_release!(aab_path:)
+  track = ENV.fetch("PLAY_INTERNAL_TRACK", "internal")
+  release_status = ENV.fetch("PLAY_INTERNAL_RELEASE_STATUS", "completed")
+
+  upload_android_release!(aab_path: aab_path, track: track, release_status: release_status)
+rescue => error
+  if release_status != "draft" && error.message.include?("Only releases with status draft may be created on draft app")
+    UI.important("Play Console app is still in draft state. Retrying internal upload with release_status=draft.")
+    upload_android_release!(aab_path: aab_path, track: track, release_status: "draft")
+  else
+    raise
+  end
+end
+
 def validate_app_store_connect!
-  options = app_store_connect_options
-  Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(**options[:api_key]) if options[:api_key]
-
-  app = Spaceship::ConnectAPI::App.find(APP_IDENTIFIER)
-  UI.user_error!("App Store Connect app not found for bundle ID #{APP_IDENTIFIER}.") unless app
-
+  app_store_connect_app
   UI.message("Validated App Store Connect access for #{APP_IDENTIFIER}.")
 rescue => error
   UI.user_error!(
@@ -190,18 +285,29 @@ end
 desc "Build prod iOS and upload it to TestFlight"
 lane :ios_testflight do |options|
   build_name = release_build_name(options)
+  groups = testflight_group_names
 
   ensure_prod_config!
   validate_app_store_connect!
   build_number = next_release_build_number(options)
-  ipa_path = flutter_build_ipa(build_name, build_number)
+  existing_build = existing_testflight_build(build_name: build_name, build_number: build_number)
 
-  upload_to_testflight(
-    app_identifier: APP_IDENTIFIER,
-    ipa: ipa_path,
-    skip_waiting_for_build_processing: true,
-    **app_store_connect_options
-  )
+  if existing_build
+    UI.important("Build #{build_name} (#{build_number}) already exists in App Store Connect with state #{existing_build.processing_state}. Reusing it for TestFlight distribution.")
+    upload_to_testflight(
+      distribute_only: true,
+      app_version: build_name,
+      build_number: build_number,
+      **testflight_upload_options(groups: groups)
+    )
+  else
+    ipa_path = flutter_build_ipa(build_name, build_number)
+
+    upload_to_testflight(
+      ipa: ipa_path,
+      **testflight_upload_options(groups: groups)
+    )
+  end
 
   persist_release_build_number!(build_name, build_number, options)
 end
@@ -216,17 +322,7 @@ lane :android_internal do |options|
   build_number = next_release_build_number(options)
   aab_path = flutter_build_aab(build_name, build_number)
 
-  upload_to_play_store(
-    package_name: ANDROID_PACKAGE_NAME,
-    json_key: google_play_json_key,
-    aab: aab_path,
-    track: ENV.fetch("PLAY_INTERNAL_TRACK", "internal"),
-    release_status: ENV.fetch("PLAY_INTERNAL_RELEASE_STATUS", "completed"),
-    skip_upload_metadata: true,
-    skip_upload_changelogs: true,
-    skip_upload_images: true,
-    skip_upload_screenshots: true
-  )
+  upload_android_internal_release!(aab_path: aab_path)
 
   persist_release_build_number!(build_name, build_number, options)
 end
@@ -241,16 +337,10 @@ lane :android_production_draft do |options|
   build_number = next_release_build_number(options)
   aab_path = flutter_build_aab(build_name, build_number)
 
-  upload_to_play_store(
-    package_name: ANDROID_PACKAGE_NAME,
-    json_key: google_play_json_key,
-    aab: aab_path,
+  upload_android_release!(
+    aab_path: aab_path,
     track: "production",
-    release_status: ENV.fetch("PLAY_PRODUCTION_RELEASE_STATUS", "draft"),
-    skip_upload_metadata: true,
-    skip_upload_changelogs: true,
-    skip_upload_images: true,
-    skip_upload_screenshots: true
+    release_status: ENV.fetch("PLAY_PRODUCTION_RELEASE_STATUS", "draft")
   )
 
   persist_release_build_number!(build_name, build_number, options)

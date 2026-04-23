@@ -27,9 +27,14 @@ Mobile release
 2. Runs Dart static analysis through the Flutter SDK Dart binary.
 3. Runs `flutter test`.
 4. Builds a prod iOS IPA with `config/env/prod.local.json`.
-5. Uploads the IPA to TestFlight.
-6. Builds a prod Android AAB with `config/env/prod.local.json`.
-7. Uploads the AAB to the Play Console internal testing track.
+5. Waits for the build to become available for internal testing in App Store Connect.
+6. Uploads the IPA to TestFlight and assigns it to internal TestFlight groups without submitting it for external beta review.
+7. Builds a prod Android AAB with `config/env/prod.local.json`.
+8. Uploads the AAB to the Play Console internal testing track.
+
+If the iOS upload succeeds but the lane fails later, rerunning the same release
+reuses the existing App Store Connect build instead of trying to upload the
+same build number again.
 
 The app IDs used by the release lane are:
 
@@ -99,6 +104,19 @@ com.bleyachat
 
 Internal TestFlight testers are managed in App Store Connect.
 
+If `TESTFLIGHT_GROUPS` is not set, Fastlane assigns the uploaded build to all
+internal TestFlight groups it finds for the app. If you want strict control, set
+comma-separated group names in `fastlane/.env`:
+
+```sh
+TESTFLIGHT_GROUPS=App Store Connect Users
+```
+
+If an internal group is configured in App Store Connect with access to all
+builds, Apple rejects explicit build assignment for that group. The release lane
+detects that case and skips assignment because those testers already see every
+processed internal build automatically.
+
 ## Google Play Setup
 
 Create a Play Console service account JSON:
@@ -132,6 +150,16 @@ com.bleyachat
 ```
 
 Internal testers are managed under Testing -> Internal testing.
+
+For a brand-new Play Console app, Google may reject an internal upload with:
+
+```text
+Only releases with status draft may be created on draft app.
+```
+
+The release lane handles that automatically by retrying the internal upload as a
+draft release. After the first upload, finish the remaining Play Console app
+setup and publish from the console when Google requires it.
 
 ## Android Signing
 
@@ -171,8 +199,8 @@ version: 0.0.1+2
 ```
 
 Fastlane writes the new number back to `pubspec.yaml` only after TestFlight
-accepts the upload. If the release fails before upload, the next retry uses the
-same next build number instead of skipping one.
+accepts and distributes the build. If the release fails before that point, the
+next retry uses the same next build number instead of skipping one.
 
 The version before `+` is the user-visible app version. The number after `+` is
 the iOS build number and Android version code.
@@ -229,7 +257,7 @@ TestFlight:
 
 1. Wait for App Store Connect processing.
 2. Open TestFlight for the Bleya app.
-3. Add the build to an internal testing group.
+3. Confirm the build was auto-assigned to the internal testing group.
 4. Add testers if needed.
 
 Play Console internal testing:
