@@ -1,2 +1,2 @@
-Add the production `GoogleService-Info.plist` file here before building the
+The production `GoogleService-Info.plist` file in this directory is used by the
 `prod` scheme.

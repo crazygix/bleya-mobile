@@ -1,6 +1,4 @@
-Place the production Firebase Android config here as:
+The production Firebase Android config in this directory is used by the `prod`
+flavor as:
 
 `google-services.json`
-
-This file must come from the production Firebase Android app registered for
-`com.bleyachat`.

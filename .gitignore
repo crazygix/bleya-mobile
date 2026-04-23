@@ -44,6 +44,7 @@ key.properties
 .pub-cache/
 .pub/
 /build/
+ios/build/
 
 # Symbolication related
 app.*.symbols

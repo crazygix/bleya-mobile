@@ -120,9 +120,6 @@ iOS:
   - `ios/Runner/Firebase/Dev/GoogleService-Info.plist`
   - `ios/Runner/Firebase/Prod/GoogleService-Info.plist`
 
-The dev Firebase files are in place. Add the production Firebase files before
-building the `prod` flavor or scheme.
-
 For iOS Google sign-in, each flavor also needs valid Google Sign-In metadata.
 The build now injects `GIDClientID` and the callback URL scheme from the
 selected `GoogleService-Info.plist`. If a plist is missing `CLIENT_ID`, the
