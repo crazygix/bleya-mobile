@@ -94,16 +94,10 @@
       },
       {
         "name": "Mobile release",
-        "type": "dart",
+        "type": "node-terminal",
         "request": "launch",
-        "program": "${workspaceFolder:Mobile (Flutter)}/lib/main.dart",
-        "cwd": "${workspaceFolder:Mobile (Flutter)}",
-        "args": [
-          "--flavor",
-          "prod",
-          "--dart-define-from-file=${workspaceFolder:Mobile (Flutter)}/config/env/prod.local.json"
-        ],
-        "flutterMode": "release"
+        "command": "bundle exec fastlane testing",
+        "cwd": "${workspaceFolder:Mobile (Flutter)}"
       },
       {
         "name": "Test backend",

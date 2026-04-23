@@ -1,0 +1,236 @@
+begin
+  require "dotenv"
+  Dotenv.load(File.expand_path(".env", __dir__))
+rescue LoadError
+  # fastlane bundles dotenv. If it is unavailable, environment variables still work.
+end
+
+default_platform(:ios)
+
+APP_IDENTIFIER = ENV.fetch("APP_IDENTIFIER", "com.bleyachat")
+ANDROID_PACKAGE_NAME = ENV.fetch("ANDROID_PACKAGE_NAME", "com.bleyachat")
+PROD_DART_DEFINES = ENV.fetch("PROD_DART_DEFINES", "config/env/prod.local.json")
+FLUTTER_BIN = ENV.fetch("FLUTTER_BIN", "flutter")
+DART_BIN = ENV.fetch("DART_BIN", "$HOME/flutter/bin/dart")
+
+def require_env!(name)
+  value = ENV[name].to_s.strip
+  UI.user_error!("Missing required environment variable: #{name}") if value.empty?
+  value
+end
+
+def require_file!(path, description)
+  UI.user_error!("Missing #{description}: #{path}") unless File.exist?(path)
+  path
+end
+
+def pubspec_version
+  pubspec = File.read("pubspec.yaml")
+  match = pubspec.match(/^version:\s*([0-9]+\.[0-9]+\.[0-9]+)\+([0-9]+)\s*$/)
+  UI.user_error!("Could not resolve release version from pubspec.yaml. Expected version: x.y.z+n") unless match
+
+  {
+    build_name: match[1],
+    build_number: match[2].to_i
+  }
+end
+
+def write_pubspec_version!(build_name, build_number)
+  pubspec = File.read("pubspec.yaml")
+  updated = pubspec.sub(/^version:\s*[0-9]+\.[0-9]+\.[0-9]+\+[0-9]+\s*$/, "version: #{build_name}+#{build_number}")
+
+  UI.user_error!("Could not update version in pubspec.yaml") if updated == pubspec
+
+  File.write("pubspec.yaml", updated)
+  UI.message("Bumped pubspec.yaml version to #{build_name}+#{build_number}.")
+end
+
+def release_build_name(options)
+  return options[:build_name].to_s if options[:build_name]
+  return ENV["RELEASE_BUILD_NAME"].to_s.strip unless ENV["RELEASE_BUILD_NAME"].to_s.strip.empty?
+
+  pubspec_version[:build_name]
+end
+
+def release_build_number(options)
+  return options[:build_number].to_s if options[:build_number]
+  return ENV["RELEASE_BUILD_NUMBER"].to_s.strip unless ENV["RELEASE_BUILD_NUMBER"].to_s.strip.empty?
+
+  pubspec_version[:build_number].to_s
+end
+
+def next_release_build_number!(build_name, options)
+  return release_build_number(options) if options[:build_number]
+  return release_build_number(options) unless ENV["RELEASE_BUILD_NUMBER"].to_s.strip.empty?
+
+  build_number = pubspec_version[:build_number] + 1
+  write_pubspec_version!(build_name, build_number)
+  build_number.to_s
+end
+
+def run_quality_checks
+  return if ENV["SKIP_CHECKS"].to_s == "1"
+
+  sh("#{FLUTTER_BIN} pub get")
+  sh("#{DART_BIN} analyze")
+  sh("#{FLUTTER_BIN} test")
+end
+
+def ensure_prod_config!
+  UI.user_error!("Missing #{PROD_DART_DEFINES}. Create it from config/env/prod.example.json.") unless File.exist?(PROD_DART_DEFINES)
+end
+
+def ensure_android_signing!
+  UI.user_error!("Missing android/key.properties for release signing.") unless File.exist?("android/key.properties")
+end
+
+def app_store_connect_options
+  api_key_path = ENV["APP_STORE_CONNECT_API_KEY_PATH"].to_s.strip
+  return { api_key_path: require_file!(api_key_path, "App Store Connect API key JSON") } unless api_key_path.empty?
+
+  {
+    api_key: app_store_connect_api_key(
+      key_id: require_env!("APP_STORE_CONNECT_KEY_ID"),
+      issuer_id: require_env!("APP_STORE_CONNECT_ISSUER_ID"),
+      key_filepath: require_file!(require_env!("APP_STORE_CONNECT_KEY_FILEPATH"), "App Store Connect API key file"),
+      duration: 1200,
+      in_house: false
+    )
+  }
+end
+
+def google_play_json_key
+  require_file!(require_env!("GOOGLE_PLAY_JSON_KEY"), "Google Play service account JSON")
+end
+
+def newest_file(pattern)
+  file = Dir[pattern].max_by { |path| File.mtime(path) }
+  UI.user_error!("No file matched #{pattern}") unless file
+  file
+end
+
+def flutter_build_ipa(build_name, build_number)
+  sh([
+    FLUTTER_BIN,
+    "build ipa",
+    "--flavor prod",
+    "--release",
+    "--dart-define-from-file=#{PROD_DART_DEFINES}",
+    "--build-name #{build_name}",
+    "--build-number #{build_number}",
+    "--export-method app-store"
+  ].join(" "))
+
+  newest_file("build/ios/ipa/*.ipa")
+end
+
+def flutter_build_aab(build_name, build_number)
+  sh([
+    FLUTTER_BIN,
+    "build appbundle",
+    "--flavor prod",
+    "--release",
+    "--dart-define-from-file=#{PROD_DART_DEFINES}",
+    "--build-name #{build_name}",
+    "--build-number #{build_number}"
+  ].join(" "))
+
+  newest_file("build/app/outputs/bundle/prodRelease/*.aab")
+end
+
+desc "Build prod iOS and upload it to TestFlight"
+lane :ios_testflight do |options|
+  build_name = release_build_name(options)
+
+  ensure_prod_config!
+  app_store_connect_options
+  build_number = next_release_build_number!(build_name, options)
+  ipa_path = flutter_build_ipa(build_name, build_number)
+
+  upload_to_testflight(
+    app_identifier: APP_IDENTIFIER,
+    ipa: ipa_path,
+    skip_waiting_for_build_processing: true,
+    **app_store_connect_options
+  )
+end
+
+desc "Build prod Android and upload it to Play Console internal testing"
+lane :android_internal do |options|
+  build_name = release_build_name(options)
+
+  ensure_prod_config!
+  ensure_android_signing!
+  google_play_json_key
+  build_number = next_release_build_number!(build_name, options)
+  aab_path = flutter_build_aab(build_name, build_number)
+
+  upload_to_play_store(
+    package_name: ANDROID_PACKAGE_NAME,
+    json_key: google_play_json_key,
+    aab: aab_path,
+    track: ENV.fetch("PLAY_INTERNAL_TRACK", "internal"),
+    release_status: ENV.fetch("PLAY_INTERNAL_RELEASE_STATUS", "completed"),
+    skip_upload_metadata: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end
+
+desc "Build prod Android and create a draft production release"
+lane :android_production_draft do |options|
+  build_name = release_build_name(options)
+
+  ensure_prod_config!
+  ensure_android_signing!
+  google_play_json_key
+  build_number = next_release_build_number!(build_name, options)
+  aab_path = flutter_build_aab(build_name, build_number)
+
+  upload_to_play_store(
+    package_name: ANDROID_PACKAGE_NAME,
+    json_key: google_play_json_key,
+    aab: aab_path,
+    track: "production",
+    release_status: ENV.fetch("PLAY_PRODUCTION_RELEASE_STATUS", "draft"),
+    skip_upload_metadata: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
+  )
+end
+
+desc "Run checks, build prod iOS/Android, upload to TestFlight and Play internal testing"
+lane :testing do |options|
+  build_name = release_build_name(options)
+
+  ensure_prod_config!
+  ensure_android_signing!
+  app_store_connect_options
+  google_play_json_key
+  run_quality_checks
+  build_number = next_release_build_number!(build_name, options)
+
+  UI.message("Preparing Bleya #{build_name} (#{build_number}) for testing.")
+
+  ios_testflight(build_name: build_name, build_number: build_number)
+  android_internal(build_name: build_name, build_number: build_number)
+end
+
+desc "Build prod iOS IPA and Android AAB without uploading"
+lane :build_prod do |options|
+  build_name = release_build_name(options)
+  build_number = release_build_number(options)
+
+  UI.message("Building Bleya #{build_name} (#{build_number}) without uploading.")
+  ensure_prod_config!
+  ensure_android_signing!
+  run_quality_checks
+
+  ipa_path = flutter_build_ipa(build_name, build_number)
+  aab_path = flutter_build_aab(build_name, build_number)
+
+  UI.success("Built IPA: #{ipa_path}")
+  UI.success("Built AAB: #{aab_path}")
+end

@@ -1,0 +1,4 @@
+app_identifier(ENV.fetch("APP_IDENTIFIER", "com.bleyachat"))
+package_name(ENV.fetch("ANDROID_PACKAGE_NAME", "com.bleyachat"))
+
+team_id(ENV.fetch("APPLE_TEAM_ID", "S7V679NZ3B"))

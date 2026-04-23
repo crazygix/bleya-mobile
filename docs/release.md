@@ -1,0 +1,274 @@
+# Release Process
+
+This project uses local Fastlane automation for the cheapest release path:
+
+- iOS testing: App Store Connect TestFlight
+- Android testing: Google Play Console internal testing
+- Android live: draft production release created by Fastlane, then manually reviewed
+- iOS live: use the uploaded TestFlight/App Store Connect build and submit manually
+
+The main one-click command is:
+
+```sh
+bundle exec fastlane testing
+```
+
+In Cursor or VS Code, run the existing Run and Debug configuration:
+
+```text
+Mobile release
+```
+
+## What The Testing Lane Does
+
+`Mobile release` runs `bundle exec fastlane testing`, which does this in order:
+
+1. Runs `flutter pub get`.
+2. Runs Dart static analysis through the Flutter SDK Dart binary.
+3. Runs `flutter test`.
+4. Builds a prod iOS IPA with `config/env/prod.local.json`.
+5. Uploads the IPA to TestFlight.
+6. Builds a prod Android AAB with `config/env/prod.local.json`.
+7. Uploads the AAB to the Play Console internal testing track.
+
+The app IDs used by the release lane are:
+
+- iOS bundle ID: `com.bleyachat`
+- Android package: `com.bleyachat`
+- Flutter flavor/scheme: `prod`
+- Dart defines file: `config/env/prod.local.json`
+
+## First-Time Setup
+
+Install Fastlane dependencies:
+
+```sh
+cd ~/Development/bleya/mobile
+bundle install
+```
+
+This machine already has a local `fastlane/.env` scaffold. If it is missing on
+another machine, recreate it with:
+
+```sh
+mkdir -p fastlane/secrets
+cp fastlane/.env.example fastlane/.env
+```
+
+`fastlane/.env` and `fastlane/secrets/` are gitignored. Do not commit real keys.
+
+## App Store Connect Setup
+
+Create an App Store Connect API key:
+
+1. Open App Store Connect.
+2. Go to Users and Access.
+3. Open Integrations.
+4. Open App Store Connect API.
+5. Create a Team API key.
+6. Give it enough access to upload builds for Bleya.
+7. Download the `.p8` file once and store it under `fastlane/secrets/`.
+8. Copy the Key ID and Issuer ID into `fastlane/.env`.
+
+Example:
+
+```sh
+APP_STORE_CONNECT_KEY_ID=ABC123DEFG
+APP_STORE_CONNECT_ISSUER_ID=00000000-0000-0000-0000-000000000000
+APP_STORE_CONNECT_KEY_FILEPATH=fastlane/secrets/AuthKey_ABC123DEFG.p8
+```
+
+Alternative: create a Fastlane API key JSON and set:
+
+```sh
+APP_STORE_CONNECT_API_KEY_PATH=fastlane/secrets/app-store-connect-api-key.json
+```
+
+Make sure App Store Connect already has an app record for:
+
+```text
+com.bleyachat
+```
+
+Internal TestFlight testers are managed in App Store Connect.
+
+## Google Play Setup
+
+Create a Play Console service account JSON:
+
+1. Open Play Console.
+2. Go to Setup -> API access.
+3. Link or open the Google Cloud project used by Play Console.
+4. Create a service account.
+5. Grant access to the Bleya app with release permissions.
+6. Download the JSON key.
+7. Store it at `fastlane/secrets/google-play-service-account.json`.
+8. Set this in `fastlane/.env`:
+
+```sh
+GOOGLE_PLAY_JSON_KEY=fastlane/secrets/google-play-service-account.json
+```
+
+Make sure Play Console already has an app record for:
+
+```text
+com.bleyachat
+```
+
+Internal testers are managed under Testing -> Internal testing.
+
+## Android Signing
+
+The release lane requires:
+
+```text
+android/key.properties
+```
+
+Expected format:
+
+```properties
+storeFile=/absolute/path/to/keystore.jks
+storePassword=...
+keyAlias=...
+keyPassword=...
+```
+
+This file is gitignored.
+
+## Build Numbers
+
+Every App Store Connect and Play Console upload needs a new build number.
+
+By default, Fastlane reads the build number from `pubspec.yaml`, increments it
+by one, writes it back, and uses the same new build number for both iOS and
+Android.
+
+```text
+version: 0.0.1+1
+```
+
+becomes:
+
+```text
+version: 0.0.1+2
+```
+
+The version before `+` is the user-visible app version. The number after `+` is
+the iOS build number and Android version code.
+
+Override manually when needed:
+
+```sh
+RELEASE_BUILD_NAME=0.1.0 RELEASE_BUILD_NUMBER=2 bundle exec fastlane testing
+```
+
+Manual overrides do not edit `pubspec.yaml`.
+
+## Commands
+
+Build both prod artifacts without uploading:
+
+```sh
+bundle exec fastlane build_prod
+```
+
+Upload only iOS to TestFlight:
+
+```sh
+bundle exec fastlane ios_testflight
+```
+
+Upload only Android to internal testing:
+
+```sh
+bundle exec fastlane android_internal
+```
+
+Upload both testing builds:
+
+```sh
+bundle exec fastlane testing
+```
+
+Create an Android draft production release:
+
+```sh
+bundle exec fastlane android_production_draft
+```
+
+Skip checks if you already ran them:
+
+```sh
+SKIP_CHECKS=1 bundle exec fastlane testing
+```
+
+## After Uploading
+
+TestFlight:
+
+1. Wait for App Store Connect processing.
+2. Open TestFlight for the Bleya app.
+3. Add the build to an internal testing group.
+4. Add testers if needed.
+
+Play Console internal testing:
+
+1. Open Testing -> Internal testing.
+2. Confirm the release is available to testers.
+3. Add tester emails or tester group if needed.
+4. Share the opt-in/internal testing link.
+
+## Going Live Later
+
+Android:
+
+1. Run `bundle exec fastlane android_production_draft`.
+2. Open Play Console.
+3. Review the draft production release.
+4. Complete any required Data safety, content rating, policy, or store listing items.
+5. Submit/roll out manually.
+
+iOS:
+
+1. Use the same uploaded build in App Store Connect.
+2. Complete app metadata, screenshots, privacy, age rating, and review notes.
+3. Submit for App Review manually.
+
+Manual review for live release is intentional for now. It avoids accidentally
+shipping to real users before store metadata and policy declarations are correct.
+
+## Troubleshooting
+
+If `bundle exec fastlane ...` says Fastlane is missing:
+
+```sh
+bundle install
+```
+
+If `flutter analyze` crashes on this machine, the lane uses:
+
+```sh
+$HOME/flutter/bin/dart analyze
+```
+
+Override it if your Flutter SDK is elsewhere:
+
+```sh
+DART_BIN=/path/to/flutter/bin/dart bundle exec fastlane testing
+```
+
+If Play Console rejects a build:
+
+- Confirm the AAB package is `com.bleyachat`.
+- Confirm the build number is higher than every previous upload.
+- Confirm `android/key.properties` points to the upload key registered with Play.
+- If Google Play App Signing is enabled, make sure Firebase has the Play signing
+  SHA-1 for Google Sign-In.
+
+If TestFlight rejects a build:
+
+- Confirm the App Store Connect app uses bundle ID `com.bleyachat`.
+- Confirm signing/provisioning uses the Apple team `S7V679NZ3B`.
+- Confirm the build number is higher than every previous upload.
+- Confirm production Firebase and APNs settings are in place.

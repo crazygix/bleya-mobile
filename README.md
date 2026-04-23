@@ -68,7 +68,8 @@ flutter run --flavor dev --dart-define-from-file=config/env/dev.local.json
 Notes:
 - Workspace launch config is the single source of truth for Flutter runs.
 - `Mobile dev` uses flavor `dev` and reads `config/env/dev.local.json`.
-- `Mobile prod`/`Mobile release` use flavor `prod` and read `config/env/prod.local.json`.
+- `Mobile prod` runs the `prod` flavor locally and reads `config/env/prod.local.json`.
+- `Mobile release` runs the prod Fastlane testing release pipeline.
 - If your LAN IP changes, update `API_BASE_URL` in `config/env/dev.local.json` only.
 - Available schemes: `Backend dev`, `Mobile dev`, `Mobile prod`, `Mobile release`.
 
@@ -249,6 +250,14 @@ flutter test
 ## Building for Production
 
 **⚠️ IMPORTANT: Always pass the production dart-defines for release builds**
+
+For TestFlight / Play Console automation, see
+[docs/release.md](docs/release.md). In Cursor/VS Code, run `Mobile release`.
+The equivalent command is:
+
+```bash
+bundle exec fastlane testing
+```
 
 ### Manual Build Commands
 
