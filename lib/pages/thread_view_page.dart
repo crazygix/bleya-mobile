@@ -88,8 +88,11 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   void dispose() {
     _socketService.closeThread();
 
-    // Clear the active-thread marker while the provider scope is still alive.
-    _container.read(currentOpenThreadIdProvider.notifier).state = null;
+    // Defer to escape the unmount frame — Riverpod forbids state mutations
+    // during widget disposal.
+    Future(() {
+      _container.read(currentOpenThreadIdProvider.notifier).state = null;
+    });
 
     _replyController.dispose();
     _scrollController.dispose();

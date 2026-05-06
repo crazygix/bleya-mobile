@@ -34,6 +34,18 @@
 	<array>
 		<string>remote-notification</string>
 	</array>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.676518923946-k4avu3sardihgc263jjrqmdvtsucn6tc</string>
+				<string>com.googleusercontent.apps.53564262386-tkueo8va8vh98cqduegtdoh7vsgant4s</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
 	<key>UILaunchStoryboardName</key>

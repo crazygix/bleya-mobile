@@ -37,12 +37,35 @@
     "version": "2.0.0",
     "tasks": [
       {
+        "label": "Start MongoDB",
+        "type": "shell",
+        "command": "brew services start mongodb-community",
+        "presentation": {
+          "reveal": "silent",
+          "panel": "dedicated",
+          "close": true
+        },
+        "problemMatcher": []
+      },
+      {
+        "label": "Free Port 8080",
+        "type": "shell",
+        "command": "lsof -ti:8080 | xargs kill -9 2>/dev/null; true",
+        "presentation": {
+          "reveal": "silent",
+          "panel": "dedicated",
+          "close": true
+        },
+        "problemMatcher": []
+      },
+      {
         "label": "Backend: Build",
         "type": "shell",
         "command": "npm run build",
         "options": {
           "cwd": "${workspaceFolder:Backend (Node.js)}"
         },
+        "dependsOn": ["Start MongoDB", "Free Port 8080"],
         "problemMatcher": "$tsc"
       }
     ]
