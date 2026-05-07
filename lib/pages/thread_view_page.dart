@@ -89,9 +89,16 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     _socketService.closeThread();
 
     // Defer to escape the unmount frame — Riverpod forbids state mutations
-    // during widget disposal.
-    Future(() {
-      _container.read(currentOpenThreadIdProvider.notifier).state = null;
+    // during widget disposal. Microtask (not Timer) so widget tests don't
+    // trip the "Timer still pending" assertion on teardown. Swallow the
+    // StateError that fires when the container itself is being torn down
+    // (e.g. ProviderScope disposed in the same frame in tests).
+    Future.microtask(() {
+      try {
+        _container.read(currentOpenThreadIdProvider.notifier).state = null;
+      } on StateError {
+        // Container already disposed; nothing to clear.
+      }
     });
 
     _replyController.dispose();
