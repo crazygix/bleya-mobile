@@ -74,7 +74,13 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final appleAvailability = ref.watch(appleSignInAvailableProvider);
+    final passkeyAvailability = ref.watch(passkeySignInAvailableProvider);
     ref.listen<AuthState>(authControllerProvider, (previous, next) {
+      if (previous?.activeAction == AuthAction.signInWithPasskey &&
+          next.activeAction != AuthAction.signInWithPasskey) {
+        ref.invalidate(passkeySignInAvailableProvider);
+      }
+
       final request = next.navigationRequest;
       if (request == null || identical(request, previous?.navigationRequest)) {
         return;
@@ -88,6 +94,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         : [AuthProvider.google, AuthProvider.apple];
 
     final showApple = appleAvailability.valueOrNull ?? true;
+    final showPasskey = passkeyAvailability.valueOrNull ?? false;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: const SystemUiOverlayStyle(
@@ -162,6 +169,17 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                               ),
                             ),
                             const SizedBox(height: BleyaTheme.spacingLG),
+                          ],
+                          if (showPasskey) ...[
+                            _PasskeyButton(
+                              isLoading: authState.activeAction ==
+                                  AuthAction.signInWithPasskey,
+                              disabled: authState.isLoading,
+                              onPressed: () => ref
+                                  .read(authControllerProvider.notifier)
+                                  .signInWithPasskey(),
+                            ),
+                            const SizedBox(height: BleyaTheme.spacingMD),
                           ],
                           for (final provider in platformPrimary) ...[
                             if (provider == AuthProvider.apple &&
@@ -325,6 +343,37 @@ class _AppleButton extends StatelessWidget {
       borderColor: Colors.transparent,
       indicatorColor: Colors.white,
       leading: const _AppleLogo(),
+    );
+  }
+}
+
+class _PasskeyButton extends StatelessWidget {
+  final VoidCallback onPressed;
+  final bool isLoading;
+  final bool disabled;
+
+  const _PasskeyButton({
+    required this.onPressed,
+    required this.isLoading,
+    required this.disabled,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return _ProviderButton(
+      text: 'Sign in with Passkey',
+      onPressed: onPressed,
+      isLoading: isLoading,
+      disabled: disabled,
+      backgroundColor: BleyaTheme.primary,
+      foregroundColor: Colors.white,
+      borderColor: Colors.transparent,
+      indicatorColor: Colors.white,
+      leading: const Icon(
+        Icons.fingerprint,
+        size: 22,
+        color: Colors.white,
+      ),
     );
   }
 }

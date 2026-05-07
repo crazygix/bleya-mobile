@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:passkeys/exceptions.dart';
 import '../../core/errors/api_error_mapper.dart';
 import '../dtos/auth_dto.dart';
 import '../dtos/user_profile_dto.dart';
@@ -12,6 +13,8 @@ import '../../services/passkey_auth_service.dart';
 /// Data layer implementation of AuthRepository
 /// Handles all Dio/network concerns and JSON parsing
 class AuthRepositoryImpl implements AuthRepository {
+  static const _hasRegisteredPasskeyKey = 'has_registered_passkey';
+
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
   final ProviderAuthService _providerAuthService;
@@ -48,6 +51,16 @@ class AuthRepositoryImpl implements AuthRepository {
     );
   }
 
+  Future<AuthSessionResult> _persistProviderResult(dynamic data) async {
+    final result = await _persistSessionResult(data);
+    if (result.hasPasskey) {
+      await _secureStorage.write(key: _hasRegisteredPasskeyKey, value: 'true');
+    } else {
+      await _secureStorage.delete(key: _hasRegisteredPasskeyKey);
+    }
+    return result;
+  }
+
   @override
   Future<AuthSessionResult> signInWithGoogle() async {
     try {
@@ -61,7 +74,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'platform': 'mobile',
         },
       );
-      return _persistSessionResult(response.data);
+      return _persistProviderResult(response.data);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
@@ -80,7 +93,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'platform': 'mobile',
         },
       );
-      return _persistSessionResult(response.data);
+      return _persistProviderResult(response.data);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
@@ -100,7 +113,15 @@ class AuthRepositoryImpl implements AuthRepository {
           'response': credential,
         },
       );
-      return _persistSessionResult(verifyResponse.data);
+      final result = await _persistSessionResult(verifyResponse.data);
+      await _secureStorage.write(key: _hasRegisteredPasskeyKey, value: 'true');
+      return result;
+    } on NoCredentialsAvailableException {
+      await _secureStorage.delete(key: _hasRegisteredPasskeyKey);
+      rethrow;
+    } on DomainNotAssociatedException {
+      await _secureStorage.delete(key: _hasRegisteredPasskeyKey);
+      rethrow;
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
@@ -130,10 +151,17 @@ class AuthRepositoryImpl implements AuthRepository {
           'response': credential,
         },
       );
+      await _secureStorage.write(key: _hasRegisteredPasskeyKey, value: 'true');
       return authSecurityStatusFromJson(_asJson(verifyResponse.data));
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
+  }
+
+  @override
+  Future<bool> hasRegisteredPasskeyOnDevice() async {
+    final value = await _secureStorage.read(key: _hasRegisteredPasskeyKey);
+    return value == 'true';
   }
 
   @override

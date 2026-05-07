@@ -68,7 +68,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
 
     final profileAsync = ref.watch(profileProvider);
     final profile = profileAsync.valueOrNull;
-    final isLoadingProfile = profile == null && profileAsync.isLoading;
+    final isLoadingProfile = profile == null;
     final username = profile?.username;
     final bio = profile?.bio;
     final profileImageUrl = profile?.profileImageUrl;

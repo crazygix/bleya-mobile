@@ -289,6 +289,19 @@ final appleSignInAvailableProvider = FutureProvider<bool>((ref) async {
   return providerAuth.isAppleSignInAvailable();
 });
 
+final passkeySignInAvailableProvider =
+    FutureProvider.autoDispose<bool>((ref) async {
+  final passkeyService = ref.read(passkeyAuthServiceProvider);
+  final platformSupports = await passkeyService.isAvailable();
+  if (!platformSupports) {
+    return false;
+  }
+
+  final storage = ref.read(secureStorageProvider);
+  final value = await storage.read(key: 'has_registered_passkey');
+  return value == 'true';
+});
+
 final authSecurityStatusProvider =
     FutureProvider<AuthSecurityStatus>((ref) async {
   final token = ref.watch(tokenProvider);
