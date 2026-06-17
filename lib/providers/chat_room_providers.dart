@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/message.dart';
@@ -68,6 +70,7 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
   final SocketService socketService;
   bool _isInitialized = false;
   dynamic _socketHandler;
+  dynamic _removedHandler;
 
   ThreadController(this.ref, this.messageId, this.socketService)
       : super(const AsyncValue.loading()) {
@@ -105,6 +108,36 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
           ),
         );
       });
+
+      // Drop a reply (or empty the thread if the parent itself) when moderated.
+      _removedHandler = socketService.addListener('message_removed', (data) {
+        final removedId = data['messageId']?.toString();
+        if (removedId == null) return;
+
+        final currentState = state.value;
+        if (currentState == null) return;
+
+        if (currentState.parentMessage.id == removedId) {
+          state = AsyncValue.data(
+            ThreadData(
+              parentMessage: currentState.parentMessage,
+              replies: const [],
+            ),
+          );
+          return;
+        }
+
+        final filtered =
+            currentState.replies.where((r) => r.id != removedId).toList();
+        if (filtered.length != currentState.replies.length) {
+          state = AsyncValue.data(
+            ThreadData(
+              parentMessage: currentState.parentMessage,
+              replies: filtered,
+            ),
+          );
+        }
+      });
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -114,6 +147,9 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
   void dispose() {
     if (_socketHandler != null) {
       socketService.removeListener('new_message', _socketHandler);
+    }
+    if (_removedHandler != null) {
+      socketService.removeListener('message_removed', _removedHandler);
     }
     super.dispose();
   }
@@ -139,7 +175,14 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   // Store handler references returned from socketService so we can remove only our specific listeners
   dynamic _roomJoinedHandler;
   dynamic _newMessageHandler;
+  dynamic _messageRemovedHandler;
   dynamic _errorHandler;
+
+  // Surfaces user-facing socket errors (e.g. content-filter rejection of a sent
+  // message) to the page, which shows them as a toast.
+  final StreamController<String> _errorMessages =
+      StreamController<String>.broadcast();
+  Stream<String> get errorMessages => _errorMessages.stream;
 
   ChatRoomController(this.ref, this.room, this.socketService)
       : super(const ChatRoomState.initial()) {
@@ -226,6 +269,49 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       }
     });
 
+    // Register message_removed listener (moderation): drop the message live.
+    _messageRemovedHandler =
+        socketService.addListener('message_removed', (data) {
+      if (_disposed) return;
+
+      final removedId = data['messageId']?.toString();
+      final eventRoomId = data['roomId']?.toString();
+      if (removedId == null || eventRoomId != roomId) return;
+
+      final currentMessages = ref.read(roomMessagesProvider(roomId));
+      Message? removed;
+      for (final m in currentMessages) {
+        if (m.id == removedId) {
+          removed = m;
+          break;
+        }
+      }
+
+      var updated = currentMessages.where((m) => m.id != removedId).toList();
+
+      // If a reply was removed, decrement its parent's replyCount.
+      final parentId = removed?.parentMessageId;
+      if (parentId != null) {
+        updated = updated.map((msg) {
+          if (msg.id == parentId && msg.replyCount > 0) {
+            return Message(
+              id: msg.id,
+              roomId: msg.roomId,
+              userId: msg.userId,
+              username: msg.username,
+              text: msg.text,
+              createdAt: msg.createdAt,
+              parentMessageId: msg.parentMessageId,
+              replyCount: msg.replyCount - 1,
+            );
+          }
+          return msg;
+        }).toList();
+      }
+
+      ref.read(roomMessagesProvider(roomId).notifier).state = updated;
+    });
+
     // Register error listener and store handler reference
     _errorHandler = socketService.addListener('error', (data) {
       // Ignore events if this controller has been disposed
@@ -245,6 +331,13 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
         Future.delayed(const Duration(milliseconds: 500), () {
           if (!_disposed) _joinRoom();
         });
+        return;
+      }
+
+      // Surface other user-safe errors (e.g. content-filter rejection of a
+      // message the user just sent) so the page can toast them.
+      if (!_errorMessages.isClosed) {
+        _errorMessages.add(socketError.message);
       }
     });
   }
@@ -347,9 +440,14 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (_newMessageHandler != null) {
       socketService.removeListener('new_message', _newMessageHandler);
     }
+    if (_messageRemovedHandler != null) {
+      socketService.removeListener('message_removed', _messageRemovedHandler);
+    }
     if (_errorHandler != null) {
       socketService.removeListener('error', _errorHandler);
     }
+
+    _errorMessages.close();
 
     // Note: leaveRoom is called by ChatRoomPage.dispose() to avoid double-leaving
     super.dispose();

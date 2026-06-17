@@ -13,4 +13,8 @@ abstract class UserRepository {
   Future<UserProfile> uploadProfileImage(File imageFile);
   Future<UserProfile> getUserById(String userId);
   Future<List<BlockedUser>> getBlockedUsers();
+  Future<void> deleteAccount();
+  Future<Map<String, dynamic>> exportMyData();
+  Future<void> blockUser(String userId);
+  Future<void> unblockUser(String userId);
 }

@@ -21,6 +21,7 @@ import '../widgets/profile_avatar.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
+import '../widgets/report_actions.dart';
 import '../domain/entities/user_profile.dart';
 import 'chat_room_page.dart';
 
@@ -240,75 +241,111 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     }
   }
 
-  Future<void> _showDirectChatActions(DirectChatStatus status) async {
-    if (!status.hasChat || _isRunningDirectAction) {
+  // Unified profile overflow: always offers Report, plus the right block/unblock
+  // action for the context (DM actions when a chat exists, user-level block
+  // otherwise). Reachable for any other user's profile, with or without a DM.
+  Future<void> _showProfileActions(DirectChatStatus? status) async {
+    if (_isRunningDirectAction) {
       return;
     }
 
-    if (status.isBlockedByMe) {
-      await _showUnblockOnlyActions();
-      return;
+    final hasChat = status?.hasChat ?? false;
+    final blockedByMe = status?.isBlockedByMe ?? false;
+
+    final actions = <AppSheetAction<String>>[
+      const AppSheetAction<String>(value: 'report', label: 'Report user'),
+    ];
+    if (hasChat && !blockedByMe) {
+      actions.add(const AppSheetAction<String>(
+          value: 'delete', label: 'Delete chat', isDestructive: true));
+      actions.add(const AppSheetAction<String>(
+          value: 'block', label: 'Block user', isDestructive: true));
+    } else if (hasChat && blockedByMe) {
+      actions.add(const AppSheetAction<String>(
+          value: 'unblock', label: 'Unblock user', isDestructive: true));
+    } else if (!blockedByMe) {
+      actions.add(const AppSheetAction<String>(
+          value: 'block_user', label: 'Block user', isDestructive: true));
+    } else {
+      actions.add(const AppSheetAction<String>(
+          value: 'unblock_user', label: 'Unblock user', isDestructive: true));
     }
 
-    await _showBlockActions();
-  }
-
-  Future<void> _showBlockActions() async {
-    final selectedAction = await AppSheet.actions<String>(
-      context: context,
-      actions: const [
-        AppSheetAction<String>(
-          value: 'delete',
-          label: 'Delete chat',
-          isDestructive: true,
-        ),
-        AppSheetAction<String>(
-          value: 'block',
-          label: 'Block user',
-          isDestructive: true,
-        ),
-      ],
-    );
-
+    final selectedAction =
+        await AppSheet.actions<String>(context: context, actions: actions);
     if (!mounted || selectedAction == null) {
       return;
     }
 
-    if (selectedAction == 'delete') {
-      final confirmed = await _confirmDeleteChat();
-      if (!mounted || !confirmed) return;
-      await _deleteDirectChat();
-      return;
-    }
-
-    if (selectedAction == 'block') {
-      final confirmed = await _confirmBlockUser();
-      if (!mounted || !confirmed) return;
-      await _blockDirectChat();
+    switch (selectedAction) {
+      case 'report':
+        await showReportSheet(
+          context: context,
+          ref: ref,
+          reportedUserId: widget.userId,
+        );
+      case 'delete':
+        if (await _confirmDeleteChat()) {
+          if (mounted) await _deleteDirectChat();
+        }
+      case 'block':
+        if (await _confirmBlockUser()) {
+          if (mounted) await _blockDirectChat();
+        }
+      case 'unblock':
+        if (await _confirmUnblockUser()) {
+          if (mounted) await _unblockDirectChat();
+        }
+      case 'block_user':
+        if (await _confirmBlockUser()) {
+          if (mounted) await _blockUserLevel();
+        }
+      case 'unblock_user':
+        if (await _confirmUnblockUser()) {
+          if (mounted) await _unblockUserLevel();
+        }
     }
   }
 
-  Future<void> _showUnblockOnlyActions() async {
-    final selectedAction = await AppSheet.actions<String>(
-      context: context,
-      actions: const [
-        AppSheetAction<String>(
-          value: 'unblock',
-          label: 'Unblock user',
-          isDestructive: true,
-        ),
-      ],
-    );
-
-    if (!mounted || selectedAction == null) {
-      return;
+  Future<void> _blockUserLevel() async {
+    setState(() => _isRunningDirectAction = true);
+    try {
+      await ref.read(blockUserUseCaseProvider)(widget.userId);
+      if (!mounted) return;
+      ref.invalidate(blockedUsersProvider);
+      ref.invalidate(directChatStatusProvider(widget.userId));
+      AppToast.showInfo(context, 'User blocked.');
+    } catch (e) {
+      if (!mounted) return;
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't block this user right now.";
+      AppToast.showError(context, errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() => _isRunningDirectAction = false);
+      }
     }
+  }
 
-    if (selectedAction == 'unblock') {
-      final confirmed = await _confirmUnblockUser();
-      if (!mounted || !confirmed) return;
-      await _unblockDirectChat();
-      return;
+  Future<void> _unblockUserLevel() async {
+    setState(() => _isRunningDirectAction = true);
+    try {
+      await ref.read(unblockUserUseCaseProvider)(widget.userId);
+      if (!mounted) return;
+      ref.invalidate(blockedUsersProvider);
+      ref.invalidate(directChatStatusProvider(widget.userId));
+      AppToast.showInfo(context, 'User unblocked.');
+    } catch (e) {
+      if (!mounted) return;
+      final errorMessage = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't unblock this user right now.";
+      AppToast.showError(context, errorMessage);
+    } finally {
+      if (mounted) {
+        setState(() => _isRunningDirectAction = false);
+      }
     }
   }
 
@@ -365,10 +402,6 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       return const AppSpinner(size: 20);
     }
 
-    if (directChatStatus == null || !directChatStatus.hasChat) {
-      return null;
-    }
-
     return AppButton(
       padding: EdgeInsets.zero,
       minimumSize: const Size(
@@ -377,7 +410,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       ),
       onPressed: _isRunningDirectAction
           ? null
-          : () => _showDirectChatActions(directChatStatus),
+          : () => _showProfileActions(directChatStatus),
       child: _isRunningDirectAction
           ? const AppSpinner(size: 20)
           : Icon(

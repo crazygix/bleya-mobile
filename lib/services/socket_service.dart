@@ -55,6 +55,11 @@ class SocketService {
   /// the fresh access token, or null if refresh failed.
   Future<String?> Function()? refreshToken;
 
+  /// Invoked when the socket is rejected for a non-auth reason (a ban/suspend).
+  /// Receives the server's reason. The wiring should surface it and log the user
+  /// out so the client stops trying to reconnect into the same rejection.
+  Future<void> Function(String message)? onFatalError;
+
   io.Socket? get socket => _socket;
 
   void setToken(String? token) {
@@ -146,6 +151,23 @@ class SocketService {
 
   Future<void> _handleAuthFailureIfNeeded(dynamic error) async {
     final message = error?.toString() ?? '';
+
+    // A ban/suspend handshake rejection. The server marks it with this stable
+    // prefix (NOT "Authentication error"), so we must NOT treat it as a
+    // refreshable auth issue — refreshing would succeed and reconnect straight
+    // back into the same ban. Stop reconnecting and surface it.
+    if (message.contains('Account blocked:')) {
+      _isReconnecting = false;
+      _currentToken = null;
+      _socket?.disconnect();
+      final reason = _extractBlockedReason(message);
+      final handler = onFatalError;
+      if (handler != null) {
+        await handler(reason);
+      }
+      return;
+    }
+
     if (message.contains('Authentication error')) {
       if (kDebugMode) {
         print('Detected socket authentication error');
@@ -167,6 +189,19 @@ class SocketService {
         _authRefreshInFlight = false;
       }
     }
+    // Any other error (network/transport) is left to socket.io's own retry.
+  }
+
+  String _extractBlockedReason(String message) {
+    const marker = 'Account blocked:';
+    final idx = message.indexOf(marker);
+    if (idx < 0) {
+      return 'Your account is no longer allowed to use Bleya.';
+    }
+    final reason = message.substring(idx + marker.length).trim();
+    return reason.isEmpty
+        ? 'Your account is no longer allowed to use Bleya.'
+        : reason;
   }
 
   Future<void> joinRoom(Room room) async {
@@ -267,11 +302,9 @@ class SocketService {
         };
         connectErrorHandler = (err) async {
           _socket?.off('connect', connectHandler);
-          // If auth error, try refresh once then retry connect.
-          final msg = err?.toString() ?? '';
-          if (msg.contains('Authentication error')) {
-            await _handleAuthFailureIfNeeded(err);
-          }
+          // Route through the shared handler: refresh on auth errors, hard-stop
+          // on a ban, no-op for transient errors.
+          await _handleAuthFailureIfNeeded(err);
           completer.completeError(err ?? Exception('connect_error'));
         };
 
@@ -522,6 +555,15 @@ class SocketService {
 
     _socket?.on('new_message', handler);
     _eventHandlers.putIfAbsent('new_message', () => []).add(handler);
+  }
+
+  void onMessageRemoved(Function(Map<String, dynamic>) callback) {
+    void handler(dynamic data) {
+      callback(_normalizePayload(data));
+    }
+
+    _socket?.on('message_removed', handler);
+    _eventHandlers.putIfAbsent('message_removed', () => []).add(handler);
   }
 
   void onError(Function(Map<String, dynamic>) callback) {

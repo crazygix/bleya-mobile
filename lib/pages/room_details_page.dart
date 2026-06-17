@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
@@ -6,7 +5,9 @@ import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
 import '../platform/app_button.dart';
 import '../platform/app_dialog.dart';
+import '../platform/app_icon.dart';
 import '../platform/app_route.dart';
+import '../platform/app_sheet.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../constants/theme.dart';
@@ -18,6 +19,7 @@ import '../widgets/empty_members_card.dart';
 import '../widgets/members_section_header.dart';
 import '../widgets/room_hero_card.dart';
 import '../widgets/room_member_tile.dart';
+import '../widgets/report_actions.dart';
 import 'user_details_page.dart';
 
 class RoomDetailsPage extends ConsumerStatefulWidget {
@@ -150,6 +152,24 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
       if (mounted) {
         setState(() => _isLeaving = false);
       }
+    }
+  }
+
+  Future<void> _showRoomActions() async {
+    final selected = await AppSheet.actions<String>(
+      context: context,
+      actions: const [
+        AppSheetAction<String>(value: 'report', label: 'Report room'),
+        AppSheetAction<String>(
+            value: 'leave', label: 'Leave room', isDestructive: true),
+      ],
+    );
+    if (!mounted || selected == null) return;
+
+    if (selected == 'report') {
+      await showReportSheet(context: context, ref: ref, roomId: widget.roomId);
+    } else if (selected == 'leave') {
+      await _leaveCurrentRoom();
     }
   }
 
@@ -319,13 +339,13 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
                     BleyaTheme.iconContainerSize,
                     BleyaTheme.iconContainerSize,
                   ),
-                  onPressed: _isLeaving ? null : _leaveCurrentRoom,
+                  onPressed: _isLeaving ? null : _showRoomActions,
                   child: Icon(
-                    CupertinoIcons.square_arrow_right,
+                    AppIcon.more(context),
                     size: 24,
                     color: _isLeaving
-                        ? BleyaTheme.error.withValues(alpha: 0.4)
-                        : BleyaTheme.error,
+                        ? BleyaTheme.primary.withValues(alpha: 0.4)
+                        : BleyaTheme.primary,
                   ),
                 ),
                 title: 'Info',

@@ -90,6 +90,8 @@ class AuthRepositoryImpl implements AuthRepository {
           'provider': credential.provider.apiValue,
           'idToken': credential.idToken,
           if (credential.rawNonce != null) 'rawNonce': credential.rawNonce,
+          if (credential.authorizationCode != null)
+            'authorizationCode': credential.authorizationCode,
           'platform': 'mobile',
         },
       );

@@ -31,6 +31,11 @@ import '../use_cases/location/get_current_location_use_case.dart';
 import '../use_cases/city/get_nearby_cities_use_case.dart';
 import '../use_cases/city/join_city_use_case.dart';
 import '../use_cases/room/get_room_use_case.dart';
+import '../use_cases/report/create_report_use_case.dart';
+import '../use_cases/user/delete_account_use_case.dart';
+import '../use_cases/user/export_data_use_case.dart';
+import '../use_cases/user/block_user_use_case.dart';
+import '../use_cases/user/unblock_user_use_case.dart';
 import 'repository_providers.dart';
 
 final signInWithGoogleUseCaseProvider =
@@ -215,4 +220,24 @@ final getNearbyCitiesUseCaseProvider = Provider<GetNearbyCitiesUseCase>((ref) {
 final joinCityUseCaseProvider = Provider<JoinCityUseCase>((ref) {
   final repository = ref.watch(cityRepositoryProvider);
   return JoinCityUseCase(repository);
+});
+
+final createReportUseCaseProvider = Provider<CreateReportUseCase>((ref) {
+  return CreateReportUseCase(ref.watch(reportRepositoryProvider));
+});
+
+final deleteAccountUseCaseProvider = Provider<DeleteAccountUseCase>((ref) {
+  return DeleteAccountUseCase(ref.watch(userRepositoryProvider));
+});
+
+final exportDataUseCaseProvider = Provider<ExportDataUseCase>((ref) {
+  return ExportDataUseCase(ref.watch(userRepositoryProvider));
+});
+
+final blockUserUseCaseProvider = Provider<BlockUserUseCase>((ref) {
+  return BlockUserUseCase(ref.watch(userRepositoryProvider));
+});
+
+final unblockUserUseCaseProvider = Provider<UnblockUserUseCase>((ref) {
+  return UnblockUserUseCase(ref.watch(userRepositoryProvider));
 });

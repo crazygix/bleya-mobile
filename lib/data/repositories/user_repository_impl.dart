@@ -90,4 +90,41 @@ class UserRepositoryImpl implements UserRepository {
       throw ApiErrorMapper.mapDioError(e);
     }
   }
+
+  @override
+  Future<void> deleteAccount() async {
+    try {
+      await _dio.delete('/users/me');
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<Map<String, dynamic>> exportMyData() async {
+    try {
+      final response = await _dio.get('/users/me/export');
+      return Map<String, dynamic>.from(response.data as Map);
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> blockUser(String userId) async {
+    try {
+      await _dio.post('/users/$userId/block');
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<void> unblockUser(String userId) async {
+    try {
+      await _dio.post('/users/$userId/unblock');
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
 }

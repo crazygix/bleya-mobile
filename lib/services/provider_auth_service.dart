@@ -11,11 +11,15 @@ class ProviderAuthCredential {
   final AuthProvider provider;
   final String idToken;
   final String? rawNonce;
+  // Apple only: the authorization code, exchanged server-side for a refresh
+  // token so the account can be revoked on deletion (Apple Guideline 5.1.1(v)).
+  final String? authorizationCode;
 
   const ProviderAuthCredential({
     required this.provider,
     required this.idToken,
     this.rawNonce,
+    this.authorizationCode,
   });
 }
 
@@ -81,6 +85,7 @@ class ProviderAuthService {
       provider: AuthProvider.apple,
       idToken: idToken,
       rawNonce: rawNonce,
+      authorizationCode: credential.authorizationCode,
     );
   }
 

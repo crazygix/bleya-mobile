@@ -1,11 +1,20 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
+import '../providers/profile_providers.dart';
+import '../providers/use_case_providers.dart';
 import '../platform/app_button.dart';
+import '../platform/app_dialog.dart';
 import '../platform/app_icon.dart';
 import '../platform/app_route.dart';
+import '../platform/app_sheet.dart';
+import '../utils/app_errors.dart';
+import '../utils/app_toast.dart';
+import '../widgets/report_actions.dart';
 import '../services/socket_service.dart';
 import '../constants/theme.dart';
 import '../utils/time_formatter.dart';
@@ -53,6 +62,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   ProviderSubscription<ChatRoomState>? _chatStateSubscription;
   StateController<String?>? _openRoomIdController;
   SocketService? _socketService;
+  StreamSubscription<String>? _errorSubscription;
   final Map<String, GlobalKey> _messageKeys = {};
   bool _isLoadingMoreTriggered = false;
 
@@ -77,6 +87,18 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
 
       // Initialize controller - it will automatically set up socket listeners and join room
       ref.read(chatRoomControllerProvider(widget.room).notifier);
+
+      // Surface user-facing socket errors (e.g. a content-filter rejection of a
+      // message the user just sent).
+      _errorSubscription = ref
+          .read(chatRoomControllerProvider(widget.room).notifier)
+          .errorMessages
+          .listen((message) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(message)),
+        );
+      });
 
       _messagesSubscription = ref.listenManual<List<Message>>(
         roomMessagesProvider(widget.room.id),
@@ -105,6 +127,49 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     _scrollToBottom(animated: true);
   }
 
+  // Long-press on another user's message: report it or block its author.
+  Future<void> _showMessageActions(Message message) async {
+    final selected = await AppSheet.actions<String>(
+      context: context,
+      actions: const [
+        AppSheetAction<String>(value: 'report', label: 'Report message'),
+        AppSheetAction<String>(
+            value: 'block', label: 'Block author', isDestructive: true),
+      ],
+    );
+    if (!mounted || selected == null) return;
+
+    if (selected == 'report') {
+      await showReportSheet(
+        context: context,
+        ref: ref,
+        messageId: message.id,
+        reportedUserId: message.userId,
+      );
+    } else if (selected == 'block') {
+      final confirmed = await AppDialog.confirm(
+        context,
+        title: 'Block user?',
+        message: 'They will not be able to message you anymore.',
+        confirmText: 'Block',
+        destructive: true,
+      );
+      if (!mounted || !confirmed) return;
+      try {
+        await ref.read(blockUserUseCaseProvider)(message.userId);
+        if (!mounted) return;
+        ref.invalidate(blockedUsersProvider);
+        AppToast.showInfo(context, 'User blocked.');
+      } catch (e) {
+        if (!mounted) return;
+        final errorMessage = e is AppError
+            ? e.getUserMessage()
+            : "Couldn't block this user right now.";
+        AppToast.showError(context, errorMessage);
+      }
+    }
+  }
+
   @override
   void dispose() {
     _socketService?.leaveRoom(widget.room.id);
@@ -116,6 +181,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
         }
       });
     }
+    _errorSubscription?.cancel();
     _messagesSubscription?.close();
     _chatStateSubscription?.close();
     _messageController.dispose();
@@ -400,6 +466,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                                       ),
                                     );
                                   },
+                                  onLongPress: isCurrentUser
+                                      ? null
+                                      : () => _showMessageActions(message),
                                 ),
                               );
                             },

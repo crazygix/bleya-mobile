@@ -9,6 +9,7 @@ class SwipeableMessageBubble extends StatefulWidget {
   final bool isCurrentUser;
   final VoidCallback? onTap;
   final VoidCallback? onUsernameTap;
+  final VoidCallback? onLongPress;
   final bool showReplyBadge;
 
   const SwipeableMessageBubble({
@@ -17,6 +18,7 @@ class SwipeableMessageBubble extends StatefulWidget {
     required this.isCurrentUser,
     this.onTap,
     this.onUsernameTap,
+    this.onLongPress,
     this.showReplyBadge = true,
   });
 
@@ -133,6 +135,7 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
           ),
         ),
         GestureDetector(
+          onLongPress: widget.onLongPress,
           onHorizontalDragUpdate: _handleDragUpdate,
           onHorizontalDragEnd: _handleDragEnd,
           child: Transform.translate(

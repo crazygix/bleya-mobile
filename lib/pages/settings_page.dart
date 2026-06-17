@@ -1,7 +1,15 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/theme.dart';
+import '../constants/urls.dart';
+import '../providers/use_case_providers.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/profile_avatar.dart';
@@ -59,6 +67,57 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       message: 'Coming soon!',
       buttonText: 'OK',
     );
+  }
+
+  Future<void> _openUrl(String url) async {
+    final opened = await launchUrl(
+      Uri.parse(url),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!opened && mounted) {
+      AppToast.showError(context, "Couldn't open the link.");
+    }
+  }
+
+  Future<void> _handleExportData() async {
+    try {
+      final data = await ref.read(exportDataUseCaseProvider)();
+      final json = const JsonEncoder.withIndent('  ').convert(data);
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/bleya-data-export.json');
+      await file.writeAsString(json);
+      await Share.shareXFiles([XFile(file.path)], subject: 'My Bleya data');
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't export your data. Try again?";
+      AppToast.showError(context, message);
+    }
+  }
+
+  Future<void> _handleDeleteAccount() async {
+    final confirmed = await AppDialog.confirm(
+      context,
+      title: 'Delete account',
+      message:
+          'This permanently deletes your account, profile, and messages. This cannot be undone.',
+      confirmText: 'Delete',
+      destructive: true,
+    );
+    if (!confirmed) return;
+
+    try {
+      await ref.read(deleteAccountUseCaseProvider)();
+      final logout = ref.read(logoutProvider);
+      await logout();
+    } catch (e) {
+      if (!mounted) return;
+      final message = e is AppError
+          ? e.getUserMessage()
+          : "Couldn't delete your account. Try again?";
+      AppToast.showError(context, message);
+    }
   }
 
   @override
@@ -217,8 +276,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         SettingsMenuItem(
                           icon: CupertinoIcons.shield,
                           iconColor: Color(0xFF3B82F6), // Blue
-                          label: 'Privacy',
-                          onTap: () => _showComingSoon('Privacy'),
+                          label: 'Privacy Policy',
+                          onTap: () => _openUrl(LegalUrls.privacy),
+                        ),
+                        const SizedBox(height: 4.0),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.doc_text,
+                          iconColor: Color(0xFF6366F1), // Indigo
+                          label: 'Terms of Service',
+                          onTap: () => _openUrl(LegalUrls.terms),
                         ),
                         const SizedBox(height: 4.0),
                         SettingsMenuItem(
@@ -249,6 +315,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           onTap: () => _showComingSoon('Tell a Friend'),
                         ),
                         const SizedBox(height: BleyaTheme.spacing3XL),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.arrow_down_doc,
+                          iconColor: BleyaTheme.primary,
+                          label: 'Export my data',
+                          onTap: _handleExportData,
+                        ),
+                        const SizedBox(height: 4.0),
                         // Log Out
                         SettingsMenuItem(
                           icon: CupertinoIcons.arrow_right_square,
@@ -258,6 +331,17 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           label: 'Log Out',
                           labelColor: BleyaTheme.error,
                           onTap: _handleLogout,
+                          showChevron: false,
+                        ),
+                        const SizedBox(height: 4.0),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.trash,
+                          iconColor: BleyaTheme.error,
+                          iconBackgroundColor:
+                              BleyaTheme.error.withValues(alpha: 0.1),
+                          label: 'Delete account',
+                          labelColor: BleyaTheme.error,
+                          onTap: _handleDeleteAccount,
                           showChevron: false,
                         ),
                         SizedBox(

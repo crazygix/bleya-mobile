@@ -234,6 +234,10 @@ final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
   };
 });
 
+/// Holds a fatal account message (e.g. a ban reason) to surface after a forced
+/// logout triggered by a socket ban rejection.
+final fatalAuthMessageProvider = StateProvider<String?>((ref) => null);
+
 final socketServiceProvider = Provider<SocketService>((ref) {
   final service = SocketService();
 
@@ -259,6 +263,16 @@ final socketServiceProvider = Provider<SocketService>((ref) {
 
     await authManager.logout();
     return null;
+  };
+
+  // Non-auth socket rejection (ban/suspend): surface the reason and log out so
+  // the client stops trying to reconnect into the same rejection.
+  service.onFatalError = (message) async {
+    ref.read(fatalAuthMessageProvider.notifier).state = message;
+    final authManager = ref.read(authManagerProvider);
+    if (!authManager.isLoggingOut) {
+      await authManager.logout();
+    }
   };
 
   // Keep socket's token in sync; SocketService maintains a single socket instance.

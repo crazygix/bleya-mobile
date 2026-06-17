@@ -1,14 +1,62 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../constants/theme.dart';
+import '../constants/urls.dart';
+import '../platform/app_dialog.dart';
 import '../platform/app_route.dart';
+import '../providers/auth_providers.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/liquid_glass_background.dart';
 import 'authorisation_page.dart';
 
-class IntroPage extends StatelessWidget {
+class IntroPage extends ConsumerStatefulWidget {
   const IntroPage({super.key});
+
+  @override
+  ConsumerState<IntroPage> createState() => _IntroPageState();
+}
+
+class _IntroPageState extends ConsumerState<IntroPage> {
+  late final TapGestureRecognizer _termsRecognizer;
+  late final TapGestureRecognizer _privacyRecognizer;
+
+  @override
+  void initState() {
+    super.initState();
+    _termsRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openUrl(LegalUrls.terms);
+    _privacyRecognizer = TapGestureRecognizer()
+      ..onTap = () => _openUrl(LegalUrls.privacy);
+
+    // If we landed here after a forced logout (ban/suspend), show the reason once.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final message = ref.read(fatalAuthMessageProvider);
+      if (message != null && message.isNotEmpty && mounted) {
+        ref.read(fatalAuthMessageProvider.notifier).state = null;
+        AppDialog.alert(
+          context,
+          title: 'Account access',
+          message: message,
+          buttonText: 'OK',
+        );
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _termsRecognizer.dispose();
+    _privacyRecognizer.dispose();
+    super.dispose();
+  }
+
+  Future<void> _openUrl(String url) async {
+    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -149,11 +197,34 @@ class IntroPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: BleyaTheme.spacingLG),
-                  Text(
-                    'By continuing, you agree to our Terms & Privacy Policy',
-                    style: BleyaTheme.bodySmall.copyWith(
-                      fontSize: 12,
-                      color: BleyaTheme.mutedForeground.withValues(alpha: 0.7),
+                  Text.rich(
+                    TextSpan(
+                      style: BleyaTheme.bodySmall.copyWith(
+                        fontSize: 12,
+                        color:
+                            BleyaTheme.mutedForeground.withValues(alpha: 0.7),
+                      ),
+                      children: [
+                        const TextSpan(
+                            text: 'By continuing, you agree to our '),
+                        TextSpan(
+                          text: 'Terms',
+                          style: TextStyle(
+                            color: BleyaTheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          recognizer: _termsRecognizer,
+                        ),
+                        const TextSpan(text: ' & '),
+                        TextSpan(
+                          text: 'Privacy Policy',
+                          style: TextStyle(
+                            color: BleyaTheme.primary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          recognizer: _privacyRecognizer,
+                        ),
+                      ],
                     ),
                     textAlign: TextAlign.center,
                   ),
