@@ -2,11 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../constants/theme.dart';
 import '../constants/urls.dart';
 import '../providers/use_case_providers.dart';
@@ -16,6 +16,7 @@ import '../widgets/profile_avatar.dart';
 import '../widgets/settings_menu_item.dart';
 import '../providers/auth_providers.dart';
 import '../providers/profile_providers.dart';
+import '../platform/app_browser.dart';
 import '../platform/app_dialog.dart';
 import '../platform/app_route.dart';
 import '../utils/app_errors.dart';
@@ -60,34 +61,53 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     );
   }
 
-  void _showComingSoon(String feature) {
-    AppDialog.alert(
-      context,
-      title: feature,
-      message: 'Coming soon!',
-      buttonText: 'OK',
-    );
+  Future<void> _openUrl(String url) async {
+    await AppBrowser.open(context, url);
   }
 
-  Future<void> _openUrl(String url) async {
-    final opened = await launchUrl(
-      Uri.parse(url),
-      mode: LaunchMode.externalApplication,
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(
+        left: BleyaTheme.spacingSM,
+        bottom: BleyaTheme.spacingSM,
+      ),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Text(
+          text.toUpperCase(),
+          style: BleyaTheme.bodySmall.copyWith(
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.8,
+            color: BleyaTheme.mutedForeground,
+          ),
+        ),
+      ),
     );
-    if (!opened && mounted) {
-      AppToast.showError(context, "Couldn't open the link.");
-    }
   }
 
   Future<void> _handleExportData() async {
     try {
       final data = await ref.read(exportDataUseCaseProvider)();
-      final json = const JsonEncoder.withIndent('  ').convert(data);
+      final encoded = const JsonEncoder.withIndent('  ').convert(data);
       final dir = await getTemporaryDirectory();
       final file = File('${dir.path}/bleya-data-export.json');
-      await file.writeAsString(json);
-      await Share.shareXFiles([XFile(file.path)], subject: 'My Bleya data');
-    } catch (e) {
+      await file.writeAsString(encoded);
+      if (!mounted) return;
+      // On iPad the share sheet is a popover that must be anchored to a source
+      // rect — omitting sharePositionOrigin makes shareXFiles throw there.
+      final box = context.findRenderObject() as RenderBox?;
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: 'My Bleya data',
+        sharePositionOrigin:
+            box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+      );
+    } catch (e, stackTrace) {
+      if (kDebugMode) {
+        debugPrint('Export data failed: $e');
+        debugPrint('$stackTrace');
+      }
       if (!mounted) return;
       final message = e is AppError
           ? e.getUserMessage()
@@ -273,6 +293,15 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           ),
                         ),
                         const SizedBox(height: BleyaTheme.spacing3XL),
+                        _sectionLabel('Privacy & safety'),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.person_crop_circle_badge_xmark,
+                          iconColor: BleyaTheme.error,
+                          label: 'Blocked users',
+                          onTap: _navigateToBlockedUsers,
+                        ),
+                        const SizedBox(height: BleyaTheme.spacing2XL),
+                        _sectionLabel('About'),
                         SettingsMenuItem(
                           icon: CupertinoIcons.shield,
                           iconColor: Color(0xFF3B82F6), // Blue
@@ -286,52 +315,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           label: 'Terms of Service',
                           onTap: () => _openUrl(LegalUrls.terms),
                         ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.person_crop_circle_badge_xmark,
-                          iconColor: BleyaTheme.error,
-                          label: 'Blocked users',
-                          onTap: _navigateToBlockedUsers,
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.bell,
-                          iconColor: Color(0xFFEF4444), // Red
-                          label: 'Notifications',
-                          onTap: () => _showComingSoon('Notifications'),
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.question_circle,
-                          iconColor: BleyaTheme.primary,
-                          label: 'Help',
-                          onTap: () => _showComingSoon('Help'),
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.circle,
-                          iconColor: Color(0xFFF97316), // Orange
-                          label: 'Tell a Friend',
-                          onTap: () => _showComingSoon('Tell a Friend'),
-                        ),
-                        const SizedBox(height: BleyaTheme.spacing3XL),
+                        const SizedBox(height: BleyaTheme.spacing2XL),
+                        _sectionLabel('Account'),
                         SettingsMenuItem(
                           icon: CupertinoIcons.arrow_down_doc,
                           iconColor: BleyaTheme.primary,
                           label: 'Export my data',
                           onTap: _handleExportData,
-                        ),
-                        const SizedBox(height: 4.0),
-                        // Log Out
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.arrow_right_square,
-                          iconColor: BleyaTheme.error,
-                          iconBackgroundColor:
-                              BleyaTheme.error.withValues(alpha: 0.1),
-                          label: 'Log Out',
-                          labelColor: BleyaTheme.error,
-                          onTap: _handleLogout,
-                          showChevron: false,
                         ),
                         const SizedBox(height: 4.0),
                         SettingsMenuItem(
@@ -342,6 +332,18 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                           label: 'Delete account',
                           labelColor: BleyaTheme.error,
                           onTap: _handleDeleteAccount,
+                          showChevron: false,
+                        ),
+                        // Log Out — kept apart as the very last row.
+                        const SizedBox(height: BleyaTheme.spacing3XL),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.arrow_right_square,
+                          iconColor: BleyaTheme.error,
+                          iconBackgroundColor:
+                              BleyaTheme.error.withValues(alpha: 0.1),
+                          label: 'Log Out',
+                          labelColor: BleyaTheme.error,
+                          onTap: _handleLogout,
                           showChevron: false,
                         ),
                         SizedBox(

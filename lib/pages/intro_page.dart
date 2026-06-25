@@ -3,9 +3,9 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../constants/theme.dart';
 import '../constants/urls.dart';
+import '../platform/app_browser.dart';
 import '../platform/app_dialog.dart';
 import '../platform/app_route.dart';
 import '../providers/auth_providers.dart';
@@ -55,7 +55,7 @@ class _IntroPageState extends ConsumerState<IntroPage> {
   }
 
   Future<void> _openUrl(String url) async {
-    await launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
+    await AppBrowser.open(context, url);
   }
 
   @override

@@ -148,6 +148,7 @@ class _MessageInputFieldState extends State<MessageInputField> {
                     controller: widget.controller,
                     enabled: widget.enabled,
                     maxLines: null,
+                    textCapitalization: TextCapitalization.sentences,
                     textInputAction: TextInputAction.newline,
                     style: const TextStyle(
                       fontSize: 16,

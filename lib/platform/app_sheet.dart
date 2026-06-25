@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../constants/theme.dart';
 import 'ui_platform.dart';
 
 class AppSheetAction<T> {
@@ -26,20 +27,39 @@ class AppSheet {
     if (isIosPlatform(context)) {
       return showCupertinoModalPopup<T>(
         context: context,
-        builder: (context) => CupertinoActionSheet(
-          title: title != null ? Text(title) : null,
-          message: message != null ? Text(message) : null,
-          actions: [
-            for (final action in actions)
-              CupertinoActionSheetAction(
-                isDestructiveAction: action.isDestructive,
-                onPressed: () => Navigator.of(context).pop(action.value),
-                child: Text(action.label),
-              ),
-          ],
-          cancelButton: CupertinoActionSheetAction(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(cancelText),
+        builder: (context) => CupertinoTheme(
+          // Drive non-destructive action text from the brand color instead of
+          // iOS system blue, so sheets match the rest of the app.
+          data: CupertinoTheme.of(context)
+              .copyWith(primaryColor: BleyaTheme.primary),
+          child: CupertinoActionSheet(
+            title: title != null
+                ? Text(
+                    title,
+                    style: const TextStyle(
+                      color: BleyaTheme.foreground,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  )
+                : null,
+            message: message != null
+                ? Text(
+                    message,
+                    style: const TextStyle(color: BleyaTheme.mutedForeground),
+                  )
+                : null,
+            actions: [
+              for (final action in actions)
+                CupertinoActionSheetAction(
+                  isDestructiveAction: action.isDestructive,
+                  onPressed: () => Navigator.of(context).pop(action.value),
+                  child: Text(action.label),
+                ),
+            ],
+            cancelButton: CupertinoActionSheetAction(
+              onPressed: () => Navigator.of(context).pop(),
+              child: Text(cancelText),
+            ),
           ),
         ),
       );
@@ -54,20 +74,27 @@ class AppSheet {
           children: [
             if (title != null || message != null)
               Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 12),
                 child: Column(
                   children: [
                     if (title != null)
                       Text(
                         title,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: const TextStyle(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w600,
+                          color: BleyaTheme.foreground,
+                        ),
                       ),
                     if (message != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           message,
-                          style: Theme.of(context).textTheme.bodyMedium,
+                          style: const TextStyle(
+                            fontSize: 14,
+                            color: BleyaTheme.mutedForeground,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -78,15 +105,21 @@ class AppSheet {
               ListTile(
                 title: Text(
                   action.label,
-                  style: action.isDestructive
-                      ? const TextStyle(color: Colors.red)
-                      : null,
+                  style: TextStyle(
+                    color: action.isDestructive
+                        ? BleyaTheme.error
+                        : BleyaTheme.foreground,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 onTap: () => Navigator.of(context).pop(action.value),
               ),
             const Divider(height: 1),
             ListTile(
-              title: Text(cancelText),
+              title: Text(
+                cancelText,
+                style: const TextStyle(color: BleyaTheme.mutedForeground),
+              ),
               onTap: () => Navigator.of(context).pop(),
             ),
           ],
