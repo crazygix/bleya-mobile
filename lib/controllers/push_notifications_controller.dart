@@ -209,12 +209,25 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
       settings = await _pushMessagingService.requestPermission();
     }
 
+    // Do not gate registration on the authorization status. On Android the
+    // FCM token is valid before POST_NOTIFICATIONS is granted, so we still
+    // register it: the backend then has a deliverable token and pushes arrive
+    // the moment the user enables notifications, with no fresh registration
+    // needed. (On iOS getToken() returns null until permission is granted, so
+    // this naturally stays a no-op there.)
     if (!_isAuthorizedStatus(settings.authorizationStatus)) {
-      return;
+      debugPrint(
+        'push/register: notifications not authorized '
+        '(status=${settings.authorizationStatus}); registering token anyway',
+      );
     }
 
     final resolvedToken = token ?? await _pushMessagingService.getToken();
     if (resolvedToken == null || resolvedToken.isEmpty) {
+      debugPrint(
+        'push/register: no FCM token (getToken returned null/empty) — '
+        'check Google Play Services availability on this device',
+      );
       return;
     }
 
@@ -228,11 +241,10 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
         platform: _platformName(),
       );
       _registeredPushToken = resolvedToken;
+      debugPrint('push/register: token registered (platform=${_platformName()})');
     } catch (error, stackTrace) {
-      if (kDebugMode) {
-        print('push/register failed: $error');
-        print(stackTrace);
-      }
+      debugPrint('push/register failed: $error');
+      debugPrint('$stackTrace');
     }
   }
 

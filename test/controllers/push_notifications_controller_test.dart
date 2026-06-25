@@ -41,6 +41,21 @@ const _authorizedNotificationSettings = NotificationSettings(
   providesAppNotificationSettings: AppleNotificationSetting.notSupported,
 );
 
+const _deniedNotificationSettings = NotificationSettings(
+  authorizationStatus: AuthorizationStatus.denied,
+  alert: AppleNotificationSetting.notSupported,
+  announcement: AppleNotificationSetting.notSupported,
+  badge: AppleNotificationSetting.notSupported,
+  carPlay: AppleNotificationSetting.notSupported,
+  lockScreen: AppleNotificationSetting.notSupported,
+  notificationCenter: AppleNotificationSetting.notSupported,
+  showPreviews: AppleShowPreviewSetting.notSupported,
+  sound: AppleNotificationSetting.notSupported,
+  timeSensitive: AppleNotificationSetting.notSupported,
+  criticalAlert: AppleNotificationSetting.notSupported,
+  providesAppNotificationSettings: AppleNotificationSetting.notSupported,
+);
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
@@ -192,5 +207,34 @@ void main() {
           token: 'rotated-token',
           platform: 'ios',
         )).called(1);
+  });
+
+  test('registers token even when notification permission is denied', () async {
+    // The FCM token is valid without notification permission (notably on
+    // Android), so registration must not be gated on the authorization status;
+    // otherwise the backend never gets a deliverable token for that device.
+    when(() => mockPushMessagingService.getNotificationSettings())
+        .thenAnswer((_) async => _deniedNotificationSettings);
+
+    controller.start();
+    await controller.handleAuthTokenChanged(authToken);
+
+    verify(() => mockRegisterPushTokenUseCase(
+          token: 'push-token',
+          platform: 'ios',
+        )).called(1);
+  });
+
+  test('skips registration when no FCM token is available', () async {
+    when(() => mockPushMessagingService.getToken())
+        .thenAnswer((_) async => null);
+
+    controller.start();
+    await controller.handleAuthTokenChanged(authToken);
+
+    verifyNever(() => mockRegisterPushTokenUseCase(
+          token: any(named: 'token'),
+          platform: any(named: 'platform'),
+        ));
   });
 }
