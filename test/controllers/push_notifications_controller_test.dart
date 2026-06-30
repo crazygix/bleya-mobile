@@ -69,6 +69,7 @@ void main() {
   late StreamController<PushNotificationPayload> messageOpenedController;
   late PushNotificationsController controller;
   late String? authToken;
+  late int openAppSettingsCalls;
 
   final testRoom = Room(id: 'room-1', name: 'General');
   final testMessage = Message(
@@ -105,6 +106,7 @@ void main() {
     messageOpenedController =
         StreamController<PushNotificationPayload>.broadcast();
     authToken = 'auth-token';
+    openAppSettingsCalls = 0;
 
     when(() => mockPushMessagingService.getNotificationSettings())
         .thenAnswer((_) async => _authorizedNotificationSettings);
@@ -131,6 +133,9 @@ void main() {
       () => authToken,
       supportsPushPlatform: () => true,
       platformName: () => 'ios',
+      openAppSettings: () async {
+        openAppSettingsCalls++;
+      },
     );
   });
 
@@ -236,5 +241,36 @@ void main() {
           token: any(named: 'token'),
           platform: any(named: 'platform'),
         ));
+  });
+
+  test('flags notifications denied and shows the banner until dismissed',
+      () async {
+    when(() => mockPushMessagingService.getNotificationSettings())
+        .thenAnswer((_) async => _deniedNotificationSettings);
+
+    controller.start();
+    await controller.handleAuthTokenChanged(authToken);
+
+    expect(controller.state.notificationsDenied, isTrue);
+    expect(controller.state.showNotificationsBanner, isTrue);
+
+    controller.dismissNotificationsBanner();
+
+    expect(controller.state.notificationsDenied, isTrue);
+    expect(controller.state.showNotificationsBanner, isFalse);
+  });
+
+  test('does not show the banner when notifications are authorized', () async {
+    controller.start();
+    await controller.handleAuthTokenChanged(authToken);
+
+    expect(controller.state.notificationsDenied, isFalse);
+    expect(controller.state.showNotificationsBanner, isFalse);
+  });
+
+  test('openNotificationSettings invokes the injected callback', () async {
+    await controller.openNotificationSettings();
+
+    expect(openAppSettingsCalls, 1);
   });
 }

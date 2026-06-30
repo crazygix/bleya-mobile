@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../controllers/username_controller.dart';
 import '../controllers/auth_controller.dart';
 import '../controllers/join_room_controller.dart';
@@ -65,6 +66,7 @@ final pushNotificationsControllerProvider =
     getThreadContext,
     markNotificationAsRead,
     () => ref.read(tokenProvider),
+    openAppSettings: () => Geolocator.openAppSettings(),
   );
 
   ref.listen<String?>(tokenProvider, (previous, next) {

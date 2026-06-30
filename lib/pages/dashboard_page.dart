@@ -8,6 +8,7 @@ import '../widgets/room_card.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/glass_circle_icon_button.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
+import '../widgets/notification_permission_banner.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
@@ -113,6 +114,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
                       ],
                     ),
                   ),
+                // Notifications-disabled prompt (self-hides when enabled or
+                // dismissed); shown across tabs so it isn't easily missed.
+                const NotificationPermissionBanner(),
                 // Main Content
                 Expanded(
                   child: _selectedIndex == 0

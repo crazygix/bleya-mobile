@@ -36,18 +36,30 @@ class OpenThreadPushNavigationRequest extends PushNavigationRequest {
 
 class PushNotificationsState {
   final PushNavigationRequest? navigationRequest;
+  final bool notificationsDenied;
+  final bool notificationsBannerDismissed;
 
   const PushNotificationsState({
     this.navigationRequest,
+    this.notificationsDenied = false,
+    this.notificationsBannerDismissed = false,
   });
+
+  bool get showNotificationsBanner =>
+      notificationsDenied && !notificationsBannerDismissed;
 
   PushNotificationsState copyWith({
     PushNavigationRequest? navigationRequest,
     bool clearNavigation = false,
+    bool? notificationsDenied,
+    bool? notificationsBannerDismissed,
   }) {
     return PushNotificationsState(
       navigationRequest:
           clearNavigation ? null : navigationRequest ?? this.navigationRequest,
+      notificationsDenied: notificationsDenied ?? this.notificationsDenied,
+      notificationsBannerDismissed:
+          notificationsBannerDismissed ?? this.notificationsBannerDismissed,
     );
   }
 }
@@ -63,6 +75,7 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
   final String? Function() _readAuthToken;
   final bool Function() _supportsPushPlatform;
   final String Function() _platformName;
+  final Future<void> Function()? _openAppSettings;
 
   StreamSubscription<String>? _tokenRefreshSubscription;
   StreamSubscription<PushNotificationPayload>? _messageOpenedSubscription;
@@ -82,10 +95,12 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
     this._readAuthToken, {
     bool Function()? supportsPushPlatform,
     String Function()? platformName,
+    Future<void> Function()? openAppSettings,
   })  : _supportsPushPlatform = supportsPushPlatform ??
             (() => Platform.isIOS || Platform.isAndroid),
         _platformName =
             platformName ?? (() => Platform.isIOS ? 'ios' : 'android'),
+        _openAppSettings = openAppSettings,
         super(const PushNotificationsState());
 
   void start() {
@@ -137,6 +152,31 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
 
   void consumeNavigation() {
     state = state.copyWith(clearNavigation: true);
+  }
+
+  void _updateNotificationsDenied(bool denied) {
+    // When notifications get (re-)enabled, also clear any prior dismissal so
+    // the banner can resurface if the user turns them off again later.
+    final dismissed = denied ? state.notificationsBannerDismissed : false;
+    if (state.notificationsDenied == denied &&
+        state.notificationsBannerDismissed == dismissed) {
+      return;
+    }
+    state = state.copyWith(
+      notificationsDenied: denied,
+      notificationsBannerDismissed: dismissed,
+    );
+  }
+
+  void dismissNotificationsBanner() {
+    if (state.notificationsBannerDismissed) {
+      return;
+    }
+    state = state.copyWith(notificationsBannerDismissed: true);
+  }
+
+  Future<void> openNotificationSettings() async {
+    await _openAppSettings?.call();
   }
 
   @override
@@ -215,12 +255,14 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
     // the moment the user enables notifications, with no fresh registration
     // needed. (On iOS getToken() returns null until permission is granted, so
     // this naturally stays a no-op there.)
-    if (!_isAuthorizedStatus(settings.authorizationStatus)) {
+    final authorized = _isAuthorizedStatus(settings.authorizationStatus);
+    if (!authorized) {
       debugPrint(
         'push/register: notifications not authorized '
         '(status=${settings.authorizationStatus}); registering token anyway',
       );
     }
+    _updateNotificationsDenied(!authorized);
 
     final resolvedToken = token ?? await _pushMessagingService.getToken();
     if (resolvedToken == null || resolvedToken.isEmpty) {
