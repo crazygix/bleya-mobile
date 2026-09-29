@@ -1,6 +1,8 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../use_cases/auth/check_username_use_case.dart';
+import '../use_cases/auth/delete_passkey_use_case.dart';
 import '../use_cases/auth/get_auth_security_status_use_case.dart';
+import '../use_cases/auth/list_passkeys_use_case.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/set_username_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
@@ -11,7 +13,6 @@ import '../use_cases/user/get_blocked_users_use_case.dart';
 import '../use_cases/user/upload_profile_image_use_case.dart';
 import '../use_cases/user/get_user_by_id_use_case.dart';
 import '../use_cases/user/update_profile_use_case.dart';
-import '../use_cases/room/get_available_rooms_use_case.dart';
 import '../use_cases/room/get_joined_rooms_use_case.dart';
 import '../use_cases/room/join_room_use_case.dart';
 import '../use_cases/room/leave_room_use_case.dart';
@@ -66,6 +67,16 @@ final registerPasskeyUseCaseProvider = Provider<RegisterPasskeyUseCase>((ref) {
   return RegisterPasskeyUseCase(repository);
 });
 
+final listPasskeysUseCaseProvider = Provider<ListPasskeysUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return ListPasskeysUseCase(repository);
+});
+
+final deletePasskeyUseCaseProvider = Provider<DeletePasskeyUseCase>((ref) {
+  final repository = ref.watch(authRepositoryProvider);
+  return DeletePasskeyUseCase(repository);
+});
+
 final checkUsernameUseCaseProvider = Provider<CheckUsernameUseCase>((ref) {
   final repository = ref.watch(authRepositoryProvider);
   return CheckUsernameUseCase(repository);
@@ -90,12 +101,6 @@ final uploadProfileImageUseCaseProvider =
     Provider<UploadProfileImageUseCase>((ref) {
   final repository = ref.watch(userRepositoryProvider);
   return UploadProfileImageUseCase(repository);
-});
-
-final getAvailableRoomsUseCaseProvider =
-    Provider<GetAvailableRoomsUseCase>((ref) {
-  final repository = ref.watch(roomRepositoryProvider);
-  return GetAvailableRoomsUseCase(repository);
 });
 
 final getJoinedRoomsUseCaseProvider = Provider<GetJoinedRoomsUseCase>((ref) {

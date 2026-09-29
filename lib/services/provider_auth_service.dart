@@ -27,12 +27,19 @@ class ProviderAuthService {
   final GoogleSignIn _googleSignIn;
   Future<void>? _googleInitialization;
 
+  // Binds Google ID tokens to this app, so a token issued elsewhere can't be
+  // replayed to the backend. google_sign_in 7 takes the nonce only in
+  // initialize(), which may run once per launch, so every Google sign-in in
+  // one launch shares it.
+  late final String _googleRawNonce = _generateNonce();
+
   ProviderAuthService({GoogleSignIn? googleSignIn})
       : _googleSignIn = googleSignIn ?? GoogleSignIn.instance;
 
   Future<void> _ensureGoogleInitialized() {
     return _googleInitialization ??= _googleSignIn.initialize(
       serverClientId: EnvironmentConfig.googleServerClientId,
+      nonce: _googleRawNonce,
     );
   }
 
@@ -54,6 +61,7 @@ class ProviderAuthService {
     return ProviderAuthCredential(
       provider: AuthProvider.google,
       idToken: idToken,
+      rawNonce: _googleRawNonce,
     );
   }
 

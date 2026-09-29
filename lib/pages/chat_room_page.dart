@@ -114,17 +114,27 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     });
   }
 
-  void _sendMessage() {
+  Future<void> _sendMessage() async {
     final text = _messageController.text.trim();
     if (text.isEmpty) return;
 
-    final controller =
-        ref.read(chatRoomControllerProvider(widget.room).notifier);
-    controller.sendMessage(text);
+    // Clear right away as usual; the text comes back if the server doesn't
+    // store the message.
     _messageController.clear();
 
     // Ensure we stay at the bottom when sending a message.
     _scrollToBottom(animated: true);
+
+    final controller =
+        ref.read(chatRoomControllerProvider(widget.room).notifier);
+    final result = await controller.sendMessage(text);
+    if (!mounted) return;
+
+    final error = result.error;
+    if (error != null) {
+      restoreUnsentDraft(_messageController, text);
+      AppToast.showError(context, error.message);
+    }
   }
 
   // Long-press on another user's message: report it or block its author.
@@ -158,7 +168,9 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
       try {
         await ref.read(blockUserUseCaseProvider)(message.userId);
         if (!mounted) return;
+        setUserBlockedInSession(ref, message.userId, true);
         ref.invalidate(blockedUsersProvider);
+        unawaited(ref.read(roomsListProvider.notifier).refresh());
         AppToast.showInfo(context, 'User blocked.');
       } catch (e) {
         if (!mounted) return;
@@ -341,7 +353,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatRoomControllerProvider(widget.room));
-    final messages = ref.watch(roomMessagesProvider(widget.room.id));
+    final messages = withoutBlockedAuthors(
+      ref.watch(roomMessagesProvider(widget.room.id)),
+      ref.watch(sessionBlockedUserIdsProvider),
+    );
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
     final directChatStatusAsync =

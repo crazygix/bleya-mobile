@@ -12,6 +12,7 @@ import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/app_spinner.dart';
 import '../widgets/error_state.dart';
 import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
@@ -51,9 +52,9 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
       duration: const Duration(milliseconds: 700),
     );
 
-    // Invalidate and refresh room members when page is opened to get latest data
+    // Members load fresh on every visit: roomMembersProvider is auto-disposed
+    // when the page closes.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.invalidate(roomMembersProvider(widget.roomId));
       _entranceController.forward();
     });
   }
@@ -64,7 +65,9 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
     super.dispose();
   }
 
-  String _memberCountLabel(int count) {
+  String _memberCountLabel(int count, {required bool hasMore}) {
+    // Until the last page has loaded, the real count is higher.
+    if (hasMore) return '$count+ members';
     if (count == 1) return '1 member';
     return '$count members';
   }
@@ -250,68 +253,102 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
   }
 
   Widget _buildMembersContent(
-    List<RoomMember> members,
+    RoomMembersState membersState,
     String? currentUserId,
     String? currentUserBio,
   ) {
-    final memberCountLabel = _memberCountLabel(members.length);
+    final members = membersState.members;
+    final memberCountLabel = _memberCountLabel(
+      members.length,
+      hasMore: membersState.hasMore,
+    );
     final cityName = _cityFromRoomName(widget.roomName);
     final countryName = _countryFromRoomName(widget.roomName);
     final heroSubtitle = countryName;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(
-        BleyaTheme.contentPadding,
-        BleyaTheme.spacingLG,
-        BleyaTheme.contentPadding,
-        BleyaTheme.spacing3XL,
-      ),
-      children: [
-        _buildStaggered(
-          order: 0,
-          child: RoomHeroCard(
-            roomTitle: cityName,
-            roomSubtitle: heroSubtitle,
-            imageUrl: widget.imageUrl,
-          ),
-        ),
-        const SizedBox(height: BleyaTheme.spacing2XL),
-        _buildStaggered(
-          order: 1,
-          child: MembersSectionHeader(
-            memberCountLabel: memberCountLabel,
-          ),
-        ),
-        const SizedBox(height: BleyaTheme.spacingSM),
-        if (members.isEmpty)
-          _buildStaggered(
-            order: 2,
-            child: const EmptyMembersCard(),
-          )
-        else
-          ...members.asMap().entries.map((entry) {
-            final index = entry.key;
-            final member = entry.value;
-            final isCurrentUser =
-                currentUserId != null && member.id == currentUserId;
-            final bioOverride = isCurrentUser && member.bio.trim().isEmpty
-                ? currentUserBio
-                : null;
+    // Hero, section header, then the members (or the empty card), then a
+    // spinner while more pages remain.
+    const leadingItems = 2;
+    final memberItems = members.isEmpty ? 1 : members.length;
+    final itemCount =
+        leadingItems + memberItems + (membersState.hasMore ? 1 : 0);
 
-            return _buildStaggered(
-              order: 2 + index,
-              child: Padding(
-                padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
-                child: RoomMemberTile(
-                  member: member,
-                  bioOverride: bioOverride,
-                  isCurrentUser: isCurrentUser,
-                  onTap: () => _openUserDetails(member.id),
+    return NotificationListener<ScrollNotification>(
+      onNotification: (notification) {
+        if (membersState.hasMore && notification.metrics.extentAfter < 600) {
+          ref.read(roomMembersProvider(widget.roomId).notifier).loadMore();
+        }
+        return false;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(
+          BleyaTheme.contentPadding,
+          BleyaTheme.spacingLG,
+          BleyaTheme.contentPadding,
+          BleyaTheme.spacing3XL,
+        ),
+        itemCount: itemCount,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: BleyaTheme.spacing2XL),
+              child: _buildStaggered(
+                order: 0,
+                child: RoomHeroCard(
+                  roomTitle: cityName,
+                  roomSubtitle: heroSubtitle,
+                  imageUrl: widget.imageUrl,
                 ),
               ),
             );
-          }),
-      ],
+          }
+          if (index == 1) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
+              child: _buildStaggered(
+                order: 1,
+                child: MembersSectionHeader(
+                  memberCountLabel: memberCountLabel,
+                ),
+              ),
+            );
+          }
+
+          final memberIndex = index - leadingItems;
+          if (members.isEmpty && memberIndex == 0) {
+            return _buildStaggered(
+              order: 2,
+              child: const EmptyMembersCard(),
+            );
+          }
+          if (memberIndex >= members.length) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: BleyaTheme.spacingLG),
+              child: Center(child: AppSpinner()),
+            );
+          }
+
+          final member = members[memberIndex];
+          final isCurrentUser =
+              currentUserId != null && member.id == currentUserId;
+          final bioOverride = isCurrentUser && member.bio.trim().isEmpty
+              ? currentUserBio
+              : null;
+
+          return _buildStaggered(
+            order: 2 + memberIndex,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: BleyaTheme.spacingSM),
+              child: RoomMemberTile(
+                member: member,
+                bioOverride: bioOverride,
+                isCurrentUser: isCurrentUser,
+                onTap: () => _openUserDetails(member.id),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -352,8 +389,8 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
               ),
               Expanded(
                 child: membersAsync.when(
-                  data: (members) => _buildMembersContent(
-                      members, currentUserId, currentUserBio),
+                  data: (membersState) => _buildMembersContent(
+                      membersState, currentUserId, currentUserBio),
                   loading: _buildMembersLoadingSkeleton,
                   error: (error, stack) => Center(
                     child: ErrorState(

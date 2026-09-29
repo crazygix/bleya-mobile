@@ -5,11 +5,13 @@ import '../entities/direct_chat_status.dart';
 /// Domain repository interface for room operations
 /// Use cases depend on this interface, not concrete implementations
 abstract class RoomRepository {
-  Future<List<Room>> getAvailableRooms();
-
   Future<List<Room>> getJoinedRooms();
   Future<Room> joinRoom(String roomId);
-  Future<List<RoomMember>> getRoomMembers(String roomId);
+  Future<List<RoomMember>> getRoomMembers(
+    String roomId, {
+    required int limit,
+    required int offset,
+  });
   Future<void> leaveRoom(String roomId);
   Future<Room> createDirectMessage(String otherUserId);
   Future<DirectChatStatus> getDirectChatStatus(String otherUserId);

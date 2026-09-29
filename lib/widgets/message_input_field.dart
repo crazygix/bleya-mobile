@@ -3,6 +3,17 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
 
+/// Puts [unsent] back into [controller] after the server didn't store it.
+/// Anything typed since stays, on the next line, so no text is lost.
+void restoreUnsentDraft(TextEditingController controller, String unsent) {
+  final current = controller.text;
+  final restored = current.trim().isEmpty ? unsent : '$unsent\n$current';
+  controller.value = TextEditingValue(
+    text: restored,
+    selection: TextSelection.collapsed(offset: restored.length),
+  );
+}
+
 /// Message Input Field Component
 ///
 /// A floating glassmorphic input bar for chat interfaces following

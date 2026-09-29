@@ -5,6 +5,7 @@ enum ReportReason {
   harassment,
   inappropriateContent,
   impersonation,
+  underage,
   other;
 
   String get apiValue {
@@ -17,6 +18,8 @@ enum ReportReason {
         return 'inappropriate_content';
       case ReportReason.impersonation:
         return 'impersonation';
+      case ReportReason.underage:
+        return 'underage';
       case ReportReason.other:
         return 'other';
     }
@@ -32,6 +35,8 @@ enum ReportReason {
         return 'Inappropriate content';
       case ReportReason.impersonation:
         return 'Impersonation';
+      case ReportReason.underage:
+        return 'Under 15';
       case ReportReason.other:
         return 'Something else';
     }

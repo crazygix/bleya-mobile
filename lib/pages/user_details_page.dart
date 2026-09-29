@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -206,6 +208,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await unblockDirectChat(ref, widget.userId);
       if (!mounted) return;
+      setUserBlockedInSession(ref, widget.userId, false);
       ref.invalidate(blockedUsersProvider);
       _handleDirectActionResult(result, shouldCloseCurrentChat: false);
     } catch (e) {
@@ -226,6 +229,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await blockDirectChat(ref, widget.userId);
       if (!mounted) return;
+      setUserBlockedInSession(ref, widget.userId, true);
       ref.invalidate(blockedUsersProvider);
       _handleDirectActionResult(result, shouldCloseCurrentChat: true);
     } catch (e) {
@@ -312,8 +316,10 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       await ref.read(blockUserUseCaseProvider)(widget.userId);
       if (!mounted) return;
+      setUserBlockedInSession(ref, widget.userId, true);
       ref.invalidate(blockedUsersProvider);
       ref.invalidate(directChatStatusProvider(widget.userId));
+      unawaited(ref.read(roomsListProvider.notifier).refresh());
       AppToast.showInfo(context, 'User blocked.');
     } catch (e) {
       if (!mounted) return;
@@ -333,8 +339,10 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       await ref.read(unblockUserUseCaseProvider)(widget.userId);
       if (!mounted) return;
+      setUserBlockedInSession(ref, widget.userId, false);
       ref.invalidate(blockedUsersProvider);
       ref.invalidate(directChatStatusProvider(widget.userId));
+      unawaited(ref.read(roomsListProvider.notifier).refresh());
       AppToast.showInfo(context, 'User unblocked.');
     } catch (e) {
       if (!mounted) return;

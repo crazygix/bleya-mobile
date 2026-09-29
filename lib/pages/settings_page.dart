@@ -23,6 +23,7 @@ import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import 'blocked_users_page.dart';
 import 'edit_profile_page.dart';
+import 'passkeys_page.dart';
 
 class SettingsPage extends ConsumerStatefulWidget {
   @override
@@ -49,6 +50,14 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     await Navigator.of(context).push(
       AppRoute.build(
         builder: (context) => EditProfilePage(),
+      ),
+    );
+  }
+
+  Future<void> _navigateToPasskeys() async {
+    await Navigator.of(context).push(
+      AppRoute.build(
+        builder: (context) => const PasskeysPage(),
       ),
     );
   }
@@ -294,6 +303,13 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
                         ),
                         const SizedBox(height: BleyaTheme.spacing3XL),
                         _sectionLabel('Privacy & safety'),
+                        SettingsMenuItem(
+                          icon: CupertinoIcons.lock_shield,
+                          iconColor: BleyaTheme.primary,
+                          label: 'Passkeys',
+                          onTap: _navigateToPasskeys,
+                        ),
+                        const SizedBox(height: 4.0),
                         SettingsMenuItem(
                           icon: CupertinoIcons.person_crop_circle_badge_xmark,
                           iconColor: BleyaTheme.error,

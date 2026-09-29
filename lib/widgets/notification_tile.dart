@@ -130,27 +130,72 @@ class NotificationTile extends StatelessWidget {
   }
 
   Widget _buildAvatar() {
-    if (notification.senderAvatarUrl != null &&
-        notification.senderAvatarUrl!.isNotEmpty) {
-      return CircleAvatar(
-        radius: 24,
-        backgroundImage: NetworkImage(notification.senderAvatarUrl!),
-        backgroundColor: BleyaTheme.background,
-      );
+    return _SenderAvatar(
+      imageUrl: notification.senderAvatarUrl,
+      senderName: notification.senderName,
+    );
+  }
+}
+
+/// The sender's photo, or their initial when there's no usable photo URL or
+/// the image fails to load.
+class _SenderAvatar extends StatefulWidget {
+  final String? imageUrl;
+  final String senderName;
+
+  const _SenderAvatar({
+    required this.imageUrl,
+    required this.senderName,
+  });
+
+  @override
+  State<_SenderAvatar> createState() => _SenderAvatarState();
+}
+
+class _SenderAvatarState extends State<_SenderAvatar> {
+  bool _imageLoadFailed = false;
+
+  bool get _hasValidUrl {
+    final uri = Uri.tryParse(widget.imageUrl ?? '');
+    return uri != null &&
+        (uri.scheme == 'http' || uri.scheme == 'https') &&
+        uri.host.isNotEmpty;
+  }
+
+  @override
+  void didUpdateWidget(_SenderAvatar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.imageUrl != widget.imageUrl) {
+      _imageLoadFailed = false;
     }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showImage = _hasValidUrl && !_imageLoadFailed;
 
     return CircleAvatar(
       radius: 24,
       backgroundColor: BleyaTheme.background,
-      child: Text(
-        notification.senderName.isNotEmpty
-            ? notification.senderName[0].toUpperCase()
-            : '?',
-        style: BleyaTheme.headingMedium.copyWith(
-          fontSize: 20,
-          color: BleyaTheme.foreground,
-        ),
-      ),
+      backgroundImage: showImage ? NetworkImage(widget.imageUrl!) : null,
+      onBackgroundImageError: showImage
+          ? (exception, stackTrace) {
+              if (mounted) {
+                setState(() => _imageLoadFailed = true);
+              }
+            }
+          : null,
+      child: showImage
+          ? null
+          : Text(
+              widget.senderName.isNotEmpty
+                  ? widget.senderName[0].toUpperCase()
+                  : '?',
+              style: BleyaTheme.headingMedium.copyWith(
+                fontSize: 20,
+                color: BleyaTheme.foreground,
+              ),
+            ),
     );
   }
 }

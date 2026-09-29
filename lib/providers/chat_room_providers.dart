@@ -16,6 +16,61 @@ final roomMessagesProvider =
   return [];
 });
 
+/// Set when a moderator removes a thread's parent message; the open thread
+/// page closes. Provider state (not a stream on the controller) so the page
+/// still hears it after a retry recreates the controller.
+final threadParentRemovedProvider =
+    StateProvider.autoDispose.family<bool, String>((ref, messageId) => false);
+
+/// Users blocked during this session. Their messages already on screen are
+/// hidden straight away; the server stops sending new ones.
+final sessionBlockedUserIdsProvider = StateProvider<Set<String>>((ref) {
+  ref.watch(sessionVersionProvider);
+  return const <String>{};
+});
+
+/// Records a block or unblock so open chats update without reloading.
+void setUserBlockedInSession(WidgetRef ref, String userId, bool blocked) {
+  final notifier = ref.read(sessionBlockedUserIdsProvider.notifier);
+  final next = {...notifier.state};
+  final changed = blocked ? next.add(userId) : next.remove(userId);
+  if (changed) {
+    notifier.state = next;
+  }
+}
+
+/// [messages] without those whose authors are in [blockedUserIds].
+List<Message> withoutBlockedAuthors(
+  List<Message> messages,
+  Set<String> blockedUserIds,
+) {
+  if (blockedUserIds.isEmpty) return messages;
+  return messages
+      .where((message) => !blockedUserIds.contains(message.userId))
+      .toList();
+}
+
+/// Whether the server says this socket isn't in a room (it lost track of the
+/// room, e.g. after a reconnect). Matched by code; the text is a fallback for
+/// older backends.
+bool isNotInRoomError(SocketErrorData error) {
+  return error.code == SocketService.notInRoomCode ||
+      error.message.contains('Not in a room');
+}
+
+Message _withReplyCount(Message message, int replyCount) {
+  return Message(
+    id: message.id,
+    roomId: message.roomId,
+    userId: message.userId,
+    username: message.username,
+    text: message.text,
+    createdAt: message.createdAt,
+    parentMessageId: message.parentMessageId,
+    replyCount: replyCount,
+  );
+}
+
 /// UI state for a chat room, excluding the actual message list which is kept
 /// in [roomMessagesProvider] as a single source of truth for messages.
 class ChatRoomState {
@@ -84,6 +139,7 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
     try {
       final getThreadUseCase = ref.read(getThreadUseCaseProvider);
       final threadData = await getThreadUseCase(messageId);
+      if (!mounted) return;
       state = AsyncValue.data(threadData);
 
       // Listen to socket events for new replies
@@ -109,23 +165,20 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
         );
       });
 
-      // Drop a reply (or empty the thread if the parent itself) when moderated.
+      // Moderation: drop a removed reply, or close the thread if its parent
+      // message was removed.
       _removedHandler = socketService.addListener('message_removed', (data) {
         final removedId = data['messageId']?.toString();
         if (removedId == null) return;
 
-        final currentState = state.value;
-        if (currentState == null) return;
-
-        if (currentState.parentMessage.id == removedId) {
-          state = AsyncValue.data(
-            ThreadData(
-              parentMessage: currentState.parentMessage,
-              replies: const [],
-            ),
-          );
+        if (removedId == messageId) {
+          ref.read(threadParentRemovedProvider(messageId).notifier).state =
+              true;
           return;
         }
+
+        final currentState = state.value;
+        if (currentState == null) return;
 
         final filtered =
             currentState.replies.where((r) => r.id != removedId).toList();
@@ -139,6 +192,7 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
         }
       });
     } catch (e, stack) {
+      if (!mounted) return;
       state = AsyncValue.error(e, stack);
     }
   }
@@ -166,6 +220,8 @@ final threadMessagesProvider = StateNotifierProvider.autoDispose
 
 // ChatRoomController manages socket listeners, pagination, and room operations
 class ChatRoomController extends StateNotifier<ChatRoomState> {
+  static const _rejoinTimeout = Duration(seconds: 5);
+
   final Ref ref;
   final Room room;
   final SocketService socketService;
@@ -178,11 +234,20 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   dynamic _messageRemovedHandler;
   dynamic _errorHandler;
 
-  // Surfaces user-facing socket errors (e.g. content-filter rejection of a sent
-  // message) to the page, which shows them as a toast.
+  // Surfaces user-facing socket errors that aren't about a send (those are
+  // returned by sendMessage) to the page, which shows them as a toast.
   final StreamController<String> _errorMessages =
       StreamController<String>.broadcast();
   Stream<String> get errorMessages => _errorMessages.stream;
+
+  // The server reports a failed send twice: as an 'error' event and in the
+  // acknowledgement right after it. While a send is waiting for its
+  // acknowledgement, error events are held back and dropped if the
+  // acknowledgement reports the same failure.
+  int _pendingSends = 0;
+  final List<SocketErrorData> _heldErrors = [];
+
+  Completer<void>? _roomJoined;
 
   ChatRoomController(this.ref, this.room, this.socketService)
       : super(const ChatRoomState.initial()) {
@@ -226,6 +291,11 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
         nextCursor: joinedData.nextCursor,
         lastReadAt: joinedData.lastReadAt,
       );
+
+      final joined = _roomJoined;
+      if (joined != null && !joined.isCompleted) {
+        joined.complete();
+      }
     });
 
     // Register new_message listener and store handler reference
@@ -244,17 +314,7 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       if (message.parentMessageId != null) {
         final updatedMessages = currentMessages.map((msg) {
           if (msg.id == message.parentMessageId) {
-            // Return updated message with incremented replyCount
-            return Message(
-              id: msg.id,
-              roomId: msg.roomId,
-              userId: msg.userId,
-              username: msg.username,
-              text: msg.text,
-              createdAt: msg.createdAt,
-              parentMessageId: msg.parentMessageId,
-              replyCount: msg.replyCount + 1,
-            );
+            return _withReplyCount(msg, msg.replyCount + 1);
           }
           return msg;
         }).toList();
@@ -279,31 +339,15 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       if (removedId == null || eventRoomId != roomId) return;
 
       final currentMessages = ref.read(roomMessagesProvider(roomId));
-      Message? removed;
-      for (final m in currentMessages) {
-        if (m.id == removedId) {
-          removed = m;
-          break;
-        }
-      }
-
       var updated = currentMessages.where((m) => m.id != removedId).toList();
 
-      // If a reply was removed, decrement its parent's replyCount.
-      final parentId = removed?.parentMessageId;
-      if (parentId != null) {
+      // A removed reply lowers its parent's reply count. Replies aren't in
+      // this list, so the parent comes from the event.
+      final parentId = data['parentMessageId']?.toString();
+      if (parentId != null && parentId.isNotEmpty) {
         updated = updated.map((msg) {
           if (msg.id == parentId && msg.replyCount > 0) {
-            return Message(
-              id: msg.id,
-              roomId: msg.roomId,
-              userId: msg.userId,
-              username: msg.username,
-              text: msg.text,
-              createdAt: msg.createdAt,
-              parentMessageId: msg.parentMessageId,
-              replyCount: msg.replyCount - 1,
-            );
+            return _withReplyCount(msg, msg.replyCount - 1);
           }
           return msg;
         }).toList();
@@ -323,43 +367,105 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
             'Socket error${socketError.code != null ? ' [${socketError.code}]' : ''}: ${socketError.message}');
       }
 
-      // If "Not in a room" error, try to rejoin
-      if (socketError.message.contains('Not in a room')) {
-        if (kDebugMode) {
-          print('Attempting to rejoin room...');
-        }
-        Future.delayed(const Duration(milliseconds: 500), () {
-          if (!_disposed) _joinRoom();
-        });
+      if (_pendingSends > 0) {
+        _heldErrors.add(socketError);
         return;
       }
-
-      // Surface other user-safe errors (e.g. content-filter rejection of a
-      // message the user just sent) so the page can toast them.
-      if (!_errorMessages.isClosed) {
-        _errorMessages.add(socketError.message);
-      }
+      _handleSocketError(socketError);
     });
   }
 
-  void _joinRoom() {
-    // SocketService already tracks the latest token via socketServiceProvider.
-    // Joining should always use that latest token.
-    socketService.joinRoom(room);
-  }
+  void _handleSocketError(SocketErrorData socketError) {
+    if (_disposed) return;
 
-  void sendMessage(String text, {String? parentMessageId}) {
-    if (text.trim().isEmpty) return;
-
-    final socket = socketService.socket;
-    if (socket == null || !socket.connected) {
+    // If "Not in a room" error, try to rejoin
+    if (isNotInRoomError(socketError)) {
       if (kDebugMode) {
-        print('Not connected. Cannot send message.');
+        print('Attempting to rejoin room...');
       }
+      Future.delayed(const Duration(milliseconds: 500), () {
+        if (!_disposed) _joinRoom(force: true);
+      });
       return;
     }
 
-    socketService.sendMessage(text, parentMessageId: parentMessageId);
+    if (!_errorMessages.isClosed) {
+      _errorMessages.add(socketError.message);
+    }
+  }
+
+  void _joinRoom({bool force = false}) {
+    // SocketService already tracks the latest token via socketServiceProvider.
+    // Joining should always use that latest token.
+    socketService.joinRoom(room, force: force);
+  }
+
+  /// Sends [text] and reports whether the server stored it, so the page can
+  /// keep the draft (and show why) when it didn't.
+  Future<SendMessageResult> sendMessage(
+    String text, {
+    String? parentMessageId,
+  }) async {
+    _pendingSends++;
+    try {
+      var result = await socketService.sendMessage(
+        text,
+        parentMessageId: parentMessageId,
+      );
+      _dropHeldError(result.error);
+
+      final error = result.error;
+      if (error != null && isNotInRoomError(error) && !_disposed) {
+        // The server lost track of the room: rejoin and try once more.
+        if (await _rejoin()) {
+          result = await socketService.sendMessage(
+            text,
+            parentMessageId: parentMessageId,
+          );
+          _dropHeldError(result.error);
+        }
+      }
+      return result;
+    } finally {
+      _pendingSends--;
+      if (_pendingSends == 0 && _heldErrors.isNotEmpty) {
+        // Errors that weren't about the send after all.
+        final errors = List.of(_heldErrors);
+        _heldErrors.clear();
+        errors.forEach(_handleSocketError);
+      }
+    }
+  }
+
+  void _dropHeldError(SocketErrorData? failure) {
+    if (failure == null) return;
+    final index = _heldErrors.indexWhere(
+      (held) => held.code == failure.code && held.message == failure.message,
+    );
+    if (index >= 0) {
+      _heldErrors.removeAt(index);
+    }
+  }
+
+  /// Rejoins the room and waits for the server to confirm. Sends that fail
+  /// at the same time share one rejoin.
+  Future<bool> _rejoin() async {
+    var joined = _roomJoined;
+    if (joined == null) {
+      joined = Completer<void>();
+      _roomJoined = joined;
+      _joinRoom(force: true);
+    }
+    try {
+      await joined.future.timeout(_rejoinTimeout);
+      return true;
+    } on TimeoutException {
+      return false;
+    } finally {
+      if (identical(_roomJoined, joined)) {
+        _roomJoined = null;
+      }
+    }
   }
 
   /// Ensure we're in the room - call this when the page becomes visible again

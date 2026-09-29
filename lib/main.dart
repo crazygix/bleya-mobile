@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:path_provider/path_provider.dart';
 import 'pages/initial_page.dart';
 import 'pages/dashboard_page.dart';
@@ -13,6 +14,7 @@ import 'controllers/push_notifications_controller.dart';
 import 'providers/auth_providers.dart';
 import 'providers/controller_providers.dart';
 import 'providers/connectivity_provider.dart';
+import 'services/secure_cookie_storage.dart';
 import 'utils/navigation.dart';
 import 'constants/theme.dart';
 import 'platform/app_route.dart';
@@ -39,6 +41,13 @@ void main() async {
   // miss the Set-Cookie(refreshToken) coming from auth sign-in or refresh calls.
   final supportDir = await getApplicationSupportDirectory();
   final cookieStoragePath = '${supportDir.path}/bleya';
+
+  // Moves the refresh cookie into secure storage (once) and clears a session
+  // left in the Keychain by a previous install, before anything reads it.
+  await SessionStorageMigration.run(
+    basePath: cookieStoragePath,
+    secureStorage: const FlutterSecureStorage(),
+  );
 
   runApp(ProviderScope(
     overrides: [

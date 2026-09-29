@@ -6,6 +6,7 @@ import '../providers/auth_providers.dart';
 import '../platform/app_button.dart';
 import '../platform/app_route.dart';
 import '../services/socket_service.dart';
+import '../utils/app_toast.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/swipeable_message_bubble.dart';
@@ -53,6 +54,19 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     });
   }
 
+  /// A moderator removed the message this thread hangs off: close the thread.
+  void _closeRemovedThread() {
+    AppToast.showInfo(context, 'This message was removed.');
+    final route = ModalRoute.of(context);
+    if (route == null) return;
+    if (route.isCurrent) {
+      Navigator.of(context).pop();
+    } else {
+      // Another screen (e.g. a profile) is on top: remove only this one.
+      Navigator.of(context).removeRoute(route);
+    }
+  }
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
@@ -72,14 +86,27 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     });
   }
 
-  void _sendReply() {
+  Future<void> _sendReply() async {
     final text = _replyController.text.trim();
     if (text.isEmpty) return;
 
+    // Clear right away as usual; the text comes back if the server doesn't
+    // store the reply.
+    _replyController.clear();
+
     final controller =
         ref.read(chatRoomControllerProvider(widget.room).notifier);
-    controller.sendMessage(text, parentMessageId: widget.parentMessage.id);
-    _replyController.clear();
+    final result = await controller.sendMessage(
+      text,
+      parentMessageId: widget.parentMessage.id,
+    );
+    if (!mounted) return;
+
+    final error = result.error;
+    if (error != null) {
+      restoreUnsentDraft(_replyController, text);
+      AppToast.showError(context, error.message);
+    }
 
     // The reply will appear automatically via socket listener in threadMessagesProvider
   }
@@ -221,6 +248,11 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
     final threadState =
         ref.watch(threadMessagesProvider(widget.parentMessage.id));
 
+    ref.listen<bool>(threadParentRemovedProvider(widget.parentMessage.id),
+        (previous, removed) {
+      if (removed) _closeRemovedThread();
+    });
+
     // Listen for new messages to auto-scroll
     ref.listen(threadMessagesProvider(widget.parentMessage.id),
         (previous, next) {
@@ -259,7 +291,10 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
                 child: threadState.when(
                   data: (data) {
                     final parentMessage = data.parentMessage;
-                    final replies = data.replies;
+                    final replies = withoutBlockedAuthors(
+                      data.replies,
+                      ref.watch(sessionBlockedUserIdsProvider),
+                    );
                     final isParentCurrentUser = currentUserId != null &&
                         parentMessage.userId == currentUserId;
 

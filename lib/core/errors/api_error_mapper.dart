@@ -11,13 +11,17 @@ class ApiErrorMapper {
       String? userMessage;
       Map<String, dynamic>? details;
 
-      if (responseData is Map<String, dynamic> &&
-          responseData['error'] != null) {
+      if (responseData is Map && responseData['error'] != null) {
         final errorData = responseData['error'];
-        if (errorData is Map<String, dynamic>) {
-          errorMessage = errorData['message'] as String?;
+        if (errorData is Map) {
+          // Tolerate unexpected shapes (e.g. `details` as a list) rather than
+          // throwing a cast error in place of the real API error.
+          final rawMessage = errorData['message'];
+          errorMessage = rawMessage is String ? rawMessage : null;
           userMessage = errorMessage;
-          details = errorData['details'] as Map<String, dynamic>?;
+          final rawDetails = errorData['details'];
+          details =
+              rawDetails is Map ? Map<String, dynamic>.from(rawDetails) : null;
         }
       }
 

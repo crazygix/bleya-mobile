@@ -13,3 +13,19 @@ AuthSecurityStatus authSecurityStatusFromJson(Map<String, dynamic> json) {
     hasPasskey: json['hasPasskey'] as bool? ?? false,
   );
 }
+
+PasskeySummary passkeySummaryFromJson(Map<String, dynamic> json) {
+  DateTime? parseMillis(dynamic value) {
+    return value is num
+        ? DateTime.fromMillisecondsSinceEpoch(value.toInt())
+        : null;
+  }
+
+  return PasskeySummary(
+    id: json['id']?.toString() ?? '',
+    deviceType: json['deviceType'] as String? ?? 'unknown',
+    backedUp: json['backedUp'] as bool? ?? false,
+    createdAt: parseMillis(json['createdAt']),
+    lastUsedAt: parseMillis(json['lastUsedAt']),
+  );
+}

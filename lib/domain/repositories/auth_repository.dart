@@ -9,10 +9,10 @@ abstract class AuthRepository {
   Future<AuthSessionResult> signInWithPasskey();
   Future<AuthSecurityStatus> getSecurityStatus();
   Future<AuthSecurityStatus> registerPasskey();
+  Future<List<PasskeySummary>> listPasskeys();
+  Future<AuthSecurityStatus> deletePasskey(String passkeyId);
   Future<bool> hasRegisteredPasskeyOnDevice();
   Future<bool> checkUsername({required String username});
   Future<UserProfile> setUsername({required String username});
-  Future<UserProfile> getMyInfo();
-  Future<String> refresh();
   Future<void> logout();
 }

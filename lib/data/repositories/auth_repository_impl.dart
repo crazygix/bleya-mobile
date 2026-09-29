@@ -161,6 +161,41 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<List<PasskeySummary>> listPasskeys() async {
+    try {
+      final response = await _dio.get('/auth/passkeys');
+      final data = response.data;
+      if (data is! List) {
+        return const [];
+      }
+      return data
+          .whereType<Map>()
+          .map(
+              (json) => passkeySummaryFromJson(Map<String, dynamic>.from(json)))
+          .toList();
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
+  Future<AuthSecurityStatus> deletePasskey(String passkeyId) async {
+    try {
+      final response = await _dio.delete(
+        '/auth/passkeys/${Uri.encodeComponent(passkeyId)}',
+      );
+      final status = authSecurityStatusFromJson(_asJson(response.data));
+      if (!status.hasPasskey) {
+        // Nothing left to offer passkey sign-in with.
+        await _secureStorage.delete(key: _hasRegisteredPasskeyKey);
+      }
+      return status;
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
   Future<bool> hasRegisteredPasskeyOnDevice() async {
     final value = await _secureStorage.read(key: _hasRegisteredPasskeyKey);
     return value == 'true';
@@ -191,33 +226,6 @@ class AuthRepositoryImpl implements AuthRepository {
         data: {'username': username},
       );
       return UserProfileDto.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
-  Future<UserProfile> getMyInfo() async {
-    try {
-      final response = await _dio.get('/auth/me');
-      return UserProfileDto.fromJson(response.data as Map<String, dynamic>);
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
-  Future<String> refresh() async {
-    try {
-      final response = await _dio.post(
-        '/auth/refresh',
-        options: Options(
-          extra: {'refresh': true},
-        ),
-      );
-      final String token = response.data['token'];
-      await _secureStorage.write(key: 'auth_token', value: token);
-      return token;
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }

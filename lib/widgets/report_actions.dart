@@ -21,7 +21,9 @@ Future<void> showReportSheet({
     message: 'Why are you reporting this?',
     actions: [
       for (final reason in ReportReason.values)
-        AppSheetAction<ReportReason>(value: reason, label: reason.label),
+        // Age applies to a person (or the author of a message), not a room.
+        if (reason != ReportReason.underage || roomId == null)
+          AppSheetAction<ReportReason>(value: reason, label: reason.label),
     ],
   );
 

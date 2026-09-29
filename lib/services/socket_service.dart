@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:socket_io_client/socket_io_client.dart' as io;
 import '../config/environment.dart';
@@ -35,24 +37,133 @@ class SocketErrorData {
   });
 }
 
+/// Outcome of `send_message`, taken from the server's acknowledgement.
+class SendMessageResult {
+  /// The stored message, when the server accepted it.
+  final Message? message;
+
+  /// Why the message wasn't stored.
+  final SocketErrorData? error;
+
+  const SendMessageResult.sent(this.message) : error = null;
+
+  const SendMessageResult.failed(SocketErrorData this.error) : message = null;
+
+  bool get isSent => error == null;
+}
+
+/// Why the server refused or ended the socket's session, as opposed to an
+/// error about a single event (such as a rejected message).
+enum SocketConnectionErrorKind {
+  /// The access token was missing, invalid or expired: refresh, reconnect.
+  authentication,
+
+  /// The account is banned or suspended: stop and sign out.
+  accountBlocked,
+
+  /// A temporary backend problem: keep the session and retry later.
+  serverUnavailable,
+}
+
+class SocketConnectionError implements Exception {
+  final SocketConnectionErrorKind kind;
+  final String message;
+
+  const SocketConnectionError(this.kind, this.message);
+
+  // Stable prefixes the backend puts on handshake rejections (server/socket.ts).
+  static const _authenticationPrefix = 'Authentication error';
+  static const _blockedPrefix = 'Account blocked:';
+  static const _unavailablePrefix = 'Server unavailable:';
+  static const _tokenExpiredCode = 'TOKEN_EXPIRED';
+
+  static const defaultBlockedMessage =
+      'Your account is no longer allowed to use Bleya.';
+
+  /// Reads a socket `error` payload: a handshake rejection (`{message}`) or an
+  /// event error (`{error: {code, message}}`). Returns null for errors that
+  /// concern a single event.
+  static SocketConnectionError? tryParse(dynamic payload) {
+    String? code;
+    Object? rawMessage = payload;
+    if (payload is Map) {
+      final nested = payload['error'];
+      if (nested is Map) {
+        code = nested['code']?.toString();
+        rawMessage = nested['message'];
+      } else {
+        rawMessage = payload['message'];
+      }
+    }
+    final message = rawMessage is String ? rawMessage.trim() : '';
+
+    if (message.startsWith(_blockedPrefix)) {
+      final reason = message.substring(_blockedPrefix.length).trim();
+      return SocketConnectionError(
+        SocketConnectionErrorKind.accountBlocked,
+        reason.isEmpty ? defaultBlockedMessage : reason,
+      );
+    }
+    if (code == _tokenExpiredCode ||
+        message.startsWith(_authenticationPrefix)) {
+      return SocketConnectionError(
+        SocketConnectionErrorKind.authentication,
+        message,
+      );
+    }
+    if (message.startsWith(_unavailablePrefix)) {
+      return SocketConnectionError(
+        SocketConnectionErrorKind.serverUnavailable,
+        message,
+      );
+    }
+    return null;
+  }
+
+  @override
+  String toString() => message;
+}
+
 class SocketService {
+  static const notInRoomCode = 'NOT_IN_ROOM';
+  static const notConnectedCode = 'NOT_CONNECTED';
+  static const sendTimeoutCode = 'SEND_TIMEOUT';
+
+  static const _connectTimeout = Duration(seconds: 25);
+  static const _sendAckTimeout = Duration(seconds: 10);
+  // A connection that lasts this long resets the retry backoff.
+  static const _stableConnection = Duration(seconds: 30);
+
   io.Socket? _socket;
   Room? _currentRoom;
   String? _currentToken;
   String? _activeThreadId;
   String? _desiredThreadId;
-  bool _isReconnecting = false;
   bool _authRefreshInFlight = false;
   Room? _desiredRoom;
 
+  /// Whether a screen has asked for the socket. Reconnects only happen while
+  /// true; it's cleared when the user signs out.
+  bool _wantsConnection = false;
+
   /// Single-flight connection attempt to prevent overlapping connect/reconnect calls.
-  Future<void>? _connecting;
+  Completer<void>? _connectAttempt;
+  Timer? _connectAttemptTimeout;
+
+  Timer? _retryTimer;
+  int _retryAttempt = 0;
+  bool _retryRefreshesFirst = false;
+  Timer? _stableConnectionTimer;
+  int _consecutiveAuthRejections = 0;
+  final Random _random = Random();
 
   /// Optional callback invoked when an authentication error is detected
   /// on the socket connection.
   ///
   /// Should refresh the token (and typically update token provider) and return
-  /// the fresh access token, or null if refresh failed.
+  /// the fresh access token, or null if refresh failed. When the session has
+  /// ended it should also sign out, which clears the token here via
+  /// [setToken]; otherwise the socket retries later.
   Future<String?> Function()? refreshToken;
 
   /// Invoked when the socket is rejected for a non-auth reason (a ban/suspend).
@@ -66,7 +177,7 @@ class SocketService {
     _currentToken = (token != null && token.isNotEmpty) ? token : null;
     // If token is cleared, disconnect but keep the socket instance (single socket).
     if (_currentToken == null) {
-      _isReconnecting = false;
+      _stopReconnecting();
       _socket?.disconnect();
       _currentRoom = null;
       _desiredRoom = null;
@@ -76,6 +187,7 @@ class SocketService {
     }
     // Ensure we have a socket instance ready; don't auto-join here.
     _ensureSocketInitialized();
+    _updateHeaderToken(_currentToken!);
   }
 
   void _ensureSocketInitialized() {
@@ -85,7 +197,12 @@ class SocketService {
       EnvironmentConfig.socketBaseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
-          // We'll update auth/headers right before connect.
+          // Called for every connect and reconnect, so the handshake always
+          // carries the latest token. The backend reads handshake.auth first;
+          // the header below is only a fallback.
+          .setAuthFn((callback) => callback({'token': _currentToken ?? ''}))
+          .setExtraHeaders(_authHeaders(_currentToken))
+          .enableForceNew()
           .disableAutoConnect()
           .build(),
     );
@@ -94,7 +211,13 @@ class SocketService {
       if (kDebugMode) {
         print('Socket connected');
       }
-      _isReconnecting = false;
+      _consecutiveAuthRejections = 0;
+      _cancelRetry();
+      _stableConnectionTimer?.cancel();
+      _stableConnectionTimer = Timer(_stableConnection, () {
+        _retryAttempt = 0;
+      });
+      _finishConnectAttempt();
       // If a room is desired (e.g., screen entered), join it after connect.
       final desired = _desiredRoom;
       if (desired != null) {
@@ -106,38 +229,205 @@ class SocketService {
       }
     });
 
-    _socket!.onDisconnect((_) {
+    _socket!.onDisconnect((reason) {
       if (kDebugMode) {
-        print('Socket disconnected');
+        print('Socket disconnected ($reason)');
       }
+      _stableConnectionTimer?.cancel();
       _activeThreadId = null;
-      if (!_isReconnecting) {
-        _currentRoom = null;
+      _currentRoom = null;
+
+      // socket.io reconnects by itself after network drops, but not when the
+      // server ends the connection. That happens on a ban, an expired token,
+      // a deploy, or the per-user connection limit. Reconnect with backoff; the
+      // handshake then says which (a ban signs the user out). The backoff
+      // keeps devices over the connection limit from disconnecting each other
+      // in a tight loop.
+      if (reason == 'io server disconnect' && !_authRefreshInFlight) {
+        _scheduleReconnect();
       }
     });
 
-    _socket!.onError((error) async {
+    // Handshake rejections (CONNECT_ERROR) arrive as the socket's 'error'
+    // event. Note that Socket.onError() listens on the Manager instead, which
+    // only reports transport errors.
+    _socket!.on('error', _onSocketError);
+
+    _socket!.onError((error) {
       if (kDebugMode) {
-        print('Socket error: $error');
+        print('Socket transport error: $error');
       }
-      await _handleAuthFailureIfNeeded(error);
     });
 
-    _socket!.onConnectError((error) async {
+    _socket!.onConnectError((error) {
       if (kDebugMode) {
         print('Socket connection error: $error');
       }
-      await _handleAuthFailureIfNeeded(error);
+      final rejection = SocketConnectionError.tryParse(error);
+      if (rejection != null) {
+        _handleConnectionError(rejection);
+        return;
+      }
+      // Transport failure: socket.io keeps retrying with its own backoff.
+      _finishConnectAttempt(error ?? Exception('connect_error'));
+    });
+
+    // Re-attach listeners that were registered before the socket existed.
+    for (final entry in _eventHandlers.entries) {
+      for (final handler in entry.value) {
+        _socket!.on(entry.key, handler);
+      }
+    }
+  }
+
+  Map<String, dynamic> _authHeaders(String? token) {
+    if (token == null || token.isEmpty) return <String, dynamic>{};
+    return <String, dynamic>{'Authorization': 'Bearer $token'};
+  }
+
+  /// Engines created from now on (reconnects) send this token in the header
+  /// fallback. The handshake itself always uses [setAuthFn].
+  void _updateHeaderToken(String token) {
+    final socket = _socket;
+    if (socket == null) return;
+    try {
+      final manager = socket.io;
+      final options = Map<String, dynamic>.from(
+          manager.options ?? const <String, dynamic>{});
+      options['extraHeaders'] = _authHeaders(token);
+      manager.options = options;
+    } catch (_) {
+      // Best effort: the handshake auth carries the token anyway.
+    }
+  }
+
+  /// Handles [payload] as if the server had sent it as a socket 'error'.
+  @visibleForTesting
+  void handleSocketErrorForTesting(dynamic payload) => _onSocketError(payload);
+
+  void _onSocketError(dynamic data) {
+    final rejection = SocketConnectionError.tryParse(data);
+    if (rejection == null) {
+      // An error about one event (e.g. a rejected message); the screens that
+      // listen for 'error' handle those.
+      return;
+    }
+    _handleConnectionError(rejection);
+  }
+
+  void _handleConnectionError(SocketConnectionError error) {
+    if (kDebugMode) {
+      print('Socket session error (${error.kind.name}): ${error.message}');
+    }
+    _finishConnectAttempt(error);
+
+    switch (error.kind) {
+      case SocketConnectionErrorKind.accountBlocked:
+        // Refreshing would succeed and reconnect straight back into the same
+        // ban, so stop and sign out with the server's reason.
+        _stopReconnecting();
+        _currentToken = null;
+        _socket?.disconnect();
+        final handler = onFatalError;
+        if (handler != null) {
+          unawaited(handler(error.message));
+        }
+      case SocketConnectionErrorKind.authentication:
+        _consecutiveAuthRejections++;
+        if (_consecutiveAuthRejections > 1) {
+          // A freshly refreshed token was rejected too: back off instead of
+          // refreshing in a loop.
+          _scheduleReconnect(refreshFirst: true);
+        } else {
+          unawaited(_refreshAndReconnect());
+        }
+      case SocketConnectionErrorKind.serverUnavailable:
+        // A temporary backend or database problem, not an auth problem.
+        _scheduleReconnect();
+    }
+  }
+
+  Future<void> _refreshAndReconnect() async {
+    if (_authRefreshInFlight) return;
+    final refresher = refreshToken;
+    if (refresher == null) return;
+
+    _authRefreshInFlight = true;
+    String? newToken;
+    try {
+      newToken = await refresher();
+    } catch (_) {
+      newToken = null;
+    } finally {
+      _authRefreshInFlight = false;
+    }
+
+    if (newToken != null && newToken.isNotEmpty) {
+      setToken(newToken);
+      if (_wantsConnection) {
+        await _ensureConnected().catchError((_) {});
+      }
+    } else if (_currentToken != null) {
+      // Refresh temporarily unavailable (offline, server error). If the
+      // session had ended, the app has signed out and cleared the token.
+      _scheduleReconnect(refreshFirst: true);
+    }
+  }
+
+  void _scheduleReconnect({bool refreshFirst = false}) {
+    _retryRefreshesFirst = _retryRefreshesFirst || refreshFirst;
+    if (!_wantsConnection || _currentToken == null) return;
+    if (_retryTimer?.isActive ?? false) return;
+
+    final delay = _retryDelay(_retryAttempt++);
+    if (kDebugMode) {
+      print('Socket reconnect in ${delay.inMilliseconds} ms');
+    }
+    _retryTimer = Timer(delay, () {
+      _retryTimer = null;
+      if (!_wantsConnection || _currentToken == null) return;
+      if (_socket?.connected == true) return;
+      final refreshFirst = _retryRefreshesFirst;
+      _retryRefreshesFirst = false;
+      if (refreshFirst) {
+        unawaited(_refreshAndReconnect());
+      } else {
+        unawaited(_ensureConnected().catchError((_) {}));
+      }
     });
   }
 
+  /// 1 s, 2 s, 4 s ... capped at 60 s, plus up to 30% jitter.
+  Duration _retryDelay(int attempt) {
+    final seconds = min(60, 1 << min(attempt, 6));
+    final jitter = _random.nextDouble() * 0.3 * seconds;
+    return Duration(milliseconds: ((seconds + jitter) * 1000).round());
+  }
+
+  void _cancelRetry() {
+    _retryTimer?.cancel();
+    _retryTimer = null;
+    _retryRefreshesFirst = false;
+  }
+
+  void _stopReconnecting() {
+    _wantsConnection = false;
+    _cancelRetry();
+    _retryAttempt = 0;
+    _consecutiveAuthRejections = 0;
+    _stableConnectionTimer?.cancel();
+    _finishConnectAttempt(StateError('Socket stopped'));
+  }
+
   void disconnect() {
-    _isReconnecting = false; // Not reconnecting if explicitly disconnecting
+    _stopReconnecting();
     if (_currentRoom != null) {
       leaveRoom();
     }
     for (final event in _eventHandlers.keys.toList()) {
-      _socket?.off(event);
+      for (final handler in _eventHandlers[event]!) {
+        _socket?.off(event, handler);
+      }
     }
     _eventHandlers.clear();
     _socket?.disconnect();
@@ -149,63 +439,17 @@ class SocketService {
     _currentToken = null;
   }
 
-  Future<void> _handleAuthFailureIfNeeded(dynamic error) async {
-    final message = error?.toString() ?? '';
-
-    // A ban/suspend handshake rejection. The server marks it with this stable
-    // prefix (NOT "Authentication error"), so we must NOT treat it as a
-    // refreshable auth issue — refreshing would succeed and reconnect straight
-    // back into the same ban. Stop reconnecting and surface it.
-    if (message.contains('Account blocked:')) {
-      _isReconnecting = false;
-      _currentToken = null;
-      _socket?.disconnect();
-      final reason = _extractBlockedReason(message);
-      final handler = onFatalError;
-      if (handler != null) {
-        await handler(reason);
-      }
-      return;
-    }
-
-    if (message.contains('Authentication error')) {
-      if (kDebugMode) {
-        print('Detected socket authentication error');
-      }
-      // Avoid re-entrant refresh loops.
-      if (_authRefreshInFlight) return;
-      final refresher = refreshToken;
-      if (refresher == null) return;
-
-      _authRefreshInFlight = true;
-      try {
-        final newToken = await refresher();
-        if (newToken != null && newToken.isNotEmpty) {
-          // Update local token and reconnect with fresh credentials.
-          setToken(newToken);
-          await _ensureConnected();
-        }
-      } finally {
-        _authRefreshInFlight = false;
-      }
-    }
-    // Any other error (network/transport) is left to socket.io's own retry.
-  }
-
-  String _extractBlockedReason(String message) {
-    const marker = 'Account blocked:';
-    final idx = message.indexOf(marker);
-    if (idx < 0) {
-      return 'Your account is no longer allowed to use Bleya.';
-    }
-    final reason = message.substring(idx + marker.length).trim();
-    return reason.isEmpty
-        ? 'Your account is no longer allowed to use Bleya.'
-        : reason;
-  }
-
-  Future<void> joinRoom(Room room) async {
+  /// Joins [room] once connected. With [force], joins again even if the app
+  /// thinks it's already in the room (the server says it isn't).
+  Future<void> joinRoom(Room room, {bool force = false}) async {
     _desiredRoom = room;
+    if (force) {
+      if (_currentRoom?.id == room.id) {
+        _currentRoom = null;
+      }
+      // Joining resets the server's open thread; send it again after the join.
+      _activeThreadId = null;
+    }
 
     if (_currentToken == null || _currentToken!.isEmpty) {
       if (kDebugMode) {
@@ -214,8 +458,17 @@ class SocketService {
       return;
     }
 
+    _wantsConnection = true;
     _ensureSocketInitialized();
-    await _ensureConnected();
+    try {
+      await _ensureConnected();
+    } catch (e) {
+      // onConnect joins the desired room once a retry gets through.
+      if (kDebugMode) {
+        print('Socket not connected, will join ${room.id} later: $e');
+      }
+      return;
+    }
 
     // If we are connected, attempt join.
     _doJoinRoom(room);
@@ -223,7 +476,8 @@ class SocketService {
 
   /// Ensure the socket is connected using the current token without
   /// joining any specific chat room. Used for per-user channels such
-  /// as dashboard updates.
+  /// as dashboard updates. Returns once connected or once the attempt has
+  /// failed; listeners can be registered either way and survive reconnects.
   Future<void> ensureConnectedForUserChannel() async {
     if (_currentToken == null || _currentToken!.isEmpty) {
       if (kDebugMode) {
@@ -234,92 +488,65 @@ class SocketService {
     if (kDebugMode) {
       print('📡 SocketService: Ensuring connection for user channel...');
     }
+    _wantsConnection = true;
     _ensureSocketInitialized();
-    await _ensureConnected();
+    try {
+      await _ensureConnected();
+    } catch (e) {
+      if (kDebugMode) {
+        print('⚠️ SocketService: Connection attempt failed: $e');
+      }
+      return;
+    }
     if (kDebugMode) {
       print(
           '✅ SocketService: Connected for user channel (connected=${_socket?.connected})');
     }
   }
 
+  /// Connects with the current token. Completes on connect and fails on a
+  /// rejection, a connection error or a timeout, so no caller waits forever.
   Future<void> _ensureConnected() {
     // Single-flight: multiple joinRoom calls should share one connect attempt.
-    final existing = _connecting;
-    if (existing != null) return existing;
+    final existing = _connectAttempt;
+    if (existing != null) return existing.future;
 
-    final completer = Completer<void>();
-    _connecting = completer.future;
+    final socket = _socket;
+    if (socket == null) {
+      return Future.error(StateError('Socket not initialized'));
+    }
+    if (socket.connected == true) {
+      return Future.value();
+    }
+    final token = _currentToken;
+    if (token == null || token.isEmpty) {
+      return Future.error(StateError('Missing token'));
+    }
 
-    () async {
-      try {
-        if (_socket == null) {
-          _ensureSocketInitialized();
-        }
-        if (_socket == null) {
-          throw Exception('Socket not initialized');
-        }
-        if (_socket!.connected == true) {
-          completer.complete();
-          return;
-        }
-        // Update auth/headers right before connect so handshake uses latest token.
-        final token = _currentToken;
-        if (token == null || token.isEmpty) {
-          throw Exception('Missing token');
-        }
+    final attempt = Completer<void>();
+    // Callers may not wait for the result; don't report it as unhandled.
+    attempt.future.ignore();
+    _connectAttempt = attempt;
+    _connectAttemptTimeout = Timer(_connectTimeout, () {
+      _finishConnectAttempt(TimeoutException('Socket connection timed out'));
+    });
 
-        try {
-          // socket_io_client allows updating option maps dynamically.
-          // Ensure we keep a Map for auth and update token in-place.
-          final ioManager = _socket!.io;
-          final Map<String, dynamic> opts = Map<String, dynamic>.from(
-              ioManager.options ?? const <String, dynamic>{});
+    _updateHeaderToken(token);
+    socket.connect();
+    return attempt.future;
+  }
 
-          final existingAuth = opts['auth'];
-          final Map<String, dynamic> authMap = existingAuth is Map
-              ? Map<String, dynamic>.from(existingAuth)
-              : <String, dynamic>{};
-          authMap['token'] = token;
-          opts['auth'] = authMap;
-          opts['extraHeaders'] = <String, dynamic>{
-            'Authorization': 'Bearer $token',
-          };
-          // Assign back in case the manager stores a different map instance.
-          ioManager.options = opts;
-        } catch (_) {
-          // Best-effort; proceed to connect.
-        }
-
-        // Connect and await connect or connect_error.
-        _isReconnecting = true;
-
-        late dynamic connectErrorHandler;
-        late dynamic connectHandler;
-
-        connectHandler = (_) {
-          _socket?.off('connect_error', connectErrorHandler);
-          completer.complete();
-        };
-        connectErrorHandler = (err) async {
-          _socket?.off('connect', connectHandler);
-          // Route through the shared handler: refresh on auth errors, hard-stop
-          // on a ban, no-op for transient errors.
-          await _handleAuthFailureIfNeeded(err);
-          completer.completeError(err ?? Exception('connect_error'));
-        };
-
-        _socket!.once('connect', connectHandler);
-        _socket!.once('connect_error', connectErrorHandler);
-        _socket!.connect();
-      } catch (e) {
-        completer.completeError(e);
-      } finally {
-        _connecting = null;
-        _isReconnecting = false;
-      }
-    }();
-
-    return completer.future;
+  void _finishConnectAttempt([Object? error]) {
+    final attempt = _connectAttempt;
+    _connectAttempt = null;
+    _connectAttemptTimeout?.cancel();
+    _connectAttemptTimeout = null;
+    if (attempt == null || attempt.isCompleted) return;
+    if (error == null) {
+      attempt.complete();
+    } else {
+      attempt.completeError(error);
+    }
   }
 
   void _doJoinRoom(Room room) {
@@ -371,6 +598,12 @@ class SocketService {
   }
 
   void leaveRoom([String? specificRoomId]) {
+    // The screen is gone, so don't rejoin on the next reconnect: joining adds
+    // the room back to the user's rooms and mutes its push notifications.
+    if (specificRoomId == null || _desiredRoom?.id == specificRoomId) {
+      _desiredRoom = null;
+    }
+
     if (specificRoomId != null) {
       if (_currentRoom?.id == specificRoomId) {
         if (kDebugMode) {
@@ -421,24 +654,71 @@ class SocketService {
     }
   }
 
-  void sendMessage(String text, {String? parentMessageId}) {
-    if (_socket?.connected != true) {
-      if (kDebugMode) {
-        print('Socket not connected, cannot send message');
-      }
-      return;
+  /// Sends a message and waits for the server to confirm it was stored, so
+  /// the caller can keep the draft when it wasn't.
+  Future<SendMessageResult> sendMessage(
+    String text, {
+    String? parentMessageId,
+  }) {
+    final socket = _socket;
+    if (socket == null || socket.connected != true) {
+      return Future.value(const SendMessageResult.failed(SocketErrorData(
+        code: notConnectedCode,
+        message: "You're not connected right now. Try again in a moment.",
+      )));
     }
     if (_currentRoom == null) {
-      if (kDebugMode) {
-        print('Not in a room, cannot send message');
-      }
-      return;
+      return Future.value(const SendMessageResult.failed(SocketErrorData(
+        code: notInRoomCode,
+        message: 'Not in a room. Reopen the chat and try again.',
+      )));
     }
-    final data = {'text': text};
+
+    final data = <String, dynamic>{'text': text};
     if (parentMessageId != null) {
       data['parentMessageId'] = parentMessageId;
     }
-    _socket!.emit('send_message', data);
+
+    final completer = Completer<SendMessageResult>();
+    final timeout = Timer(_sendAckTimeout, () {
+      if (completer.isCompleted) return;
+      completer.complete(const SendMessageResult.failed(SocketErrorData(
+        code: sendTimeoutCode,
+        message: "Couldn't confirm your message was sent. Check your "
+            'connection and try again.',
+      )));
+    });
+    socket.emitWithAck('send_message', data, ack: ([dynamic response]) {
+      timeout.cancel();
+      if (!completer.isCompleted) {
+        completer.complete(parseSendMessageAck(response));
+      }
+    });
+    return completer.future;
+  }
+
+  /// Reads the `send_message` acknowledgement: `{ok: true, message}` or
+  /// `{ok: false, error: {code, message}}`.
+  SendMessageResult parseSendMessageAck(dynamic response) {
+    final payload =
+        response is List && response.isNotEmpty ? response.first : response;
+    if (payload is! Map) {
+      return const SendMessageResult.failed(SocketErrorData(
+        code: null,
+        message: "Couldn't send your message. Try again?",
+      ));
+    }
+
+    final data = Map<String, dynamic>.from(payload);
+    if (data['ok'] == true) {
+      final rawMessage = data['message'];
+      return SendMessageResult.sent(
+        rawMessage is Map
+            ? parseMessagePayload(Map<String, dynamic>.from(rawMessage))
+            : null,
+      );
+    }
+    return SendMessageResult.failed(parseErrorPayload(data));
   }
 
   void _emitOpenThreadIfNeeded() {
@@ -540,57 +820,19 @@ class SocketService {
   }
 
   void onRoomJoined(Function(Map<String, dynamic>) callback) {
-    void handler(dynamic data) {
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('room_joined', handler);
-    _eventHandlers.putIfAbsent('room_joined', () => []).add(handler);
+    addListener('room_joined', callback);
   }
 
   void onNewMessage(Function(Map<String, dynamic>) callback) {
-    void handler(dynamic data) {
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('new_message', handler);
-    _eventHandlers.putIfAbsent('new_message', () => []).add(handler);
+    addListener('new_message', callback);
   }
 
   void onMessageRemoved(Function(Map<String, dynamic>) callback) {
-    void handler(dynamic data) {
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('message_removed', handler);
-    _eventHandlers.putIfAbsent('message_removed', () => []).add(handler);
+    addListener('message_removed', callback);
   }
 
   void onError(Function(Map<String, dynamic>) callback) {
-    void handler(dynamic data) {
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('error', handler);
-    _eventHandlers.putIfAbsent('error', () => []).add(handler);
-  }
-
-  void onUserJoined(Function(Map<String, dynamic>) callback) {
-    void handler(dynamic data) {
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('user_joined', handler);
-    _eventHandlers.putIfAbsent('user_joined', () => []).add(handler);
-  }
-
-  void onUserLeft(Function(Map<String, dynamic>) callback) {
-    void handler(dynamic data) {
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('user_left', handler);
-    _eventHandlers.putIfAbsent('user_left', () => []).add(handler);
+    addListener('error', callback);
   }
 
   void onNewNotification(Function(Map<String, dynamic>) callback) {
@@ -598,16 +840,13 @@ class SocketService {
       print(
           '📡 SocketService: Registering onNewNotification handler (socket connected: ${_socket?.connected})');
     }
-    void handler(dynamic data) {
+    addListener('new_notification', (data) {
       if (kDebugMode) {
         print(
             '📡 SocketService: onNewNotification handler called with data: $data');
       }
-      callback(_normalizePayload(data));
-    }
-
-    _socket?.on('new_notification', handler);
-    _eventHandlers.putIfAbsent('new_notification', () => []).add(handler);
+      callback(data);
+    });
     if (kDebugMode) {
       print('✅ SocketService: onNewNotification handler registered');
     }
@@ -622,10 +861,16 @@ class SocketService {
     });
   }
 
-  /// Remove a specific callback listener for an event.
+  /// Registers [callback] for [event].
   /// Returns the handler that was registered, which should be stored and passed back to removeListener.
+  ///
+  /// 'error' listeners only get errors about single events; connection-level
+  /// errors (handshake rejections, an expired session) are handled here.
   dynamic addListener(String event, Function(Map<String, dynamic>) callback) {
     void handler(dynamic data) {
+      if (event == 'error' && SocketConnectionError.tryParse(data) != null) {
+        return;
+      }
       callback(_normalizePayload(data));
     }
 
@@ -642,9 +887,12 @@ class SocketService {
     }
   }
 
-  /// Remove all listeners for an event (use with caution).
+  /// Remove all listeners registered through this service for an event (use
+  /// with caution). The service's own connection handlers stay.
   void off(String event) {
-    _socket?.off(event);
-    _eventHandlers[event]?.clear();
+    final handlers = _eventHandlers.remove(event) ?? const [];
+    for (final handler in handlers) {
+      _socket?.off(event, handler);
+    }
   }
 }

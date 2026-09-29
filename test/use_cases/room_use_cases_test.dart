@@ -2,7 +2,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:bleya/use_cases/room/join_room_use_case.dart';
 import 'package:bleya/use_cases/room/get_joined_rooms_use_case.dart';
-import 'package:bleya/use_cases/room/get_available_rooms_use_case.dart';
 import 'package:bleya/use_cases/room/leave_room_use_case.dart';
 import 'package:bleya/use_cases/room/create_direct_message_use_case.dart';
 import 'package:bleya/use_cases/room/get_room_members_use_case.dart';
@@ -62,19 +61,6 @@ void main() {
     });
   });
 
-  group('GetAvailableRoomsUseCase', () {
-    test('delegates to repository.getAvailableRooms', () async {
-      when(() => mockRepo.getAvailableRooms())
-          .thenAnswer((_) async => [testRoom]);
-      final useCase = GetAvailableRoomsUseCase(mockRepo);
-
-      final result = await useCase();
-
-      expect(result, [testRoom]);
-      verify(() => mockRepo.getAvailableRooms()).called(1);
-    });
-  });
-
   group('LeaveRoomUseCase', () {
     test('delegates to repository.leaveRoom', () async {
       when(() => mockRepo.leaveRoom(any())).thenAnswer((_) async {});
@@ -100,19 +86,37 @@ void main() {
   });
 
   group('GetRoomMembersUseCase', () {
-    test('delegates to repository.getRoomMembers', () async {
+    test('delegates one page to repository.getRoomMembers', () async {
       final members = [
         RoomMember(
             id: 'u1', username: 'alice', bio: '', profileImageUrl: ''),
       ];
-      when(() => mockRepo.getRoomMembers(any()))
-          .thenAnswer((_) async => members);
+      when(() => mockRepo.getRoomMembers(
+            any(),
+            limit: any(named: 'limit'),
+            offset: any(named: 'offset'),
+          )).thenAnswer((_) async => members);
       final useCase = GetRoomMembersUseCase(mockRepo);
 
-      final result = await useCase('room1');
+      final result = await useCase('room1', limit: 100, offset: 200);
 
       expect(result, members);
-      verify(() => mockRepo.getRoomMembers('room1')).called(1);
+      verify(() => mockRepo.getRoomMembers('room1', limit: 100, offset: 200))
+          .called(1);
+    });
+
+    test('starts at the first member by default', () async {
+      when(() => mockRepo.getRoomMembers(
+            any(),
+            limit: any(named: 'limit'),
+            offset: any(named: 'offset'),
+          )).thenAnswer((_) async => []);
+      final useCase = GetRoomMembersUseCase(mockRepo);
+
+      await useCase('room1', limit: 100);
+
+      verify(() => mockRepo.getRoomMembers('room1', limit: 100, offset: 0))
+          .called(1);
     });
   });
 

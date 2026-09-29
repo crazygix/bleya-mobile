@@ -6,7 +6,16 @@ class GetRoomMembersUseCase {
 
   GetRoomMembersUseCase(this._roomRepository);
 
-  Future<List<RoomMember>> call(String roomId) async {
-    return await _roomRepository.getRoomMembers(roomId);
+  /// One page of members, sorted by username.
+  Future<List<RoomMember>> call(
+    String roomId, {
+    required int limit,
+    int offset = 0,
+  }) async {
+    return await _roomRepository.getRoomMembers(
+      roomId,
+      limit: limit,
+      offset: offset,
+    );
   }
 }

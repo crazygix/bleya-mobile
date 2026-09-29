@@ -46,26 +46,6 @@ class RoomListItem {
   }
 }
 
-// Provider to fetch available rooms
-final availableRoomsProvider = FutureProvider<List<Room>>((ref) async {
-  ref.watch(sessionVersionProvider);
-  try {
-    final token = ref.read(tokenProvider);
-    if (token == null || token.isEmpty) {
-      return [];
-    }
-
-    final useCase = ref.read(getAvailableRoomsUseCaseProvider);
-    return await useCase();
-  } catch (e, stack) {
-    if (kDebugMode) {
-      print('Error in availableRoomsProvider: $e');
-      print('Stack: $stack');
-    }
-    rethrow;
-  }
-});
-
 // Provider to fetch joined rooms from backend (single source of truth)
 final AutoDisposeFutureProvider<List<Room>> joinedRoomsFutureProvider =
     FutureProvider.autoDispose<List<Room>>((ref) async {
@@ -432,25 +412,117 @@ final roomsListProvider =
   },
 );
 
-// Provider to fetch room members
-final roomMembersProvider =
-    FutureProvider.family<List<RoomMember>, String>((ref, roomId) async {
-  ref.watch(sessionVersionProvider);
-  try {
+/// Room members loaded so far, one page at a time.
+class RoomMembersState {
+  final List<RoomMember> members;
+
+  /// Whether the server may have more members than [members]; the list is
+  /// only complete once a page comes back short.
+  final bool hasMore;
+  final bool isLoadingMore;
+
+  const RoomMembersState({
+    required this.members,
+    required this.hasMore,
+    this.isLoadingMore = false,
+  });
+
+  RoomMembersState copyWith({bool? isLoadingMore}) {
+    return RoomMembersState(
+      members: members,
+      hasMore: hasMore,
+      isLoadingMore: isLoadingMore ?? this.isLoadingMore,
+    );
+  }
+}
+
+/// Pages through `GET /rooms/:id/members`, which returns a bare array sorted
+/// by username.
+class RoomMembersController
+    extends StateNotifier<AsyncValue<RoomMembersState>> {
+  static const pageSize = 100;
+
+  final Ref ref;
+  final String roomId;
+
+  RoomMembersController(this.ref, this.roomId)
+      : super(const AsyncValue.loading()) {
+    _loadFirstPage();
+  }
+
+  Future<List<RoomMember>> _fetchPage(int offset) {
+    return ref.read(getRoomMembersUseCaseProvider)(
+      roomId,
+      limit: pageSize,
+      offset: offset,
+    );
+  }
+
+  Future<void> _loadFirstPage() async {
     final token = ref.read(tokenProvider);
     if (token == null || token.isEmpty) {
-      return [];
+      state = const AsyncValue.data(
+        RoomMembersState(members: [], hasMore: false),
+      );
+      return;
     }
 
-    final useCase = ref.read(getRoomMembersUseCaseProvider);
-    return await useCase(roomId);
-  } catch (e) {
-    if (kDebugMode) {
-      print('Error fetching room members: $e');
+    try {
+      final page = await _fetchPage(0);
+      if (!mounted) return;
+      state = AsyncValue.data(
+        RoomMembersState(members: page, hasMore: page.length == pageSize),
+      );
+    } catch (e, stack) {
+      if (kDebugMode) {
+        print('Error fetching room members: $e');
+      }
+      if (!mounted) return;
+      state = AsyncValue.error(e, stack);
     }
-    rethrow;
   }
-});
+
+  /// Loads the next page, if there is one and none is loading.
+  Future<void> loadMore() async {
+    final current = state.valueOrNull;
+    if (current == null || !current.hasMore || current.isLoadingMore) {
+      return;
+    }
+
+    state = AsyncValue.data(current.copyWith(isLoadingMore: true));
+    try {
+      final page = await _fetchPage(current.members.length);
+      if (!mounted) return;
+      // Members can join or leave between pages; don't list anyone twice.
+      final seenIds = current.members.map((member) => member.id).toSet();
+      state = AsyncValue.data(
+        RoomMembersState(
+          members: [
+            ...current.members,
+            ...page.where((member) => seenIds.add(member.id)),
+          ],
+          hasMore: page.length == pageSize,
+        ),
+      );
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error fetching more room members: $e');
+      }
+      if (!mounted) return;
+      // Keep what's loaded; scrolling again retries.
+      state = AsyncValue.data(current.copyWith(isLoadingMore: false));
+    }
+  }
+}
+
+// Provider to fetch room members
+final roomMembersProvider = StateNotifierProvider.autoDispose
+    .family<RoomMembersController, AsyncValue<RoomMembersState>, String>(
+  (ref, roomId) {
+    ref.watch(sessionVersionProvider);
+    return RoomMembersController(ref, roomId);
+  },
+);
 
 // Function to leave a room
 Future<void> leaveRoom(WidgetRef ref, String roomId) async {

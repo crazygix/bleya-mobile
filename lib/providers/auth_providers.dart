@@ -112,29 +112,32 @@ final dioProvider = Provider<Dio>((ref) {
 
       final token = ref.read(tokenProvider);
       if (token != null && token.isNotEmpty) {
+        var authToken = token;
         // Proactive token refresh: check if token is expired or expiring soon
-        if (JwtUtils.isTokenExpiredOrExpiringSoon(token, bufferMinutes: 5)) {
-          // Token is expired or will expire soon, refresh it proactively
-          if (!authManager.isLoggingOut) {
-            try {
-              final newToken = await authManager.refreshToken(dio);
-              if (newToken != null && newToken.isNotEmpty) {
-                options.headers['Authorization'] = 'Bearer $newToken';
-              } else {
-                // Refresh failed, use existing token and let error handler deal with it
-                options.headers['Authorization'] = 'Bearer $token';
-              }
-            } catch (e) {
-              // If refresh fails, use existing token and let error handler deal with it
-              options.headers['Authorization'] = 'Bearer $token';
-            }
-          } else {
-            options.headers['Authorization'] = 'Bearer $token';
+        if (JwtUtils.isTokenExpiredOrExpiringSoon(token, bufferMinutes: 5) &&
+            !authManager.isLoggingOut) {
+          final result = await authManager.refreshSession(dio);
+          switch (result) {
+            case TokenRefreshed(token: final newToken):
+              authToken = newToken;
+            case SessionEnded(:final message, :final error):
+              // The refresh already cleared the cookie, so handle it here:
+              // a later 401 could no longer tell a ban from an expired session.
+              await authManager.endSession(message: message);
+              return handler.reject(
+                error?.copyWith(requestOptions: options) ??
+                    DioException(
+                      requestOptions: options,
+                      message: 'Session ended',
+                    ),
+              );
+            case RefreshUnavailable():
+              // Keep the current token. If it has already expired, the
+              // request gets a 401 and the error path below decides.
+              break;
           }
-        } else {
-          // Token is still valid, use it
-          options.headers['Authorization'] = 'Bearer $token';
         }
+        options.headers['Authorization'] = 'Bearer $authToken';
       }
       handler.next(options);
     },
@@ -161,52 +164,63 @@ final dioProvider = Provider<Dio>((ref) {
           return handler.next(error);
         }
 
-        // Prevent infinite loop by checking a custom flag
         final requestOptions = error.requestOptions;
-        final alreadyRetried = requestOptions.extra['retried'] == true;
-
-        if (alreadyRetried) {
-          // Already retried once, logout and don't retry again
-          await authManager.logout();
+        if (requestOptions.extra['retried'] == true) {
+          // Rejected again right after a successful refresh: the session is
+          // no longer valid.
+          await authManager.endSession();
           return handler.next(error);
         }
 
-        // Attempt token refresh
-        final token = await authManager.refreshToken(dio);
-        if (token != null && !alreadyRetried) {
-          // Retry original request once with new token
-          final newOptions = Options(
-            method: requestOptions.method,
-            headers: Map<String, dynamic>.from(requestOptions.headers)
-              ..['Authorization'] = 'Bearer $token',
-            responseType: requestOptions.responseType,
-            contentType: requestOptions.contentType,
-            followRedirects: requestOptions.followRedirects,
-            validateStatus: requestOptions.validateStatus,
-            sendTimeout: requestOptions.sendTimeout,
-            receiveTimeout: requestOptions.receiveTimeout,
-            extra: {'retried': true},
-          );
-          try {
-            final response = await dio.request(
-              requestOptions.path,
-              data: requestOptions.data,
-              queryParameters: requestOptions.queryParameters,
-              options: newOptions,
-              cancelToken: requestOptions.cancelToken,
-              onReceiveProgress: requestOptions.onReceiveProgress,
-              onSendProgress: requestOptions.onSendProgress,
+        final result = await authManager.refreshSession(dio);
+        switch (result) {
+          case TokenRefreshed(:final token):
+            // Retry original request once with new token
+            final newOptions = Options(
+              method: requestOptions.method,
+              headers: Map<String, dynamic>.from(requestOptions.headers)
+                ..['Authorization'] = 'Bearer $token',
+              responseType: requestOptions.responseType,
+              contentType: requestOptions.contentType,
+              followRedirects: requestOptions.followRedirects,
+              validateStatus: requestOptions.validateStatus,
+              sendTimeout: requestOptions.sendTimeout,
+              receiveTimeout: requestOptions.receiveTimeout,
+              extra: {...requestOptions.extra, 'retried': true},
             );
-            return handler.resolve(response);
-          } catch (e) {
-            // If retry also fails, logout and don't retry again
-            await authManager.logout();
+            try {
+              final response = await dio.request(
+                requestOptions.path,
+                data: requestOptions.data,
+                queryParameters: requestOptions.queryParameters,
+                options: newOptions,
+                cancelToken: requestOptions.cancelToken,
+                onReceiveProgress: requestOptions.onReceiveProgress,
+                onSendProgress: requestOptions.onSendProgress,
+              );
+              return handler.resolve(response);
+            } on DioException catch (retryError) {
+              // A 401 on the retry has already ended the session (above);
+              // anything else (offline, 5xx) is just this request failing.
+              return handler.next(retryError);
+            } catch (_) {
+              return handler.next(error);
+            }
+          case SessionEnded(:final message):
+            await authManager.endSession(message: message);
             return handler.next(error);
-          }
-        } else {
-          // Refresh failed or already retried, logout
-          await authManager.logout();
-          return handler.next(error);
+          case RefreshUnavailable(error: final refreshError):
+            // Keep the session. Fail with the temporary cause (offline, rate
+            // limit, server error) instead of the 401, so callers don't treat
+            // this as signed out.
+            return handler.next(
+              refreshError?.copyWith(requestOptions: requestOptions) ??
+                  DioException(
+                    requestOptions: requestOptions,
+                    type: DioExceptionType.connectionError,
+                    message: 'Session refresh unavailable',
+                  ),
+            );
         }
       }
       return handler.next(error);
@@ -242,37 +256,32 @@ final socketServiceProvider = Provider<SocketService>((ref) {
   final service = SocketService();
 
   // When the socket experiences an authentication error, refresh the token
-  // and let SocketService reconnect/retry joins with the new token.
+  // and let SocketService reconnect/retry joins with the new token. Returns
+  // null when there is no new token: after a logout if the session ended, or
+  // with the session kept if the refresh was only temporarily unavailable.
   service.refreshToken = () async {
     final authManager = ref.read(authManagerProvider);
     if (authManager.isLoggingOut) {
       return null;
     }
 
-    try {
-      final dio = ref.read(dioProvider);
-      final newToken = await authManager.refreshToken(dio);
-
-      if (newToken != null && newToken.isNotEmpty) {
+    final result = await authManager.refreshSession(ref.read(dioProvider));
+    switch (result) {
+      case TokenRefreshed(:final token):
         // AuthManager already persists + updates tokenProvider; return it for socket reconnect.
-        return newToken;
-      }
-    } catch (_) {
-      // Fall through to logout on any failure
+        return token;
+      case SessionEnded(:final message):
+        await authManager.endSession(message: message);
+        return null;
+      case RefreshUnavailable():
+        return null;
     }
-
-    await authManager.logout();
-    return null;
   };
 
   // Non-auth socket rejection (ban/suspend): surface the reason and log out so
   // the client stops trying to reconnect into the same rejection.
   service.onFatalError = (message) async {
-    ref.read(fatalAuthMessageProvider.notifier).state = message;
-    final authManager = ref.read(authManagerProvider);
-    if (!authManager.isLoggingOut) {
-      await authManager.logout();
-    }
+    await ref.read(authManagerProvider).endSession(message: message);
   };
 
   // Keep socket's token in sync; SocketService maintains a single socket instance.
@@ -314,6 +323,23 @@ final passkeySignInAvailableProvider =
   final storage = ref.read(secureStorageProvider);
   final value = await storage.read(key: 'has_registered_passkey');
   return value == 'true';
+});
+
+/// Passkeys registered to the signed-in account (Settings → Passkeys).
+final passkeysProvider =
+    FutureProvider.autoDispose<List<PasskeySummary>>((ref) async {
+  ref.watch(sessionVersionProvider);
+  final token = ref.read(tokenProvider);
+  if (token == null || token.isEmpty) {
+    return const [];
+  }
+  return ref.read(listPasskeysUseCaseProvider)();
+});
+
+/// Whether this device can create passkeys at all.
+final passkeyPlatformSupportedProvider =
+    FutureProvider.autoDispose<bool>((ref) {
+  return ref.read(passkeyAuthServiceProvider).isAvailable();
 });
 
 final authSecurityStatusProvider =
