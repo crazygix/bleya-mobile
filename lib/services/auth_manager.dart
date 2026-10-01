@@ -220,14 +220,12 @@ class AuthManager {
       final socketService = _ref.read(socketServiceProvider);
       socketService.disconnect();
 
-      // Clear token and storage FIRST (before any navigation)
+      // Clear token and storage FIRST (before any navigation). Clearing the
+      // token ends the session: sessionVersionProvider follows it, so
+      // session-scoped providers drop the previous account's data.
       _ref.read(tokenProvider.notifier).state = null;
       final storage = _ref.read(secureStorageProvider);
       await storage.delete(key: 'auth_token');
-
-      // Bump the session version to rebuild session-scoped providers
-      // and drop any in-memory state from the previous account.
-      _ref.read(sessionVersionProvider.notifier).state++;
 
       // Invalidate bootstrapProvider to prevent it from using cached authenticated state
       _ref.invalidate(bootstrapProvider);

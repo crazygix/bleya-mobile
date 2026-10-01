@@ -14,7 +14,32 @@ import '../utils/app_errors.dart';
 import 'use_case_providers.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
-final sessionVersionProvider = StateProvider<int>((ref) => 0);
+
+/// The signed-in user behind [token]: the user id it carries, or null when
+/// signed out. A token that can't be decoded stands for its own session.
+String? sessionIdentityOf(String? token) {
+  if (token == null || token.isEmpty) return null;
+  return JwtUtils.userIdOf(token) ?? token;
+}
+
+/// Counts session changes: every sign-in, sign-out and account switch, but
+/// not a token refresh for the same user. It follows [tokenProvider], so code
+/// that sets the token doesn't have to bump it.
+class SessionVersionNotifier extends Notifier<int> {
+  @override
+  int build() {
+    ref.listen<String?>(
+      tokenProvider.select(sessionIdentityOf),
+      (_, __) => state++,
+    );
+    return 0;
+  }
+}
+
+/// Session-scoped providers watch this, so they start over for each signed-in
+/// user and drop the previous account's data.
+final sessionVersionProvider =
+    NotifierProvider<SessionVersionNotifier, int>(SessionVersionNotifier.new);
 
 /// Path used by PersistCookieJar to store cookies on disk.
 ///
@@ -235,16 +260,11 @@ final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
   final token = ref.watch(tokenProvider);
   if (token == null || token.isEmpty) return null;
 
-  final decoded = JwtUtils.decodeToken(token);
-  if (decoded == null) return null;
-
-  // Expect payload to include userId.
-  final userId = decoded['userId'] ?? decoded['sub'];
-
+  final userId = JwtUtils.userIdOf(token);
   if (userId == null) return null;
 
   return {
-    'id': userId.toString(),
+    'id': userId,
   };
 });
 

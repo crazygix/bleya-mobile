@@ -75,6 +75,10 @@ void main() {
   });
 
   test('logout unregisters push token before clearing session state', () async {
+    // Session-scoped providers follow the session while signed in.
+    container.listen(sessionVersionProvider, (_, __) {});
+    final sessionBefore = container.read(sessionVersionProvider);
+
     await container.read(authManagerProvider).logout();
 
     verifyInOrder([
@@ -94,6 +98,7 @@ void main() {
     ]);
 
     expect(container.read(tokenProvider), isNull);
-    expect(container.read(sessionVersionProvider), 1);
+    // Clearing the token ends the session.
+    expect(container.read(sessionVersionProvider), sessionBefore + 1);
   });
 }

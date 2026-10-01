@@ -107,6 +107,8 @@ class RoomsListController
 
       // Ensure socket is connected so per-user dashboard events can be received.
       await socketService.ensureConnectedForUserChannel();
+      // Disposed meanwhile (the session changed): register nothing.
+      if (!mounted) return;
 
       // Listen for lightweight room summary updates pushed via socket.
       // Registering before REST fetch avoids dropping updates during initial load.
@@ -116,6 +118,7 @@ class RoomsListController
       // Initial load from REST API (same data as joinedRoomsFutureProvider).
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
       final rooms = await getJoinedRoomsUseCase();
+      if (!mounted) return;
 
       var items = rooms
           .map(
@@ -144,6 +147,7 @@ class RoomsListController
       _sortByLastMessageTime(items);
       state = AsyncValue.data(items);
     } catch (e, stack) {
+      if (!mounted) return;
       state = AsyncValue.error(e, stack);
     }
   }
@@ -196,6 +200,7 @@ class RoomsListController
     try {
       if (_roomSummaryHandler == null) {
         await socketService.ensureConnectedForUserChannel();
+        if (!mounted) return;
         _roomSummaryHandler = socketService.addListener(
           'room_summary_updated',
           _onRoomSummaryUpdated,
@@ -204,6 +209,7 @@ class RoomsListController
 
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
       final rooms = await getJoinedRoomsUseCase();
+      if (!mounted) return;
 
       final existingItems = state.valueOrNull ?? const <RoomListItem>[];
       final existingUnreadByRoomId = <String, int>{

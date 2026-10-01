@@ -37,8 +37,15 @@ class NotificationState {
 }
 
 class NotificationNotifier extends AsyncNotifier<NotificationState> {
+  /// Changes whenever the session changes (this notifier is rebuilt) or it is
+  /// disposed, so a page requested earlier can tell it arrived too late.
+  int _sessionGeneration = 0;
+
   @override
   FutureOr<NotificationState> build() async {
+    // Runs as soon as sessionVersionProvider changes, even when the rebuild
+    // itself waits for the next frame.
+    ref.onDispose(() => _sessionGeneration++);
     ref.watch(sessionVersionProvider);
     final token = ref.read(tokenProvider);
     if (token == null || token.isEmpty) {
@@ -75,11 +82,15 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     // Riverpod's AsyncValue doesn't easily support "loading more" state without clearing data unless we handle it manually.
     // For simplicity, let's just append.
 
+    final session = _sessionGeneration;
     try {
       final repo = ref.read(notificationRepositoryProvider);
       const limit = 20;
       final page = await repo.fetchNotifications(
           limit: limit, before: current.nextCursor);
+      // Signed out or switched accounts meanwhile: the page belongs to the
+      // previous session.
+      if (session != _sessionGeneration) return;
 
       // Safeguard: only has more if we got a cursor AND we received a full page
       final hasMoreNotifications =
@@ -101,8 +112,13 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> refresh() async {
+    final session = _sessionGeneration;
     state = const AsyncLoading();
-    state = await AsyncValue.guard(() => _fetchPage());
+    final result = await AsyncValue.guard(() => _fetchPage());
+    // Signed out or switched accounts meanwhile: the page belongs to the
+    // previous session.
+    if (session != _sessionGeneration) return;
+    state = result;
   }
 
   Future<void> markAsRead(String notificationId) async {
@@ -269,12 +285,29 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     final socketService = ref.watch(socketServiceProvider);
     final notifier = ref.read(notificationStateProvider.notifier);
 
+    // A session change or dispose ends this listener. It then removes its
+    // handler, or registers none if it's still connecting.
+    var superseded = false;
+    dynamic handler;
+    ref.onDispose(() {
+      superseded = true;
+      if (handler != null) {
+        socketService.removeListener('new_notification', handler);
+      }
+    });
+
     if (kDebugMode) {
       print('📡 NotificationSocketListener: Ensuring socket connection...');
     }
 
     // Ensure socket is connected for user-level events
     await socketService.ensureConnectedForUserChannel();
+    if (superseded) {
+      if (kDebugMode) {
+        print('📡 NotificationSocketListener: Session changed, not listening');
+      }
+      return;
+    }
 
     if (kDebugMode) {
       print(
@@ -282,7 +315,7 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     }
 
     // Register the listener
-    socketService.onNewNotificationEntity((notification) {
+    handler = socketService.onNewNotificationEntity((notification) {
       if (kDebugMode) {
         print('🔔 NEW NOTIFICATION RECEIVED: ${notification.id}');
       }

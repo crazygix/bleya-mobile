@@ -10,64 +10,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../fakes/fake_socket_service.dart';
+
 class MockGetThreadUseCase extends Mock implements GetThreadUseCase {}
-
-/// Socket double that behaves like the backend for sends: a failed send is
-/// reported as an 'error' event and then in the acknowledgement.
-class FakeSocketService extends SocketService {
-  final Map<String, List<Function(Map<String, dynamic>)>> listeners = {};
-  final List<SendMessageResult> sendResults = [];
-  final List<String> sentTexts = [];
-  int forcedJoins = 0;
-
-  /// Runs while a send waits for its acknowledgement.
-  void Function()? duringSend;
-
-  void emit(String event, Map<String, dynamic> data) {
-    for (final listener in List.of(listeners[event] ?? const [])) {
-      listener(data);
-    }
-  }
-
-  @override
-  dynamic addListener(String event, Function(Map<String, dynamic>) callback) {
-    listeners.putIfAbsent(event, () => []).add(callback);
-    return callback;
-  }
-
-  @override
-  void removeListener(String event, dynamic handler) {
-    listeners[event]?.remove(handler);
-  }
-
-  @override
-  Future<void> joinRoom(Room room, {bool force = false}) async {
-    if (!force) return;
-    forcedJoins++;
-    emit('room_joined', {
-      'room': {'id': room.id, 'name': room.name},
-      'messages': const [],
-      'pagination': {'hasMore': false},
-    });
-  }
-
-  @override
-  Future<SendMessageResult> sendMessage(
-    String text, {
-    String? parentMessageId,
-  }) async {
-    sentTexts.add(text);
-    duringSend?.call();
-    final result = sendResults.removeAt(0);
-    final error = result.error;
-    if (error != null) {
-      emit('error', {
-        'error': {'code': error.code, 'message': error.message},
-      });
-    }
-    return result;
-  }
-}
 
 SendMessageResult _failed(String code, String message) {
   return SendMessageResult.failed(
@@ -312,12 +257,12 @@ void main() {
       expect(withoutBlockedAuthors(messages, const {}), messages);
     });
 
-    test('the blocked set resets when the session changes', () {
+    test('the blocked set resets when the user signs out', () {
       container.read(sessionBlockedUserIdsProvider.notifier).state = {
         'user-2',
       };
 
-      container.read(sessionVersionProvider.notifier).state++;
+      container.read(tokenProvider.notifier).state = null;
 
       expect(container.read(sessionBlockedUserIdsProvider), isEmpty);
     });

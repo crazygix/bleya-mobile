@@ -33,6 +33,17 @@ class JwtUtils {
     return base64;
   }
 
+  /// The id of the user a JWT was issued to (`userId`, or the standard `sub`
+  /// claim). Returns null if the token can't be decoded or names no user.
+  static String? userIdOf(String token) {
+    final decoded = decodeToken(token);
+    if (decoded == null) return null;
+
+    final userId = (decoded['userId'] ?? decoded['sub'])?.toString();
+    if (userId == null || userId.isEmpty) return null;
+    return userId;
+  }
+
   /// Checks if a JWT token is expired or will expire soon
   /// Returns true if token is expired or will expire within [bufferMinutes]
   static bool isTokenExpiredOrExpiringSoon(String token,

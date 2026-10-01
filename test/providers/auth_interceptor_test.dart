@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
 
 import 'package:bleya/domain/repositories/auth_repository.dart';
 import 'package:bleya/providers/auth_providers.dart';
@@ -13,6 +12,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../fakes/fake_http_adapter.dart';
 import '../fakes/in_memory_secure_storage.dart';
 
 class MockSocketService extends Mock implements SocketService {}
@@ -20,47 +20,6 @@ class MockSocketService extends Mock implements SocketService {}
 class MockAuthRepository extends Mock implements AuthRepository {}
 
 class MockPushMessagingService extends Mock implements PushMessagingService {}
-
-typedef _Handler = Future<ResponseBody> Function(RequestOptions options);
-
-/// Answers requests from [handler] instead of the network.
-class _FakeAdapter implements HttpClientAdapter {
-  _FakeAdapter(this.handler);
-
-  final _Handler handler;
-  final List<RequestOptions> requests = [];
-
-  int callsTo(String path) => requests.where((r) => r.path == path).length;
-
-  @override
-  Future<ResponseBody> fetch(
-    RequestOptions options,
-    Stream<Uint8List>? requestStream,
-    Future<void>? cancelFuture,
-  ) {
-    requests.add(options);
-    return handler(options);
-  }
-
-  @override
-  void close({bool force = false}) {}
-}
-
-ResponseBody _json(int statusCode, Object body) {
-  return ResponseBody.fromString(
-    jsonEncode(body),
-    statusCode,
-    headers: {
-      Headers.contentTypeHeader: [Headers.jsonContentType],
-    },
-  );
-}
-
-ResponseBody _apiError(int statusCode, String code, String message) {
-  return _json(statusCode, {
-    'error': {'code': code, 'message': message},
-  });
-}
 
 String _jwt({required Duration expiresIn}) {
   String encode(Map<String, dynamic> part) =>
@@ -100,9 +59,9 @@ void main() {
     await storageDir.delete(recursive: true);
   });
 
-  ({ProviderContainer container, Dio dio, _FakeAdapter adapter}) setUpDio({
+  ({ProviderContainer container, Dio dio, FakeHttpAdapter adapter}) setUpDio({
     required String token,
-    required _Handler handler,
+    required FakeHttpHandler handler,
   }) {
     final container = ProviderContainer(
       overrides: [
@@ -116,7 +75,7 @@ void main() {
     );
     addTearDown(container.dispose);
 
-    final adapter = _FakeAdapter(handler);
+    final adapter = FakeHttpAdapter(handler);
     final dio = container.read(dioProvider)..httpClientAdapter = adapter;
     return (container: container, dio: dio, adapter: adapter);
   }
@@ -128,8 +87,8 @@ void main() {
     return (options) async {
       if (options.path == '/auth/refresh') return refreshResponse();
       final auth = options.headers['Authorization'];
-      if (auth == 'Bearer $freshToken') return _json(200, {'ok': true});
-      return _apiError(401, 'UNAUTHORIZED', 'Invalid token');
+      if (auth == 'Bearer $freshToken') return jsonResponse(200, {'ok': true});
+      return apiErrorResponse(401, 'UNAUTHORIZED', 'Invalid token');
     };
   }
 
@@ -143,7 +102,7 @@ void main() {
         final setup = setUpDio(
           token: validToken,
           handler: expiredSession(
-            () async => _apiError(status, 'ERROR', 'Try again later'),
+            () async => apiErrorResponse(status, 'ERROR', 'Try again later'),
           ),
         );
 
@@ -162,13 +121,9 @@ void main() {
         token: validToken,
         handler: (options) async {
           if (options.path == '/auth/refresh') {
-            throw DioException(
-              requestOptions: options,
-              type: DioExceptionType.connectionError,
-              error: const SocketException('offline'),
-            );
+            throw connectionError(options);
           }
-          return _apiError(401, 'UNAUTHORIZED', 'Invalid token');
+          return apiErrorResponse(401, 'UNAUTHORIZED', 'Invalid token');
         },
       );
 
@@ -188,7 +143,7 @@ void main() {
       final setup = setUpDio(
         token: validToken,
         handler: expiredSession(
-          () async => _apiError(
+          () async => apiErrorResponse(
             403,
             'USER_BLOCKED',
             'This account has been banned.',
@@ -213,7 +168,8 @@ void main() {
       final setup = setUpDio(
         token: validToken,
         handler: expiredSession(
-          () async => _apiError(401, 'UNAUTHORIZED', 'Invalid refresh token'),
+          () async =>
+              apiErrorResponse(401, 'UNAUTHORIZED', 'Invalid refresh token'),
         ),
       );
 
@@ -231,9 +187,10 @@ void main() {
         token: expiredToken,
         handler: (options) async {
           if (options.path == '/auth/refresh') {
-            return _apiError(403, 'USER_BLOCKED', 'Suspended until Monday.');
+            return apiErrorResponse(
+                403, 'USER_BLOCKED', 'Suspended until Monday.');
           }
-          return _json(200, {'ok': true});
+          return jsonResponse(200, {'ok': true});
         },
       );
 
@@ -255,7 +212,8 @@ void main() {
     test('retries the request once with the new token', () async {
       final setup = setUpDio(
         token: validToken,
-        handler: expiredSession(() async => _json(200, {'token': freshToken})),
+        handler: expiredSession(
+            () async => jsonResponse(200, {'token': freshToken})),
       );
 
       final response = await setup.dio.get('/rooms/joined');
@@ -271,7 +229,7 @@ void main() {
         token: validToken,
         handler: expiredSession(() async {
           await Future<void>.delayed(const Duration(milliseconds: 20));
-          return _json(200, {'token': freshToken});
+          return jsonResponse(200, {'token': freshToken});
         }),
       );
 

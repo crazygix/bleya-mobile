@@ -835,12 +835,14 @@ class SocketService {
     addListener('error', callback);
   }
 
-  void onNewNotification(Function(Map<String, dynamic>) callback) {
+  /// Registers [callback] for `new_notification`. Returns the handler to pass
+  /// to [removeListener].
+  dynamic onNewNotification(Function(Map<String, dynamic>) callback) {
     if (kDebugMode) {
       print(
           '📡 SocketService: Registering onNewNotification handler (socket connected: ${_socket?.connected})');
     }
-    addListener('new_notification', (data) {
+    final handler = addListener('new_notification', (data) {
       if (kDebugMode) {
         print(
             '📡 SocketService: onNewNotification handler called with data: $data');
@@ -850,10 +852,15 @@ class SocketService {
     if (kDebugMode) {
       print('✅ SocketService: onNewNotification handler registered');
     }
+    return handler;
   }
 
-  void onNewNotificationEntity(Function(Notification notification) callback) {
-    onNewNotification((data) {
+  /// Like [onNewNotification], with the payload parsed; payloads that can't
+  /// be parsed are skipped. Returns the handler to pass to [removeListener].
+  dynamic onNewNotificationEntity(
+    Function(Notification notification) callback,
+  ) {
+    return onNewNotification((data) {
       final notification = parseNotificationPayload(data);
       if (notification != null) {
         callback(notification);
