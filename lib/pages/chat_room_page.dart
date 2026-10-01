@@ -14,11 +14,13 @@ import '../platform/app_route.dart';
 import '../platform/app_sheet.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
+import '../utils/navigation.dart';
 import '../widgets/report_actions.dart';
 import '../services/socket_service.dart';
 import '../constants/theme.dart';
 import '../utils/time_formatter.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/error_state.dart';
 import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
@@ -55,13 +57,15 @@ class ChatRoomPage extends ConsumerStatefulWidget {
   ConsumerState<ChatRoomPage> createState() => _ChatRoomPageState();
 }
 
-class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
+class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   ProviderSubscription<List<Message>>? _messagesSubscription;
   ProviderSubscription<ChatRoomState>? _chatStateSubscription;
-  StateController<String?>? _openRoomIdController;
-  SocketService? _socketService;
+  late final SocketService _socketService;
+  // This screen's hold on the room: the socket stays in it while this is
+  // the newest chat screen.
+  late final RoomClaim _claim;
   StreamSubscription<String>? _errorSubscription;
   final Map<String, GlobalKey> _messageKeys = {};
   bool _isLoadingMoreTriggered = false;
@@ -71,22 +75,18 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     super.initState();
     // Capture socket service reference immediately for dispose
     _socketService = ref.read(socketServiceProvider);
-    _openRoomIdController = ref.read(currentOpenRoomIdProvider.notifier);
+    // Claim in push order, so the screen on top decides the room.
+    _claim = _socketService.claimRoom(widget.room);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      // Mark this room as currently open.
-      _openRoomIdController?.state = widget.room.id;
-
       // Mark room as read locally and on backend
       ref.read(roomsListProvider.notifier).markRoomAsRead(widget.room.id);
 
-      // Clear any old messages for this room to ensure fresh data
-      ref.read(roomMessagesProvider(widget.room.id).notifier).state = [];
-
-      // Initialize controller - it will automatically set up socket listeners and join room
-      ref.read(chatRoomControllerProvider(widget.room).notifier);
+      // The controller keeps the room's messages live. Another screen for
+      // this room may already be in it, so make sure this one loads.
+      ref.read(chatRoomControllerProvider(widget.room).notifier).ensureLoaded();
 
       // Surface user-facing socket errors (e.g. a content-filter rejection of a
       // message the user just sent).
@@ -183,16 +183,28 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
   }
 
   @override
-  void dispose() {
-    _socketService?.leaveRoom(widget.room.id);
-    final openRoomIdController = _openRoomIdController;
-    if (openRoomIdController?.state == widget.room.id) {
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (openRoomIdController?.state == widget.room.id) {
-          openRoomIdController?.state = null;
-        }
-      });
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
     }
+  }
+
+  // The screen above started closing: this room is on top again.
+  @override
+  void didPopNext() => _socketService.activateClaim(_claim);
+
+  // Closing: hand the socket to the screen below as the pop starts.
+  @override
+  void didPop() => _socketService.releaseClaim(_claim);
+
+  @override
+  void dispose() {
+    appRouteObserver.unsubscribe(this);
+    // Also covers screens removed without a pop (removeRoute,
+    // pushNamedAndRemoveUntil); releasing twice does nothing.
+    _socketService.releaseClaim(_claim);
     _errorSubscription?.cancel();
     _messagesSubscription?.close();
     _chatStateSubscription?.close();
@@ -350,6 +362,30 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
     );
   }
 
+  // Shown while the room has no messages on screen: the skeleton while it
+  // opens, or what went wrong with Try again.
+  Widget _buildChatPlaceholder(ChatRoomState chatState) {
+    final joinError = chatState.joinError;
+    if (joinError == null) {
+      return _buildChatLoadingSkeleton();
+    }
+    // Scrolls when the keyboard leaves little room above the input.
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: ErrorState(
+            title: "Couldn't open this chat",
+            description: joinError,
+            onRetry: ref
+                .read(chatRoomControllerProvider(widget.room).notifier)
+                .retryJoin,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatRoomControllerProvider(widget.room));
@@ -419,8 +455,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> {
                 ),
               ),
               Expanded(
-                child: messages.isEmpty && chatState.isInitialLoading
-                    ? _buildChatLoadingSkeleton()
+                child: messages.isEmpty &&
+                        (chatState.isInitialLoading ||
+                            chatState.joinError != null)
+                    ? _buildChatPlaceholder(chatState)
                     : messages.isEmpty
                         ? const _EmptyRoomState()
                         : ListView.builder(

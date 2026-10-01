@@ -50,14 +50,6 @@ List<Message> withoutBlockedAuthors(
       .toList();
 }
 
-/// Whether the server says this socket isn't in a room (it lost track of the
-/// room, e.g. after a reconnect). Matched by code; the text is a fallback for
-/// older backends.
-bool isNotInRoomError(SocketErrorData error) {
-  return error.code == SocketService.notInRoomCode ||
-      error.message.contains('Not in a room');
-}
-
 Message _withReplyCount(Message message, int replyCount) {
   return Message(
     id: message.id,
@@ -80,9 +72,13 @@ class ChatRoomState {
   final String? nextCursor;
   final DateTime? lastReadAt;
 
+  /// Why the room couldn't be opened (the server's reason, or a connection
+  /// problem), until it opens.
+  final String? joinError;
+
   // Sentinel used in copyWith so we can distinguish
   // "parameter not provided" from "explicitly set to null".
-  static const Object _noLastReadAtProvided = Object();
+  static const Object _notProvided = Object();
 
   const ChatRoomState({
     required this.isInitialLoading,
@@ -90,6 +86,7 @@ class ChatRoomState {
     required this.hasMore,
     required this.nextCursor,
     required this.lastReadAt,
+    this.joinError,
   });
 
   const ChatRoomState.initial()
@@ -97,114 +94,235 @@ class ChatRoomState {
         isLoadingMore = false,
         hasMore = false,
         nextCursor = null,
-        lastReadAt = null;
+        lastReadAt = null,
+        joinError = null;
 
   ChatRoomState copyWith({
     bool? isInitialLoading,
     bool? isLoadingMore,
     bool? hasMore,
-    String? nextCursor,
-    Object? lastReadAt = _noLastReadAtProvided,
+    Object? nextCursor = _notProvided,
+    Object? lastReadAt = _notProvided,
+    Object? joinError = _notProvided,
   }) {
     return ChatRoomState(
       isInitialLoading: isInitialLoading ?? this.isInitialLoading,
       isLoadingMore: isLoadingMore ?? this.isLoadingMore,
       hasMore: hasMore ?? this.hasMore,
-      nextCursor: nextCursor ?? this.nextCursor,
-      lastReadAt: identical(lastReadAt, _noLastReadAtProvided)
+      nextCursor: identical(nextCursor, _notProvided)
+          ? this.nextCursor
+          : nextCursor as String?,
+      lastReadAt: identical(lastReadAt, _notProvided)
           ? this.lastReadAt
           : lastReadAt as DateTime?,
+      joinError: identical(joinError, _notProvided)
+          ? this.joinError
+          : joinError as String?,
     );
   }
 }
 
-// ThreadController manages thread state and real-time updates
+/// Orders messages as the server pages them: by time, then by id.
+int _compareMessageOrder(Message a, Message b) {
+  final byTime = a.createdAt.compareTo(b.createdAt);
+  return byTime != 0 ? byTime : a.id.compareTo(b.id);
+}
+
+/// Merges [latest], the newest page of a room as room_joined sends it, into
+/// the [loaded] messages (both oldest first) and their paging state.
+///
+/// The page is authoritative from its oldest message on, so messages removed
+/// or blocked meanwhile drop out. Where the page reaches back to what's
+/// loaded, the older messages and their cursor stay. Where there may be a
+/// gap between them, or the page is the whole room, the page replaces the
+/// list.
+RoomMessagesPage mergeLatestPage(
+  RoomMessagesPage loaded,
+  RoomMessagesPage latest,
+) {
+  if (loaded.messages.isEmpty ||
+      latest.messages.isEmpty ||
+      !latest.hasMore ||
+      _compareMessageOrder(latest.messages.first, loaded.messages.last) > 0) {
+    return latest;
+  }
+
+  final windowStart = latest.messages.first;
+  final older = loaded.messages
+      .where((message) => _compareMessageOrder(message, windowStart) < 0)
+      .toList();
+  if (older.isEmpty) {
+    return latest;
+  }
+  return RoomMessagesPage(
+    messages: [...older, ...latest.messages],
+    hasMore: loaded.hasMore,
+    nextCursor: loaded.nextCursor,
+  );
+}
+
+/// A thread's parent and replies, kept live from the socket. It listens
+/// before its first fetch, and fetches again whenever the socket joins the
+/// thread's room again, since replies sent while the socket was away never
+/// arrive as events.
 class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
   final Ref ref;
   final String messageId;
   final SocketService socketService;
-  bool _isInitialized = false;
-  dynamic _socketHandler;
+  dynamic _newMessageHandler;
   dynamic _removedHandler;
+  dynamic _roomJoinedHandler;
+
+  bool _isFetching = false;
+  bool _refetchQueued = false;
+  // Replies and removals that arrive while a fetch runs, applied to its
+  // result: the server may have answered before or after them.
+  final Map<String, Message> _repliesDuringFetch = {};
+  final Set<String> _removedDuringFetch = {};
+  // Rooms joined during the first fetch, before the thread's room is known.
+  final Set<String> _roomsJoinedDuringFirstFetch = {};
 
   ThreadController(this.ref, this.messageId, this.socketService)
       : super(const AsyncValue.loading()) {
-    _initialize();
+    _newMessageHandler =
+        socketService.addListener('new_message', _onNewMessage);
+    _removedHandler =
+        socketService.addListener('message_removed', _onMessageRemoved);
+    _roomJoinedHandler =
+        socketService.addListener('room_joined', _onRoomJoined);
+    _fetch();
   }
 
-  Future<void> _initialize() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
+  Future<void> _fetch() async {
+    if (_isFetching) {
+      _refetchQueued = true;
+      return;
+    }
+    _isFetching = true;
+    _repliesDuringFetch.clear();
+    _removedDuringFetch.clear();
 
     try {
       final getThreadUseCase = ref.read(getThreadUseCaseProvider);
       final threadData = await getThreadUseCase(messageId);
       if (!mounted) return;
-      state = AsyncValue.data(threadData);
 
-      // Listen to socket events for new replies
-      _socketHandler = socketService.addListener('new_message', (data) {
-        final message = socketService.parseMessagePayload(data);
-        if (message == null || message.parentMessageId != messageId) {
-          return;
-        }
+      final replies = threadData.replies
+          .where((reply) => !_removedDuringFetch.contains(reply.id))
+          .toList();
+      final fetchedIds = replies.map((reply) => reply.id).toSet();
+      replies.addAll(
+        _repliesDuringFetch.values
+            .where((reply) => !fetchedIds.contains(reply.id)),
+      );
 
-        final currentState = state.value;
-        if (currentState == null) return;
-
-        // Check if reply already exists (avoid duplicates)
-        final alreadyExists =
-            currentState.replies.any((existing) => existing.id == message.id);
-        if (alreadyExists) return;
-
-        state = AsyncValue.data(
-          ThreadData(
-            parentMessage: currentState.parentMessage,
-            replies: [...currentState.replies, message],
-          ),
-        );
-      });
-
-      // Moderation: drop a removed reply, or close the thread if its parent
-      // message was removed.
-      _removedHandler = socketService.addListener('message_removed', (data) {
-        final removedId = data['messageId']?.toString();
-        if (removedId == null) return;
-
-        if (removedId == messageId) {
-          ref.read(threadParentRemovedProvider(messageId).notifier).state =
-              true;
-          return;
-        }
-
-        final currentState = state.value;
-        if (currentState == null) return;
-
-        final filtered =
-            currentState.replies.where((r) => r.id != removedId).toList();
-        if (filtered.length != currentState.replies.length) {
-          state = AsyncValue.data(
-            ThreadData(
-              parentMessage: currentState.parentMessage,
-              replies: filtered,
-            ),
-          );
-        }
-      });
+      final isFirstFetch = !state.hasValue;
+      state = AsyncValue.data(
+        ThreadData(parentMessage: threadData.parentMessage, replies: replies),
+      );
+      if (isFirstFetch &&
+          _roomsJoinedDuringFirstFetch
+              .contains(threadData.parentMessage.roomId)) {
+        // The room was joined while the thread loaded: replies sent before
+        // the join may have missed both the fetch and the socket.
+        _refetchQueued = true;
+      }
     } catch (e, stack) {
       if (!mounted) return;
-      state = AsyncValue.error(e, stack);
+      // A failed refetch keeps the replies on screen.
+      if (!state.hasValue) {
+        state = AsyncValue.error(e, stack);
+      }
+    } finally {
+      _isFetching = false;
+      _repliesDuringFetch.clear();
+      _removedDuringFetch.clear();
+      _roomsJoinedDuringFirstFetch.clear();
+      if (_refetchQueued && mounted) {
+        _refetchQueued = false;
+        unawaited(_fetch());
+      }
+    }
+  }
+
+  void _onNewMessage(Map<String, dynamic> data) {
+    final message = socketService.parseMessagePayload(data);
+    if (message == null || message.parentMessageId != messageId) {
+      return;
+    }
+    if (_isFetching) {
+      _repliesDuringFetch[message.id] = message;
+    }
+
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    // Check if reply already exists (avoid duplicates)
+    final alreadyExists =
+        currentState.replies.any((existing) => existing.id == message.id);
+    if (alreadyExists) return;
+
+    state = AsyncValue.data(
+      ThreadData(
+        parentMessage: currentState.parentMessage,
+        replies: [...currentState.replies, message],
+      ),
+    );
+  }
+
+  // Moderation: drop a removed reply, or close the thread if its parent
+  // message was removed.
+  void _onMessageRemoved(Map<String, dynamic> data) {
+    final removedId = data['messageId']?.toString();
+    if (removedId == null) return;
+
+    if (removedId == messageId) {
+      ref.read(threadParentRemovedProvider(messageId).notifier).state = true;
+      return;
+    }
+
+    if (_isFetching) {
+      _removedDuringFetch.add(removedId);
+      _repliesDuringFetch.remove(removedId);
+    }
+
+    final currentState = state.valueOrNull;
+    if (currentState == null) return;
+
+    final filtered =
+        currentState.replies.where((r) => r.id != removedId).toList();
+    if (filtered.length != currentState.replies.length) {
+      state = AsyncValue.data(
+        ThreadData(
+          parentMessage: currentState.parentMessage,
+          replies: filtered,
+        ),
+      );
+    }
+  }
+
+  void _onRoomJoined(Map<String, dynamic> data) {
+    final rawRoom = data['room'];
+    final roomId = rawRoom is Map ? rawRoom['id']?.toString() : null;
+    if (roomId == null) return;
+
+    final currentState = state.valueOrNull;
+    if (currentState == null) {
+      if (_isFetching) {
+        _roomsJoinedDuringFirstFetch.add(roomId);
+      }
+      return;
+    }
+    if (roomId == currentState.parentMessage.roomId) {
+      unawaited(_fetch());
     }
   }
 
   @override
   void dispose() {
-    if (_socketHandler != null) {
-      socketService.removeListener('new_message', _socketHandler);
-    }
-    if (_removedHandler != null) {
-      socketService.removeListener('message_removed', _removedHandler);
-    }
+    socketService.removeListener('new_message', _newMessageHandler);
+    socketService.removeListener('message_removed', _removedHandler);
+    socketService.removeListener('room_joined', _roomJoinedHandler);
     super.dispose();
   }
 }
@@ -218,14 +336,17 @@ final threadMessagesProvider = StateNotifierProvider.autoDispose
   },
 );
 
-// ChatRoomController manages socket listeners, pagination, and room operations
+/// A chat room's messages, paging and live updates. Which room the socket is
+/// in is up to the screens' claims in [SocketService]; this controller only
+/// listens.
 class ChatRoomController extends StateNotifier<ChatRoomState> {
-  static const _rejoinTimeout = Duration(seconds: 5);
+  // Shown when a room_joined for this room can't be read.
+  static const _unreadableRoomMessage =
+      "We couldn't open that chat. Please try again.";
 
   final Ref ref;
   final Room room;
   final SocketService socketService;
-  bool _isInitialized = false;
   bool _disposed = false;
 
   // Store handler references returned from socketService so we can remove only our specific listeners
@@ -233,6 +354,7 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   dynamic _newMessageHandler;
   dynamic _messageRemovedHandler;
   dynamic _errorHandler;
+  StreamSubscription<RoomJoinFailure>? _joinFailureSubscription;
 
   // Surfaces user-facing socket errors that aren't about a send (those are
   // returned by sendMessage) to the page, which shows them as a toast.
@@ -247,56 +369,16 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   int _pendingSends = 0;
   final List<SocketErrorData> _heldErrors = [];
 
-  Completer<void>? _roomJoined;
-
   ChatRoomController(this.ref, this.room, this.socketService)
       : super(const ChatRoomState.initial()) {
-    _initialize();
+    _setupSocketListeners();
   }
 
   String get roomId => room.id;
 
-  void _initialize() {
-    if (_isInitialized) {
-      // If already initialized, check if we need to rejoin the room
-      // This handles the case where we navigate back to a room we were previously in
-      _joinRoom();
-      return;
-    }
-    _isInitialized = true;
-
-    _setupSocketListeners();
-    _joinRoom();
-  }
-
   void _setupSocketListeners() {
-    // Register room_joined listener and store handler reference
-    _roomJoinedHandler = socketService.addListener('room_joined', (data) {
-      // Ignore events if this controller has been disposed
-      if (_disposed) return;
-
-      final joinedData = socketService.parseRoomJoinedPayload(data);
-      if (joinedData == null || joinedData.room.id != roomId) {
-        return;
-      }
-
-      // Confirm room join in socket service
-      socketService.onRoomJoinedConfirmed(joinedData.room);
-      ref.read(roomMessagesProvider(roomId).notifier).state =
-          joinedData.messages;
-
-      state = state.copyWith(
-        isInitialLoading: false,
-        hasMore: joinedData.hasMore,
-        nextCursor: joinedData.nextCursor,
-        lastReadAt: joinedData.lastReadAt,
-      );
-
-      final joined = _roomJoined;
-      if (joined != null && !joined.isCompleted) {
-        joined.complete();
-      }
-    });
+    _roomJoinedHandler =
+        socketService.addListener('room_joined', _onRoomJoined);
 
     // Register new_message listener and store handler reference
     _newMessageHandler = socketService.addListener('new_message', (data) {
@@ -321,6 +403,10 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
 
         ref.read(roomMessagesProvider(roomId).notifier).state = updatedMessages;
       } else {
+        // Already listed, e.g. in the page room_joined brought just before.
+        if (currentMessages.any((existing) => existing.id == message.id)) {
+          return;
+        }
         // Regular top-level message - add it to the list
         ref.read(roomMessagesProvider(roomId).notifier).state = [
           ...currentMessages,
@@ -373,58 +459,116 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       }
       _handleSocketError(socketError);
     });
+
+    _joinFailureSubscription =
+        socketService.joinFailures.listen(_onJoinFailure);
+  }
+
+  void _onRoomJoined(Map<String, dynamic> data) {
+    // Ignore events if this controller has been disposed
+    if (_disposed) return;
+
+    final joinedData = socketService.parseRoomJoinedPayload(data);
+    if (joinedData == null) {
+      // A page for this room that can't be read would leave the chat
+      // loading forever: show the error state instead.
+      final rawRoom = data['room'];
+      if (rawRoom is Map && rawRoom['id']?.toString() == roomId) {
+        state = state.copyWith(
+          isInitialLoading: false,
+          joinError: _unreadableRoomMessage,
+        );
+      }
+      return;
+    }
+    if (joinedData.room.id != roomId) return;
+
+    final messages = ref.read(roomMessagesProvider(roomId).notifier);
+    final merged = mergeLatestPage(
+      RoomMessagesPage(
+        messages: messages.state,
+        hasMore: state.hasMore,
+        nextCursor: state.nextCursor,
+      ),
+      RoomMessagesPage(
+        messages: joinedData.messages,
+        hasMore: joinedData.hasMore,
+        nextCursor: joinedData.nextCursor,
+      ),
+    );
+    messages.state = merged.messages;
+
+    state = state.copyWith(
+      isInitialLoading: false,
+      hasMore: merged.hasMore,
+      nextCursor: merged.nextCursor,
+      lastReadAt: joinedData.lastReadAt,
+      joinError: null,
+    );
+  }
+
+  void _onJoinFailure(RoomJoinFailure failure) {
+    if (_disposed || failure.roomId != roomId) return;
+
+    state = state.copyWith(
+      isInitialLoading: false,
+      joinError: failure.error.message,
+    );
+    // With messages on screen the error state doesn't show, so say why the
+    // chat isn't live when the server refused it.
+    if (failure.isRefusal &&
+        ref.read(roomMessagesProvider(roomId)).isNotEmpty) {
+      _showError(failure.error.message);
+    }
   }
 
   void _handleSocketError(SocketErrorData socketError) {
     if (_disposed) return;
 
-    // If "Not in a room" error, try to rejoin
-    if (isNotInRoomError(socketError)) {
-      if (kDebugMode) {
-        print('Attempting to rejoin room...');
-      }
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (!_disposed) _joinRoom(force: true);
-      });
-      return;
-    }
+    // SocketService rejoins the chat on screen by itself.
+    if (SocketService.isNotInRoomError(socketError)) return;
 
+    _showError(socketError.message);
+  }
+
+  void _showError(String message) {
+    // The socket is shared: its errors concern the chat on screen, so a
+    // screen lower in the stack stays quiet.
+    if (socketService.openChat.value.roomId != roomId) return;
     if (!_errorMessages.isClosed) {
-      _errorMessages.add(socketError.message);
+      _errorMessages.add(message);
     }
   }
 
-  void _joinRoom({bool force = false}) {
-    // SocketService already tracks the latest token via socketServiceProvider.
-    // Joining should always use that latest token.
-    socketService.joinRoom(room, force: force);
+  /// Gets the room's messages for a screen that just opened, also when the
+  /// socket is already in the room for another screen.
+  void ensureLoaded() {
+    if (state.isInitialLoading) {
+      socketService.requestRoomSnapshot(room);
+    }
+  }
+
+  /// Tries to open the room again after it failed (Try again).
+  void retryJoin() {
+    state = state.copyWith(isInitialLoading: true, joinError: null);
+    socketService.retryJoin(room);
   }
 
   /// Sends [text] and reports whether the server stored it, so the page can
-  /// keep the draft (and show why) when it didn't.
+  /// keep the draft (and show why) when it didn't. SocketService retries
+  /// once when the room has to be joined again first.
   Future<SendMessageResult> sendMessage(
     String text, {
     String? parentMessageId,
   }) async {
     _pendingSends++;
     try {
-      var result = await socketService.sendMessage(
+      final result = await socketService.sendMessage(
         text,
+        room: room,
         parentMessageId: parentMessageId,
       );
       _dropHeldError(result.error);
-
-      final error = result.error;
-      if (error != null && isNotInRoomError(error) && !_disposed) {
-        // The server lost track of the room: rejoin and try once more.
-        if (await _rejoin()) {
-          result = await socketService.sendMessage(
-            text,
-            parentMessageId: parentMessageId,
-          );
-          _dropHeldError(result.error);
-        }
-      }
       return result;
     } finally {
       _pendingSends--;
@@ -445,32 +589,6 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (index >= 0) {
       _heldErrors.removeAt(index);
     }
-  }
-
-  /// Rejoins the room and waits for the server to confirm. Sends that fail
-  /// at the same time share one rejoin.
-  Future<bool> _rejoin() async {
-    var joined = _roomJoined;
-    if (joined == null) {
-      joined = Completer<void>();
-      _roomJoined = joined;
-      _joinRoom(force: true);
-    }
-    try {
-      await joined.future.timeout(_rejoinTimeout);
-      return true;
-    } on TimeoutException {
-      return false;
-    } finally {
-      if (identical(_roomJoined, joined)) {
-        _roomJoined = null;
-      }
-    }
-  }
-
-  /// Ensure we're in the room - call this when the page becomes visible again
-  void ensureInRoom() {
-    _joinRoom();
   }
 
   /// Load older top-level messages using REST pagination and prepend them.
@@ -496,6 +614,13 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       );
 
       if (_disposed) {
+        return;
+      }
+
+      if (state.nextCursor != currentCursor) {
+        // A room_joined replaced the list meanwhile: this page no longer
+        // joins up with it.
+        state = state.copyWith(isLoadingMore: false);
         return;
       }
 
@@ -552,10 +677,11 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (_errorHandler != null) {
       socketService.removeListener('error', _errorHandler);
     }
+    _joinFailureSubscription?.cancel();
 
     _errorMessages.close();
 
-    // Note: leaveRoom is called by ChatRoomPage.dispose() to avoid double-leaving
+    // The screens release their claims on the room themselves.
     super.dispose();
   }
 }

@@ -15,6 +15,7 @@ import 'providers/auth_providers.dart';
 import 'providers/controller_providers.dart';
 import 'providers/connectivity_provider.dart';
 import 'services/secure_cookie_storage.dart';
+import 'services/socket_service.dart';
 import 'utils/navigation.dart';
 import 'constants/theme.dart';
 import 'platform/app_route.dart';
@@ -57,6 +58,18 @@ void main() async {
   ));
 }
 
+/// Whether [request] is for the chat [openChat] already shows: that room
+/// with no thread open, or that thread. The open screen shows the new
+/// message by itself, so no second screen opens.
+bool isPushForOpenChat(PushNavigationRequest request, OpenChat openChat) {
+  return switch (request) {
+    OpenRoomPushNavigationRequest(:final room) =>
+      openChat.roomId == room.id && openChat.threadId == null,
+    OpenThreadPushNavigationRequest(:final threadContext) =>
+      openChat.threadId == threadContext.parentMessage.id,
+  };
+}
+
 class MyApp extends ConsumerWidget {
   Future<void> _handlePushNavigation(
     WidgetRef ref,
@@ -65,22 +78,25 @@ class MyApp extends ConsumerWidget {
     for (var attempt = 0; attempt < 20; attempt++) {
       final navigator = navigatorKey.currentState;
       if (navigator != null) {
-        switch (request) {
-          case OpenRoomPushNavigationRequest():
-            navigator.push(
-              AppRoute.build(
-                builder: (context) => ChatRoomPage(room: request.room),
-              ),
-            );
-          case OpenThreadPushNavigationRequest():
-            navigator.push(
-              AppRoute.build(
-                builder: (context) => ThreadViewPage(
-                  parentMessage: request.threadContext.parentMessage,
-                  room: request.threadContext.room,
+        final openChat = ref.read(socketServiceProvider).openChat.value;
+        if (!isPushForOpenChat(request, openChat)) {
+          switch (request) {
+            case OpenRoomPushNavigationRequest():
+              navigator.push(
+                AppRoute.build(
+                  builder: (context) => ChatRoomPage(room: request.room),
                 ),
-              ),
-            );
+              );
+            case OpenThreadPushNavigationRequest():
+              navigator.push(
+                AppRoute.build(
+                  builder: (context) => ThreadViewPage(
+                    parentMessage: request.threadContext.parentMessage,
+                    room: request.threadContext.room,
+                  ),
+                ),
+              );
+          }
         }
         ref
             .read(pushNotificationsControllerProvider.notifier)
@@ -114,6 +130,7 @@ class MyApp extends ConsumerWidget {
 
     final materialApp = MaterialApp(
       navigatorKey: navigatorKey,
+      navigatorObservers: [appRouteObserver],
       title: 'Bleya',
       theme: ThemeData(
         brightness: Brightness.light,

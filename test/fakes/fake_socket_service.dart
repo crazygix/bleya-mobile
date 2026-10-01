@@ -4,15 +4,26 @@ import 'package:bleya/domain/entities/room.dart';
 import 'package:bleya/services/socket_service.dart';
 
 /// Socket double that never opens a connection. Tests deliver server events
-/// with [emit].
+/// with [emit] and join failures with [failJoin]. Claims are the real
+/// [SocketService] ones, so [claims] and [openChat] follow the screens, and
+/// a claimed room that isn't joined fails after 10 s as not connected.
 ///
 /// It behaves like the backend for sends: a failed send is reported as an
 /// 'error' event and then in the acknowledgement.
 class FakeSocketService extends SocketService {
+  FakeSocketService() {
+    super.joinFailures.listen(_joinFailures.add);
+  }
+
   final Map<String, List<Function(Map<String, dynamic>)>> listeners = {};
   final List<SendMessageResult> sendResults = [];
   final List<String> sentTexts = [];
-  int forcedJoins = 0;
+  final List<String> sentRoomIds = [];
+  final List<String> activatedRoomIds = [];
+  final List<String> snapshotRequests = [];
+  final List<String> retriedJoins = [];
+  final StreamController<RoomJoinFailure> _joinFailures =
+      StreamController<RoomJoinFailure>.broadcast(sync: true);
 
   /// Runs while a send waits for its acknowledgement.
   void Function()? duringSend;
@@ -29,6 +40,14 @@ class FakeSocketService extends SocketService {
       listener(data);
     }
   }
+
+  /// Reports that [roomId] couldn't be joined.
+  void failJoin(String roomId, SocketErrorData error) {
+    _joinFailures.add(RoomJoinFailure(roomId: roomId, error: error));
+  }
+
+  @override
+  Stream<RoomJoinFailure> get joinFailures => _joinFailures.stream;
 
   @override
   Future<void> ensureConnectedForUserChannel() async {
@@ -47,22 +66,31 @@ class FakeSocketService extends SocketService {
   }
 
   @override
-  Future<void> joinRoom(Room room, {bool force = false}) async {
-    if (!force) return;
-    forcedJoins++;
-    emit('room_joined', {
-      'room': {'id': room.id, 'name': room.name},
-      'messages': const [],
-      'pagination': {'hasMore': false},
-    });
+  void activateClaim(RoomClaim claim) {
+    activatedRoomIds.add(claim.room.id);
+    super.activateClaim(claim);
+  }
+
+  @override
+  void requestRoomSnapshot(Room room) {
+    snapshotRequests.add(room.id);
+    super.requestRoomSnapshot(room);
+  }
+
+  @override
+  void retryJoin(Room room) {
+    retriedJoins.add(room.id);
+    super.retryJoin(room);
   }
 
   @override
   Future<SendMessageResult> sendMessage(
     String text, {
+    required Room room,
     String? parentMessageId,
   }) async {
     sentTexts.add(text);
+    sentRoomIds.add(room.id);
     duringSend?.call();
     final result = sendResults.removeAt(0);
     final error = result.error;

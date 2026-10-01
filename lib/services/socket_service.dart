@@ -52,6 +52,77 @@ class SendMessageResult {
   bool get isSent => error == null;
 }
 
+/// A chat screen's hold on a room: a room screen claims its room, a thread
+/// screen its room and thread. The socket follows the newest claim that is
+/// still held, so screens lower in the stack never pull it away.
+class RoomClaim {
+  RoomClaim._(this.room, this.threadId);
+
+  final Room room;
+
+  /// The thread the screen shows, or null for a room screen.
+  final String? threadId;
+
+  @override
+  String toString() => threadId == null
+      ? 'RoomClaim(${room.id})'
+      : 'RoomClaim(${room.id}, thread $threadId)';
+}
+
+/// The chat on screen, derived from the claims.
+@immutable
+class OpenChat {
+  const OpenChat({this.roomId, this.threadId});
+
+  static const none = OpenChat();
+
+  /// The room whose messages are on screen: a room screen, or a thread opened
+  /// from that room's screen.
+  final String? roomId;
+
+  /// The thread on screen, if a thread screen is on top.
+  final String? threadId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is OpenChat && other.roomId == roomId && other.threadId == threadId;
+
+  @override
+  int get hashCode => Object.hash(roomId, threadId);
+
+  @override
+  String toString() => 'OpenChat(room: $roomId, thread: $threadId)';
+}
+
+/// A chat the socket couldn't join: the server refused it, or it didn't open
+/// in time.
+class RoomJoinFailure {
+  final String roomId;
+  final SocketErrorData error;
+
+  const RoomJoinFailure({required this.roomId, required this.error});
+
+  /// Whether the server refused the join, as opposed to a timeout or a
+  /// missing connection.
+  bool get isRefusal =>
+      error.code != SocketService.joinTimeoutCode &&
+      error.code != SocketService.notConnectedCode;
+}
+
+/// Creates the socket.io socket; tests pass a fake.
+typedef SocketFactory = io.Socket Function(
+  String url,
+  Map<String, dynamic> options,
+);
+
+/// A join_room request waiting for its answer. Compared by identity, so an
+/// answer to an older request for the same room is told apart.
+class _PendingJoin {
+  final String roomId;
+
+  _PendingJoin(this.roomId);
+}
+
 /// Why the server refused or ended the socket's session, as opposed to an
 /// error about a single event (such as a rejected message).
 enum SocketConnectionErrorKind {
@@ -128,19 +199,51 @@ class SocketService {
   static const notInRoomCode = 'NOT_IN_ROOM';
   static const notConnectedCode = 'NOT_CONNECTED';
   static const sendTimeoutCode = 'SEND_TIMEOUT';
+  static const joinTimeoutCode = 'JOIN_TIMEOUT';
 
   static const _connectTimeout = Duration(seconds: 25);
   static const _sendAckTimeout = Duration(seconds: 10);
   // A connection that lasts this long resets the retry backoff.
   static const _stableConnection = Duration(seconds: 30);
+  // A chat that hasn't opened by then shows an error with Try again.
+  static const _joinTimeout = Duration(seconds: 10);
+  // How long a send waits for its chat to be joined again before retrying.
+  static const _rejoinTimeout = Duration(seconds: 5);
 
+  static const _notInRoomMessage =
+      'Not in a room. Reopen the chat and try again.';
+  static const _checkConnectionMessage = 'Check your connection and try again.';
+  static const _notConnectedError = SocketErrorData(
+    code: notConnectedCode,
+    message: "You're not connected right now. Try again in a moment.",
+  );
+
+  SocketService({SocketFactory? socketFactory})
+      : _socketFactory =
+            socketFactory ?? ((url, options) => io.io(url, options));
+
+  final SocketFactory _socketFactory;
   io.Socket? _socket;
-  Room? _currentRoom;
   String? _currentToken;
-  String? _activeThreadId;
-  String? _desiredThreadId;
   bool _authRefreshInFlight = false;
-  Room? _desiredRoom;
+
+  // Room state. Screens hold claims, newest last; the socket follows the
+  // newest one. The joined room is set only by room_joined.
+  final List<RoomClaim> _claims = [];
+  String? _joinedRoomId;
+  _PendingJoin? _pendingJoin;
+  // The thread the server was last told is open in the joined room.
+  String? _openThreadId;
+  // Not joined again until Try again, a reconnect or another claim on top.
+  String? _failedJoinRoomId;
+  Timer? _joinDeadline;
+  bool _syncScheduled = false;
+  bool _openChatUpdateScheduled = false;
+  // Sends waiting for their chat to be joined again, one join per room.
+  final Map<String, Completer<SocketErrorData?>> _joinWaiters = {};
+  final ValueNotifier<OpenChat> _openChat = ValueNotifier(OpenChat.none);
+  final StreamController<RoomJoinFailure> _joinFailures =
+      StreamController<RoomJoinFailure>.broadcast();
 
   /// Whether a screen has asked for the socket. Reconnects only happen while
   /// true; it's cleared when the user signs out.
@@ -173,16 +276,28 @@ class SocketService {
 
   io.Socket? get socket => _socket;
 
+  /// The chat on screen: the newest claim's room and thread. A thread screen
+  /// counts its room as open only when it was opened from that room's screen.
+  /// Updated in a microtask, so listeners never run during a build or a
+  /// dispose.
+  ValueListenable<OpenChat> get openChat => _openChat;
+
+  /// Chats that couldn't be joined: the server's refusal, or no room_joined
+  /// within 10 s (a timeout, or no connection). A failed chat isn't joined
+  /// again until [retryJoin], a reconnect or another claim on top.
+  Stream<RoomJoinFailure> get joinFailures => _joinFailures.stream;
+
+  /// The claims held now, oldest first.
+  @visibleForTesting
+  List<RoomClaim> get claims => List.unmodifiable(_claims);
+
   void setToken(String? token) {
     _currentToken = (token != null && token.isNotEmpty) ? token : null;
     // If token is cleared, disconnect but keep the socket instance (single socket).
     if (_currentToken == null) {
       _stopReconnecting();
       _socket?.disconnect();
-      _currentRoom = null;
-      _desiredRoom = null;
-      _activeThreadId = null;
-      _desiredThreadId = null;
+      _clearRooms();
       return;
     }
     // Ensure we have a socket instance ready; don't auto-join here.
@@ -193,7 +308,7 @@ class SocketService {
   void _ensureSocketInitialized() {
     if (_socket != null) return;
 
-    _socket = io.io(
+    _socket = _socketFactory(
       EnvironmentConfig.socketBaseUrl,
       io.OptionBuilder()
           .setTransports(['websocket'])
@@ -218,15 +333,10 @@ class SocketService {
         _retryAttempt = 0;
       });
       _finishConnectAttempt();
-      // If a room is desired (e.g., screen entered), join it after connect.
-      final desired = _desiredRoom;
-      if (desired != null) {
-        Future.delayed(const Duration(milliseconds: 100), () {
-          if (_socket?.connected == true) {
-            _doJoinRoom(desired);
-          }
-        });
-      }
+      // A new connection is in no room yet. A chat that failed gets another
+      // try, and the newest claim decides which room to join, as it is now.
+      _failedJoinRoomId = null;
+      _scheduleSync();
     });
 
     _socket!.onDisconnect((reason) {
@@ -234,8 +344,12 @@ class SocketService {
         print('Socket disconnected ($reason)');
       }
       _stableConnectionTimer?.cancel();
-      _activeThreadId = null;
-      _currentRoom = null;
+      // The server forgets the room and thread with the connection. A join
+      // still running here keeps its deadline, so the screen can't wait
+      // forever for a connection that doesn't come back.
+      _joinedRoomId = null;
+      _pendingJoin = null;
+      _openThreadId = null;
 
       // socket.io reconnects by itself after network drops, but not when the
       // server ends the connection. That happens on a ban, an expired token,
@@ -252,6 +366,10 @@ class SocketService {
     // event. Note that Socket.onError() listens on the Manager instead, which
     // only reports transport errors.
     _socket!.on('error', _onSocketError);
+
+    // Registered before any screen's listener, so a join is confirmed here
+    // before the screens handle its room_joined.
+    _socket!.on('room_joined', _onRoomJoined);
 
     _socket!.onError((error) {
       if (kDebugMode) {
@@ -307,12 +425,32 @@ class SocketService {
 
   void _onSocketError(dynamic data) {
     final rejection = SocketConnectionError.tryParse(data);
-    if (rejection == null) {
-      // An error about one event (e.g. a rejected message); the screens that
-      // listen for 'error' handle those.
+    if (rejection != null) {
+      _handleConnectionError(rejection);
       return;
     }
-    _handleConnectionError(rejection);
+
+    // Other errors are about one event (e.g. a rejected message); the screens
+    // that listen for 'error' handle those. Only NOT_IN_ROOM concerns the
+    // room itself: the server lost it, so rejoin the newest claim's room. A
+    // screen lower in the stack never pulls the socket back to its room.
+    if (data is Map &&
+        isNotInRoomError(parseErrorPayload(_normalizePayload(data)))) {
+      if (kDebugMode) {
+        print('[Room] Server says not in a room; rejoining the open chat');
+      }
+      _joinedRoomId = null;
+      _openThreadId = null;
+      _sync();
+    }
+  }
+
+  /// Whether [error] says this socket isn't in a room (the server lost track
+  /// of it, e.g. after a reconnect). Matched by code; the text is a fallback
+  /// for older backends.
+  static bool isNotInRoomError(SocketErrorData error) {
+    return error.code == notInRoomCode ||
+        error.message.contains('Not in a room');
   }
 
   void _handleConnectionError(SocketConnectionError error) {
@@ -421,57 +559,381 @@ class SocketService {
 
   void disconnect() {
     _stopReconnecting();
-    if (_currentRoom != null) {
-      leaveRoom();
-    }
     for (final event in _eventHandlers.keys.toList()) {
       for (final handler in _eventHandlers[event]!) {
         _socket?.off(event, handler);
       }
     }
     _eventHandlers.clear();
+    // The server leaves the room and thread with the connection.
     _socket?.disconnect();
     _socket = null;
-    _currentRoom = null;
-    _desiredRoom = null;
-    _activeThreadId = null;
-    _desiredThreadId = null;
+    _clearRooms();
     _currentToken = null;
   }
 
-  /// Joins [room] once connected. With [force], joins again even if the app
-  /// thinks it's already in the room (the server says it isn't).
-  Future<void> joinRoom(Room room, {bool force = false}) async {
-    _desiredRoom = room;
-    if (force) {
-      if (_currentRoom?.id == room.id) {
-        _currentRoom = null;
+  /// Signing out ends every claim, so no screen keeps the next session's
+  /// socket in a room.
+  void _clearRooms() {
+    _claims.clear();
+    _joinedRoomId = null;
+    _pendingJoin = null;
+    _openThreadId = null;
+    _failedJoinRoomId = null;
+    _joinDeadline?.cancel();
+    _joinDeadline = null;
+    final waiters = List.of(_joinWaiters.values);
+    _joinWaiters.clear();
+    for (final waiter in waiters) {
+      if (!waiter.isCompleted) {
+        waiter.complete(_notConnectedError);
       }
-      // Joining resets the server's open thread; send it again after the join.
-      _activeThreadId = null;
     }
+    _scheduleOpenChatUpdate();
+  }
 
-    if (_currentToken == null || _currentToken!.isEmpty) {
-      if (kDebugMode) {
-        print('No token available, cannot join room');
-      }
+  /// Holds [room] for a screen that just opened; a thread screen also passes
+  /// its [threadId]. The socket joins the newest claim still held. Pass the
+  /// result to [activateClaim] when the screen is back on top, and to
+  /// [releaseClaim] when it closes.
+  RoomClaim claimRoom(Room room, {String? threadId}) {
+    final trimmedThreadId = threadId?.trim();
+    final claim = RoomClaim._(
+      room,
+      trimmedThreadId == null || trimmedThreadId.isEmpty
+          ? null
+          : trimmedThreadId,
+    );
+    _updateClaims(() => _claims.add(claim));
+    _connectForClaims();
+    return claim;
+  }
+
+  /// Makes [claim] the newest again, when its screen is back on top. A
+  /// released claim stays released.
+  void activateClaim(RoomClaim claim) {
+    if (!_claims.contains(claim) || identical(_claims.last, claim)) return;
+    _updateClaims(() {
+      _claims.remove(claim);
+      _claims.add(claim);
+    });
+    _connectForClaims();
+  }
+
+  /// Ends [claim]; the socket falls back to the newest claim left, and leaves
+  /// the room when none is left. Releasing twice does nothing.
+  void releaseClaim(RoomClaim claim) {
+    if (!_claims.contains(claim)) return;
+    _updateClaims(() => _claims.remove(claim));
+  }
+
+  /// Ends every claim on [roomId], e.g. after the user left that room, so a
+  /// reconnect can't join it again before its screens close.
+  void releaseRoom(String roomId) {
+    if (!_claims.any((claim) => claim.room.id == roomId)) return;
+    _updateClaims(
+      () => _claims.removeWhere((claim) => claim.room.id == roomId),
+    );
+  }
+
+  /// Gets [room]'s messages for a screen that just opened while the socket
+  /// is already in that room for another screen: it asks the server for the
+  /// room again, so the screen gets its own room_joined.
+  void requestRoomSnapshot(Room room) {
+    if (_target?.room.id != room.id ||
+        _joinedRoomId != room.id ||
+        _pendingJoin != null) {
+      // Not on top, or a room_joined is on its way anyway.
       return;
     }
+    _joinedRoomId = null;
+    _openThreadId = null;
+    _scheduleSync();
+  }
 
+  /// Tries [room] again after its join failed (Try again on the chat).
+  void retryJoin(Room room) {
+    if (_failedJoinRoomId == room.id) {
+      _failedJoinRoomId = null;
+    }
+    if (_target?.room.id != room.id) return;
+    if (_joinedRoomId == room.id && _pendingJoin == null) {
+      // Already in the room: ask for a fresh room_joined.
+      _joinedRoomId = null;
+      _openThreadId = null;
+    }
+    _restartJoinDeadline();
+    _connectForClaims();
+    _scheduleSync();
+  }
+
+  RoomClaim? get _target => _claims.isEmpty ? null : _claims.last;
+
+  void _updateClaims(void Function() change) {
+    final previousTarget = _target;
+    change();
+    if (!identical(_target, previousTarget)) {
+      // Another screen is on top: its room may be tried again, with a fresh
+      // deadline.
+      _failedJoinRoomId = null;
+      _restartJoinDeadline();
+    }
+    _scheduleSync();
+    _scheduleOpenChatUpdate();
+  }
+
+  /// Starts connecting for the claims, if signed in. Once connected, [_sync]
+  /// joins the newest claim.
+  void _connectForClaims() {
+    final token = _currentToken;
+    if (token == null || token.isEmpty) return;
     _wantsConnection = true;
     _ensureSocketInitialized();
-    try {
-      await _ensureConnected();
-    } catch (e) {
-      // onConnect joins the desired room once a retry gets through.
+    if (_socket?.connected == true) return;
+    unawaited(_ensureConnected().catchError((Object error) {
+      // A reconnect, a refresh or Try again takes it from here.
       if (kDebugMode) {
-        print('Socket not connected, will join ${room.id} later: $e');
+        print('Socket not connected, will join the open chat later: $error');
+      }
+    }));
+  }
+
+  /// Runs [_sync] once after the current change, so claims that change
+  /// together (a screen closing as the one below comes back) send one join.
+  void _scheduleSync() {
+    if (_syncScheduled) return;
+    _syncScheduled = true;
+    scheduleMicrotask(() {
+      _syncScheduled = false;
+      _sync();
+    });
+  }
+
+  /// Moves the server to the newest claim, as the claims are when it runs:
+  /// join its room, then open or close its thread once that room is
+  /// confirmed, or leave when no claim is left. Does nothing while
+  /// disconnected, so nothing is queued to be sent late; connecting runs it
+  /// again.
+  void _sync() {
+    final socket = _socket;
+    if (socket == null || socket.connected != true) return;
+
+    final target = _target;
+    if (target == null) {
+      if (_joinedRoomId != null || _pendingJoin != null) {
+        _leaveRoom();
       }
       return;
     }
 
-    // If we are connected, attempt join.
-    _doJoinRoom(room);
+    final roomId = target.room.id;
+    final pending = _pendingJoin;
+    if (pending != null) {
+      // Wait for the join that's on its way. If it's for another room, ask
+      // for this one instead: the server answers the latest request.
+      if (pending.roomId != roomId && _failedJoinRoomId != roomId) {
+        _emitJoin(target.room);
+      }
+      return;
+    }
+    if (_joinedRoomId != roomId) {
+      if (_failedJoinRoomId != roomId) {
+        _emitJoin(target.room);
+      } else if (_joinedRoomId != null) {
+        // The chat on top couldn't be joined. Don't stay behind in another
+        // room, whose pushes would stay muted.
+        _leaveRoom();
+      }
+      return;
+    }
+
+    // In the right room: open or close the thread to match.
+    final threadId = target.threadId;
+    if (threadId == _openThreadId) return;
+    if (threadId == null) {
+      socket.emit('close_thread');
+    } else {
+      socket.emit('open_thread', {'threadId': threadId});
+    }
+    _openThreadId = threadId;
+  }
+
+  void _emitJoin(Room room) {
+    final request = _PendingJoin(room.id);
+    _pendingJoin = request;
+    _armJoinDeadline();
+    if (kDebugMode) {
+      print('[Room] Joining $room');
+    }
+    _socket!.emitWithAck(
+      'join_room',
+      {'roomId': room.id},
+      ack: ([dynamic response]) => _onJoinAck(request, response),
+    );
+  }
+
+  /// The server's answer to a join_room: `{ok: true}` after room_joined,
+  /// `{ok: false, error}` when refused, or `{ok: false, superseded: true}`
+  /// when a newer request replaced it. Older backends never answer.
+  void _onJoinAck(_PendingJoin request, dynamic response) {
+    // Only the latest join counts; answers to older ones are ignored.
+    if (!identical(_pendingJoin, request)) return;
+    final payload =
+        response is List && response.isNotEmpty ? response.first : response;
+    if (payload is! Map ||
+        payload['ok'] == true ||
+        payload['superseded'] == true) {
+      return;
+    }
+    _failJoin(
+      request.roomId,
+      parseErrorPayload(Map<String, dynamic>.from(payload)),
+    );
+  }
+
+  void _onRoomJoined(dynamic data) {
+    final rawRoom = data is Map ? data['room'] : null;
+    final roomId = rawRoom is Map ? rawRoom['id']?.toString() : null;
+    if (roomId == null || roomId.isEmpty) return;
+
+    if (kDebugMode) {
+      print('[Room] Joined $roomId');
+    }
+    _joinedRoomId = roomId;
+    // Joining closes the thread on the server.
+    _openThreadId = null;
+    if (_pendingJoin?.roomId == roomId) {
+      _pendingJoin = null;
+    }
+    if (_failedJoinRoomId == roomId) {
+      _failedJoinRoomId = null;
+    }
+    if (_target?.room.id == roomId) {
+      _joinDeadline?.cancel();
+      _joinDeadline = null;
+    }
+    _completeJoinWaiter(roomId, null);
+    // Open the thread on top, or join another room if this one isn't on top
+    // any more (an older join that finished late).
+    _sync();
+  }
+
+  void _failJoin(String roomId, SocketErrorData error) {
+    if (kDebugMode) {
+      print("[Room] Couldn't join $roomId: ${error.message}");
+    }
+    _failedJoinRoomId = roomId;
+    if (_pendingJoin?.roomId == roomId) {
+      _pendingJoin = null;
+    }
+    if (_target?.room.id == roomId) {
+      _joinDeadline?.cancel();
+      _joinDeadline = null;
+    }
+    _completeJoinWaiter(roomId, error);
+    _joinFailures.add(RoomJoinFailure(roomId: roomId, error: error));
+    _sync();
+  }
+
+  void _leaveRoom() {
+    if (kDebugMode) {
+      print('[Room] Leaving ${_joinedRoomId ?? _pendingJoin?.roomId}');
+    }
+    _socket?.emit('leave_room');
+    _joinedRoomId = null;
+    _pendingJoin = null;
+    _openThreadId = null;
+  }
+
+  void _restartJoinDeadline() {
+    _joinDeadline?.cancel();
+    _joinDeadline = null;
+    _armJoinDeadline();
+  }
+
+  /// Gives the newest claim's room [_joinTimeout] to be joined, unless a
+  /// deadline is already running for it.
+  void _armJoinDeadline() {
+    if (_joinDeadline != null) return;
+    final target = _target;
+    if (target == null ||
+        target.room.id == _joinedRoomId ||
+        target.room.id == _failedJoinRoomId) {
+      return;
+    }
+    _joinDeadline = Timer(_joinTimeout, _onJoinDeadline);
+  }
+
+  void _onJoinDeadline() {
+    _joinDeadline = null;
+    final target = _target;
+    if (target == null || target.room.id == _joinedRoomId) return;
+    final connected = _socket?.connected == true;
+    _failJoin(
+      target.room.id,
+      SocketErrorData(
+        code: connected ? joinTimeoutCode : notConnectedCode,
+        message: _checkConnectionMessage,
+      ),
+    );
+  }
+
+  /// Waits for [room] to be joined again, sharing one join among the sends
+  /// that need it. Completes with null once joined, or with the join's error.
+  Future<SocketErrorData?> _waitForRejoin(Room room) {
+    final waiter = _joinWaiters.putIfAbsent(room.id, () {
+      // The first send to notice asks for the room again, even if this side
+      // thought the socket was in it.
+      if (_joinedRoomId == room.id) {
+        _joinedRoomId = null;
+        _openThreadId = null;
+      }
+      return Completer<SocketErrorData?>();
+    });
+    if (_pendingJoin?.roomId != room.id) {
+      // Sending is like Try again for a chat whose join failed.
+      if (_failedJoinRoomId == room.id) {
+        _failedJoinRoomId = null;
+      }
+      _scheduleSync();
+    }
+    return waiter.future;
+  }
+
+  void _completeJoinWaiter(String roomId, SocketErrorData? error) {
+    final waiter = _joinWaiters.remove(roomId);
+    if (waiter != null && !waiter.isCompleted) {
+      waiter.complete(error);
+    }
+  }
+
+  void _scheduleOpenChatUpdate() {
+    if (_openChatUpdateScheduled) return;
+    _openChatUpdateScheduled = true;
+    // Published after the current build or dispose, so listeners never run
+    // in the middle of one.
+    scheduleMicrotask(() {
+      _openChatUpdateScheduled = false;
+      _openChat.value = _currentOpenChat();
+    });
+  }
+
+  OpenChat _currentOpenChat() {
+    final target = _target;
+    if (target == null) return OpenChat.none;
+    final threadId = target.threadId;
+    if (threadId == null) return OpenChat(roomId: target.room.id);
+
+    // A thread shows its room as open only when it was opened from that
+    // room's screen, right below it.
+    final below = _claims.length > 1 ? _claims[_claims.length - 2] : null;
+    final openedFromRoom = below != null &&
+        below.threadId == null &&
+        below.room.id == target.room.id;
+    return OpenChat(
+      roomId: openedFromRoom ? target.room.id : null,
+      threadId: threadId,
+    );
   }
 
   /// Ensure the socket is connected using the current token without
@@ -507,7 +969,7 @@ class SocketService {
   /// Connects with the current token. Completes on connect and fails on a
   /// rejection, a connection error or a timeout, so no caller waits forever.
   Future<void> _ensureConnected() {
-    // Single-flight: multiple joinRoom calls should share one connect attempt.
+    // Single-flight: callers share one connect attempt.
     final existing = _connectAttempt;
     if (existing != null) return existing.future;
 
@@ -549,132 +1011,52 @@ class SocketService {
     }
   }
 
-  void _doJoinRoom(Room room) {
-    final wasInDifferentRoom =
-        _currentRoom != null && _currentRoom?.id != room.id;
-    if (wasInDifferentRoom) {
-      _activeThreadId = null;
-      _desiredThreadId = null;
-    }
-
-    if (_currentRoom?.id == room.id) {
-      if (kDebugMode) {
-        print('[Room] Already in $room, skipping');
-      }
-      _emitOpenThreadIfNeeded();
-      return;
-    }
-
-    if (_currentRoom != null) {
-      if (kDebugMode) {
-        print('[Room] Leaving $_currentRoom');
-      }
-      _socket?.emit('leave_room');
-    }
-
-    _currentRoom = room;
-    _socket?.emit('join_room', {'roomId': room.id});
-    if (kDebugMode) {
-      print('[Room] Joining $room');
-    }
-  }
-
-  /// Called when room_joined event is received to confirm we're in the room
-  void onRoomJoinedConfirmed(Room room) {
-    if (_currentRoom?.id == room.id) {
-      _currentRoom = room; // Update with server data
-      if (kDebugMode) {
-        print('[Room] Joined $room');
-      }
-    } else {
-      if (kDebugMode) {
-        print(
-            '[Room] Warning: room_joined for ${room.id} but current is ${_currentRoom?.id}');
-      }
-      _currentRoom = room;
-    }
-
-    _emitOpenThreadIfNeeded();
-  }
-
-  void leaveRoom([String? specificRoomId]) {
-    // The screen is gone, so don't rejoin on the next reconnect: joining adds
-    // the room back to the user's rooms and mutes its push notifications.
-    if (specificRoomId == null || _desiredRoom?.id == specificRoomId) {
-      _desiredRoom = null;
-    }
-
-    if (specificRoomId != null) {
-      if (_currentRoom?.id == specificRoomId) {
-        if (kDebugMode) {
-          print('[Room] Leaving $_currentRoom');
-        }
-        _socket?.emit('leave_room');
-        _currentRoom = null;
-        _activeThreadId = null;
-        _desiredThreadId = null;
-      } else {
-        if (kDebugMode) {
-          print(
-              '[Room] Not in room $specificRoomId (currently in: ${_currentRoom?.id}), skipping');
-        }
-      }
-    } else {
-      if (_currentRoom != null) {
-        if (kDebugMode) {
-          print('[Room] Leaving $_currentRoom');
-        }
-        _socket?.emit('leave_room');
-        _currentRoom = null;
-        _activeThreadId = null;
-        _desiredThreadId = null;
-      }
-    }
-  }
-
-  void openThread(String threadId) {
-    final normalizedThreadId = threadId.trim();
-    if (normalizedThreadId.isEmpty) {
-      return;
-    }
-
-    _desiredThreadId = normalizedThreadId;
-    _emitOpenThreadIfNeeded();
-  }
-
-  void closeThread() {
-    if (_desiredThreadId == null) {
-      return;
-    }
-
-    _desiredThreadId = null;
-    _activeThreadId = null;
-    if (_socket?.connected == true) {
-      _socket?.emit('close_thread');
-    }
-  }
-
-  /// Sends a message and waits for the server to confirm it was stored, so
-  /// the caller can keep the draft when it wasn't.
+  /// Sends a message to [room] and waits for the server to confirm it was
+  /// stored, so the caller can keep the draft when it wasn't.
+  ///
+  /// The message names its room, and it is never sent while the socket is
+  /// in another room. If [room] is the chat on top but isn't joined (yet),
+  /// or the server says the socket isn't in it, the send waits up to 5 s for
+  /// the room to be joined again and tries once more.
   Future<SendMessageResult> sendMessage(
     String text, {
+    required Room room,
     String? parentMessageId,
-  }) {
+  }) async {
+    final result = await _sendOnce(text, room, parentMessageId);
+    final error = result.error;
+    if (error == null ||
+        !isNotInRoomError(error) ||
+        _target?.room.id != room.id) {
+      return result;
+    }
+
+    final joinError = await _waitForRejoin(room)
+        .timeout(_rejoinTimeout, onTimeout: () => error);
+    if (joinError != null) {
+      return SendMessageResult.failed(joinError);
+    }
+    return _sendOnce(text, room, parentMessageId);
+  }
+
+  Future<SendMessageResult> _sendOnce(
+    String text,
+    Room room,
+    String? parentMessageId,
+  ) {
     final socket = _socket;
     if (socket == null || socket.connected != true) {
-      return Future.value(const SendMessageResult.failed(SocketErrorData(
-        code: notConnectedCode,
-        message: "You're not connected right now. Try again in a moment.",
-      )));
+      return Future.value(const SendMessageResult.failed(_notConnectedError));
     }
-    if (_currentRoom == null) {
+    if (_joinedRoomId != room.id) {
+      // The socket is in another room, or in none yet: never post there.
       return Future.value(const SendMessageResult.failed(SocketErrorData(
         code: notInRoomCode,
-        message: 'Not in a room. Reopen the chat and try again.',
+        message: _notInRoomMessage,
       )));
     }
 
-    final data = <String, dynamic>{'text': text};
+    final data = <String, dynamic>{'text': text, 'roomId': room.id};
     if (parentMessageId != null) {
       data['parentMessageId'] = parentMessageId;
     }
@@ -719,20 +1101,6 @@ class SocketService {
       );
     }
     return SendMessageResult.failed(parseErrorPayload(data));
-  }
-
-  void _emitOpenThreadIfNeeded() {
-    final threadId = _desiredThreadId;
-    if (threadId == null || _socket?.connected != true || _currentRoom == null) {
-      return;
-    }
-
-    if (_activeThreadId == threadId) {
-      return;
-    }
-
-    _socket?.emit('open_thread', {'threadId': threadId});
-    _activeThreadId = threadId;
   }
 
   // Store registered handlers so we can remove specific ones

@@ -7,6 +7,7 @@ import '../platform/app_button.dart';
 import '../platform/app_route.dart';
 import '../services/socket_service.dart';
 import '../utils/app_toast.dart';
+import '../utils/navigation.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/swipeable_message_bubble.dart';
@@ -29,29 +30,26 @@ class ThreadViewPage extends ConsumerStatefulWidget {
   ConsumerState<ThreadViewPage> createState() => _ThreadViewPageState();
 }
 
-class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
+class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
+    with RouteAware {
   final TextEditingController _replyController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   int _previousReplyCount = 0;
-  late ProviderContainer _container;
-  late SocketService _socketService;
+  late final SocketService _socketService;
+  // This screen's hold on the room and thread: the socket stays in the room
+  // with the thread open while this is the newest chat screen.
+  late final RoomClaim _claim;
 
   @override
   void initState() {
     super.initState();
     _socketService = ref.read(socketServiceProvider);
-
-    // Join the room to receive real-time updates for messages (including replies)
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
-
-      _socketService.joinRoom(widget.room);
-      _socketService.openThread(widget.parentMessage.id);
-
-      // Track that this thread is currently open
-      ref.read(currentOpenThreadIdProvider.notifier).state =
-          widget.parentMessage.id;
-    });
+    // Live replies come through the thread's room, so claim the room and
+    // the thread; the socket opens the thread once the room is joined.
+    _claim = _socketService.claimRoom(
+      widget.room,
+      threadId: widget.parentMessage.id,
+    );
   }
 
   /// A moderator removed the message this thread hangs off: close the thread.
@@ -70,9 +68,19 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Capture the container to use safely in dispose
-    _container = ProviderScope.containerOf(context, listen: false);
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      appRouteObserver.subscribe(this, route);
+    }
   }
+
+  // The screen above started closing: this thread is on top again.
+  @override
+  void didPopNext() => _socketService.activateClaim(_claim);
+
+  // Closing: hand the socket to the screen below as the pop starts.
+  @override
+  void didPop() => _socketService.releaseClaim(_claim);
 
   void _scrollToBottom() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -113,21 +121,10 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage> {
 
   @override
   void dispose() {
-    _socketService.closeThread();
-
-    // Defer to escape the unmount frame — Riverpod forbids state mutations
-    // during widget disposal. Microtask (not Timer) so widget tests don't
-    // trip the "Timer still pending" assertion on teardown. Swallow the
-    // StateError that fires when the container itself is being torn down
-    // (e.g. ProviderScope disposed in the same frame in tests).
-    Future.microtask(() {
-      try {
-        _container.read(currentOpenThreadIdProvider.notifier).state = null;
-      } on StateError {
-        // Container already disposed; nothing to clear.
-      }
-    });
-
+    appRouteObserver.unsubscribe(this);
+    // Also covers a thread removed without a pop (its parent message was
+    // removed while a profile was on top); releasing twice does nothing.
+    _socketService.releaseClaim(_claim);
     _replyController.dispose();
     _scrollController.dispose();
     super.dispose();

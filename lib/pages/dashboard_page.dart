@@ -53,14 +53,6 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     setState(() {
       _selectedIndex = index;
     });
-
-    if (index == 0) {
-      // When switching back to the Chats tab, clear any "open room" marker
-      // after the current build frame finishes.
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        ref.read(currentOpenRoomIdProvider.notifier).state = null;
-      });
-    }
   }
 
   void _showJoinRoomDialog() {

@@ -13,18 +13,6 @@ export '../domain/entities/room_member.dart';
 export '../domain/entities/direct_chat_status.dart';
 export 'chat_room_providers.dart';
 
-/// Tracks which room (if any) is currently open in the chat UI.
-final currentOpenRoomIdProvider = StateProvider<String?>((ref) {
-  ref.watch(sessionVersionProvider);
-  return null;
-});
-
-/// Tracks which thread (if any) is currently open in the chat UI.
-final currentOpenThreadIdProvider = StateProvider<String?>((ref) {
-  ref.watch(sessionVersionProvider);
-  return null;
-});
-
 /// Wrapper model for a room along with its local unread count.
 class RoomListItem {
   final Room room;
@@ -156,7 +144,7 @@ class RoomsListController
     final roomId = data['roomId'] as String?;
     if (roomId == null || roomId.isEmpty) return;
 
-    final openRoomId = ref.read(currentOpenRoomIdProvider);
+    final openRoomId = socketService.openChat.value.roomId;
     final currentUser = ref.read(currentUserProvider);
     final currentUserId = currentUser?['id']?.toString();
     final messageUserId = data['lastMessageUserId']?.toString();
@@ -325,7 +313,7 @@ class RoomsListController
       isJoined: existingRoom.isJoined,
     );
 
-    final openRoomId = ref.read(currentOpenRoomIdProvider);
+    final openRoomId = socketService.openChat.value.roomId;
     final isRoomOpen = openRoomId == roomId;
     final updatedUnread =
         isRoomOpen ? 0 : existingItem.unreadCount + unreadIncrement;
@@ -535,6 +523,10 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
   try {
     final useCase = ref.read(leaveRoomUseCaseProvider);
     await useCase(roomId);
+
+    // The user left: no screen may keep the socket in the room, or a
+    // reconnect would join it again before those screens close.
+    ref.read(socketServiceProvider).releaseRoom(roomId);
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);

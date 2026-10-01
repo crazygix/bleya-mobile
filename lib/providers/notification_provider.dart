@@ -4,7 +4,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/notification.dart';
 import '../use_cases/notification/get_notification_thread_context_use_case.dart';
 import 'auth_providers.dart';
-import 'chat_providers.dart';
 import 'repository_providers.dart';
 import 'use_case_providers.dart';
 
@@ -234,11 +233,12 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     final current = state.valueOrNull;
     if (current == null) return; // Not loaded yet
 
-    final currentOpenThreadId = ref.read(currentOpenThreadIdProvider);
+    final openThreadId =
+        ref.read(socketServiceProvider).openChat.value.threadId;
 
     // Suppression happens ONLY if the user is currently looking at this specific thread
-    final isCurrentThread = currentOpenThreadId != null &&
-        notification.threadId == currentOpenThreadId;
+    final isCurrentThread =
+        openThreadId != null && notification.threadId == openThreadId;
 
     if (isCurrentThread) {
       if (kDebugMode) {

@@ -11,12 +11,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
-class MockSocketService extends Mock implements SocketService {}
+import '../fakes/fake_socket_service.dart';
 
 class MockGetThreadUseCase extends Mock implements GetThreadUseCase {}
 
 void main() {
-  late MockSocketService mockSocketService;
+  late FakeSocketService socket;
   late MockGetThreadUseCase mockGetThreadUseCase;
 
   final room = Room(
@@ -37,26 +37,21 @@ void main() {
   );
 
   setUp(() {
-    mockSocketService = MockSocketService();
+    socket = FakeSocketService();
     mockGetThreadUseCase = MockGetThreadUseCase();
 
-    when(() => mockSocketService.joinRoom(room)).thenAnswer((_) async {});
-    when(() => mockSocketService.openThread(any())).thenReturn(null);
-    when(() => mockSocketService.closeThread()).thenReturn(null);
-    when(() => mockSocketService.addListener(any(), any()))
-        .thenReturn(Object());
-    when(() => mockSocketService.removeListener(any(), any())).thenReturn(null);
     when(() => mockGetThreadUseCase('thread-1'))
         .thenAnswer((_) async => threadData);
   });
 
-  testWidgets('opens and closes thread presence with socket service',
+  testWidgets(
+      'claims the room and thread while open and releases them on close',
       (tester) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           tokenProvider.overrideWith((ref) => 'test-token'),
-          socketServiceProvider.overrideWithValue(mockSocketService),
+          socketServiceProvider.overrideWithValue(socket),
           getThreadUseCaseProvider.overrideWithValue(mockGetThreadUseCase),
         ],
         child: MaterialApp(
@@ -69,12 +64,20 @@ void main() {
     );
     await tester.pump();
 
-    verify(() => mockSocketService.joinRoom(room)).called(1);
-    verify(() => mockSocketService.openThread('thread-1')).called(1);
+    final claim = socket.claims.single;
+    expect(claim.room, room);
+    expect(claim.threadId, 'thread-1');
+    expect(
+      socket.openChat.value,
+      const OpenChat(threadId: 'thread-1'),
+    );
+    expect(find.text('Parent message'), findsOneWidget);
 
     await tester.pumpWidget(const SizedBox.shrink());
     await tester.pump();
 
-    verify(() => mockSocketService.closeThread()).called(1);
+    expect(socket.claims, isEmpty);
+    expect(socket.openChat.value, OpenChat.none);
+    expect(socket.listenerCount('new_message'), 0);
   });
 }
