@@ -238,9 +238,16 @@ def validate_app_store_connect!
   app_store_connect_app
   UI.message("Validated App Store Connect access for #{APP_IDENTIFIER}.")
 rescue => error
-  UI.user_error!(
-    "App Store Connect authentication failed for #{APP_IDENTIFIER}. Use an App Store Connect API key from App Store Connect > Users and Access > Integrations > App Store Connect API. An Apple Developer APNs .p8 key will not work here. Original error: #{error.message}"
-  )
+  message = error.message.to_s
+  if message.match?(/agreement|terms/i)
+    UI.user_error!(
+      "App Store Connect rejected the request for #{APP_IDENTIFIER}: an Apple agreement is missing or has expired — this is NOT a key/credential problem. Sign in to App Store Connect as the Account Holder and accept the pending agreement under Business (Agreements, Tax, and Banking), and/or use the 'Review Agreement' banner at https://developer.apple.com/account. Acceptance is eventually-consistent, so wait a few minutes before re-running. Original error: #{message}"
+    )
+  else
+    UI.user_error!(
+      "App Store Connect authentication failed for #{APP_IDENTIFIER}. Use an App Store Connect API key from App Store Connect > Users and Access > Integrations > App Store Connect API. An Apple Developer APNs .p8 key will not work here. Original error: #{message}"
+    )
+  end
 end
 
 def newest_file(pattern)
