@@ -27,6 +27,31 @@ class RoomJoinedEventData {
   });
 }
 
+/// A message a moderator removed (`message_removed`). It reaches the
+/// message's room, and also the chat lists and Activity of the users it
+/// concerns.
+class MessageRemovedEventData {
+  final String messageId;
+  final String roomId;
+
+  /// The thread the message replied in, or null for a top-level message.
+  final String? parentMessageId;
+
+  /// Who wrote the message. Older backends leave it out.
+  final String? userId;
+
+  /// When the message was sent. Older backends leave it out.
+  final DateTime? createdAt;
+
+  const MessageRemovedEventData({
+    required this.messageId,
+    required this.roomId,
+    this.parentMessageId,
+    this.userId,
+    this.createdAt,
+  });
+}
+
 class SocketErrorData {
   final String? code;
   final String message;
@@ -1311,6 +1336,33 @@ class SocketService {
     return SocketErrorData(
       code: errorCode,
       message: errorMsg,
+    );
+  }
+
+  /// Reads a `message_removed` payload: `{messageId, roomId,
+  /// parentMessageId, userId, createdAt}`, where `createdAt` is in
+  /// milliseconds. Returns null without a message or room id.
+  MessageRemovedEventData? parseMessageRemovedPayload(
+    Map<String, dynamic> data,
+  ) {
+    String? idOf(dynamic value) {
+      final id = value?.toString();
+      return id == null || id.isEmpty ? null : id;
+    }
+
+    final messageId = idOf(data['messageId']);
+    final roomId = idOf(data['roomId']);
+    if (messageId == null || roomId == null) return null;
+
+    final createdAt = data['createdAt'];
+    return MessageRemovedEventData(
+      messageId: messageId,
+      roomId: roomId,
+      parentMessageId: idOf(data['parentMessageId']),
+      userId: idOf(data['userId']),
+      createdAt: createdAt is num
+          ? DateTime.fromMillisecondsSinceEpoch(createdAt.round())
+          : null,
     );
   }
 

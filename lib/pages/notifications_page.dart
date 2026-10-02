@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,6 +12,7 @@ import '../widgets/notification_tile.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
 import '../widgets/app_spinner.dart';
+import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import 'thread_view_page.dart';
 
@@ -38,13 +41,22 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   @override
   void dispose() {
-    // When leaving the Activity tab, mark everything as read to clear the badge
-    // but keep them in the list (Dismissal happens only on tap)
-    final state = _container.read(notificationStateProvider);
-    final unreadCount = state.valueOrNull?.unreadCount ?? 0;
-    if (unreadCount > 0) {
-      _container.read(notificationStateProvider.notifier).markAllAsRead();
-    }
+    // Leaving the Activity tab marks everything read, which clears the badge
+    // but keeps the items listed (only opening one dismisses it). Provider
+    // state can't change while a widget is disposed, so this runs right
+    // after.
+    final container = _container;
+    Future.microtask(() {
+      try {
+        final state = container.read(notificationStateProvider);
+        final unreadCount = state.valueOrNull?.unreadCount ?? 0;
+        if (unreadCount > 0) {
+          container.read(notificationStateProvider.notifier).markAllAsRead();
+        }
+      } on StateError {
+        // The app is shutting down with its providers; nothing to mark.
+      }
+    });
 
     _scrollController.dispose();
     super.dispose();
@@ -66,47 +78,54 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
     ref.read(notificationStateProvider.notifier).dismissAll();
   }
 
-  Future<void> _navigateToThread(
-    BuildContext context,
+  /// Opens [notification]'s thread, and only then dismisses the item. The
+  /// loader belongs to this page rather than the item's row, which can leave
+  /// the list meanwhile. Closing the loader with the back button cancels.
+  Future<void> _openNotification(
     app_notification.Notification notification,
   ) async {
-    // 1. Dismiss from the Activity list immediately
-    ref
-        .read(notificationStateProvider.notifier)
-        .dismissNotification(notification.id);
-
-    // 2. Fetch data needed for ThreadViewPage
-    AppDialog.show(
+    final notifier = ref.read(notificationStateProvider.notifier);
+    final navigator = Navigator.of(context);
+    final loader = AppDialog.open(
       context: context,
-      barrierDismissible: false,
-      builder: (context) => const Center(child: AppSpinner(size: 24)),
+      builder: (_) => const Center(child: AppSpinner(size: 24)),
     );
 
     try {
-      final threadContext =
-          await ref.read(notificationStateProvider.notifier).fetchThreadContext(
-                roomId: notification.roomId,
-                threadId: notification.threadId,
-              );
+      final threadContext = await notifier.fetchThreadContext(
+        roomId: notification.roomId,
+        threadId: notification.threadId,
+      );
+      final stillWaiting = loader.isOnTop;
+      loader.close();
+      if (!stillWaiting || !mounted) return;
 
-      if (context.mounted) {
-        Navigator.pop(context); // Close loader
-
-        Navigator.push(
-          context,
-          AppRoute.build(
-            builder: (context) => ThreadViewPage(
-              room: threadContext.room,
-              parentMessage: threadContext.parentMessage,
-            ),
+      unawaited(navigator.push(
+        AppRoute.build(
+          builder: (context) => ThreadViewPage(
+            room: threadContext.room,
+            parentMessage: threadContext.parentMessage,
           ),
-        );
+        ),
+      ));
+      unawaited(notifier.dismissNotification(notification.id));
+    } catch (error) {
+      final stillWaiting = loader.isOnTop;
+      loader.close();
+      if (!stillWaiting || !mounted) return;
+
+      if (error is AppError && error.code == AppErrorCode.notFound) {
+        // Removed, or by someone blocked: the item can never open again.
+        unawaited(notifier.dismissNotification(notification.id));
+        AppToast.showInfo(context, 'This message is no longer available.');
+        return;
       }
-    } catch (e) {
-      if (context.mounted) {
-        Navigator.pop(context); // Close loader
-        AppToast.showError(context, 'Failed to load thread: $e');
-      }
+      AppToast.showError(
+        context,
+        error is AppError
+            ? error.getUserMessage()
+            : "Couldn't open this message. Try again?",
+      );
     }
   }
 
@@ -187,7 +206,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                         final notification = data.notifications[index];
                         return NotificationTile(
                           notification: notification,
-                          onTap: () => _navigateToThread(context, notification),
+                          onTap: () => _openNotification(notification),
                         );
                       },
                     ),

@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:mocktail/mocktail.dart';
+import 'package:passkeys/authenticator.dart';
 import 'package:bleya/domain/repositories/auth_repository.dart';
 import 'package:bleya/domain/repositories/room_repository.dart';
 import 'package:bleya/domain/repositories/user_repository.dart';
@@ -7,6 +8,7 @@ import 'package:bleya/domain/repositories/message_repository.dart';
 import 'package:bleya/domain/repositories/city_repository.dart';
 import 'package:bleya/domain/repositories/location_repository.dart';
 import 'package:bleya/domain/repositories/notification_repository.dart';
+import 'package:bleya/domain/repositories/report_repository.dart';
 import 'package:bleya/use_cases/auth/check_username_use_case.dart';
 import 'package:bleya/use_cases/auth/register_passkey_use_case.dart';
 import 'package:bleya/use_cases/auth/set_username_use_case.dart';
@@ -31,7 +33,10 @@ class MockCityRepository extends Mock implements CityRepository {}
 
 class MockLocationRepository extends Mock implements LocationRepository {}
 
-class MockNotificationRepository extends Mock implements NotificationRepository {}
+class MockNotificationRepository extends Mock
+    implements NotificationRepository {}
+
+class MockReportRepository extends Mock implements ReportRepository {}
 
 // Use case mocks (for controller tests)
 class MockSignInWithGoogleUseCase extends Mock
@@ -60,6 +65,9 @@ class MockJoinCityUseCase extends Mock implements JoinCityUseCase {}
 
 class MockGetCurrentLocationUseCase extends Mock
     implements GetCurrentLocationUseCase {}
+
+// Plugin mocks
+class MockPasskeyAuthenticator extends Mock implements PasskeyAuthenticator {}
 
 // Dart IO mocks
 class MockFile extends Mock implements File {}

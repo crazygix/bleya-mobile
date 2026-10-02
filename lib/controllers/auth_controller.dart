@@ -1,12 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:passkeys/exceptions.dart';
-import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../domain/entities/auth_result.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
 import '../use_cases/auth/sign_in_with_google_use_case.dart';
 import '../use_cases/auth/sign_in_with_passkey_use_case.dart';
+import '../utils/auth_error_messages.dart';
 
 enum AuthAction {
   signInWithGoogle,
@@ -113,58 +112,20 @@ class AuthController extends StateNotifier<AuthState> {
     );
   }
 
-  String _resolveErrorMessage(Object error) {
-    if (error is GoogleSignInException) {
-      switch (error.code) {
-        case GoogleSignInExceptionCode.canceled:
-        case GoogleSignInExceptionCode.interrupted:
-          return '';
-        case GoogleSignInExceptionCode.clientConfigurationError:
-        case GoogleSignInExceptionCode.providerConfigurationError:
-          return 'Google sign-in is not configured correctly yet.';
-        default:
-          return "Google sign-in didn't finish. Try again?";
-      }
+  /// What to show when [action] fails with [error]: nothing for a cancel,
+  /// never the error's own text. Debug builds also log the error.
+  String _errorMessageFor(AuthAction action, Object error) {
+    if (kDebugMode) {
+      print('auth/${action.name} failed: $error');
     }
-
-    if (error is SignInWithAppleAuthorizationException &&
-        error.code == AuthorizationErrorCode.canceled) {
-      return '';
-    }
-
-    if (error is SignInWithAppleNotSupportedException) {
-      return 'Apple sign-in is not available on this device.';
-    }
-
-    if (error is PasskeyAuthCancelledException) {
-      return '';
-    }
-
-    if (error is NoCredentialsAvailableException) {
-      return 'No passkey was found for this account on this device.';
-    }
-
-    if (error is DomainNotAssociatedException) {
-      return 'Passkeys are not configured for this build yet.';
-    }
-
-    if (error is PasskeyUnsupportedException ||
-        error is DeviceNotSupportedException) {
-      return "Passkeys aren't available on this device yet.";
-    }
-
-    if (error is TimeoutException) {
-      return 'That took too long. Try again.';
-    }
-
-    final rawMessage = error.toString();
-    final message = rawMessage.startsWith('Exception: ')
-        ? rawMessage.substring('Exception: '.length)
-        : rawMessage;
-    if (message.isNotEmpty && message != 'Exception') {
-      return message;
-    }
-    return "Something went wrong. Let's try that again.";
+    final fallback = switch (action) {
+      AuthAction.signInWithGoogle => "Google sign-in didn't finish. Try again?",
+      AuthAction.signInWithApple => "Apple sign-in didn't finish. Try again?",
+      AuthAction.signInWithPasskey =>
+        "Passkey sign-in didn't finish. Try again?",
+      AuthAction.registerPasskey => "Couldn't add a passkey. Try again?",
+    };
+    return authErrorMessage(error, fallback: fallback);
   }
 
   Future<AuthSessionResult?> _runSessionAction(
@@ -190,7 +151,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
-      final errorMessage = _resolveErrorMessage(e);
+      final errorMessage = _errorMessageFor(action, e);
       state = state.copyWith(
         isLoading: false,
         errorMessage: errorMessage.isEmpty ? null : errorMessage,
@@ -219,7 +180,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
-      final errorMessage = _resolveErrorMessage(e);
+      final errorMessage = _errorMessageFor(action, e);
       state = state.copyWith(
         isLoading: false,
         errorMessage: errorMessage.isEmpty ? null : errorMessage,

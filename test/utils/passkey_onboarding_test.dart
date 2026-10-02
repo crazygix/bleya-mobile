@@ -8,64 +8,55 @@ void main() {
     hasPasskey: true,
   );
 
+  late bool invalidated;
+  late bool clearedError;
+  late List<String> notices;
+
+  setUp(() {
+    invalidated = false;
+    clearedError = false;
+    notices = [];
+  });
+
+  Future<void> offerPasskey({
+    required AuthSecurityStatus? result,
+    String? errorMessage,
+  }) {
+    return maybeRegisterOnboardingPasskey(
+      registerPasskey: () async => result,
+      invalidateSecurityStatus: () => invalidated = true,
+      readAuthState: () => AuthState(errorMessage: errorMessage),
+      clearAuthError: () => clearedError = true,
+      showNotice: notices.add,
+    );
+  }
+
   test('invalidates security status after successful onboarding registration',
       () async {
-    var invalidated = false;
-    var clearedError = false;
-    String? shownError;
-
-    await maybeRegisterOnboardingPasskey(
-      registerPasskey: () async => securityStatus,
-      invalidateSecurityStatus: () => invalidated = true,
-      readAuthState: () => AuthState(),
-      clearAuthError: () => clearedError = true,
-      showError: (message) => shownError = message,
-    );
+    await offerPasskey(result: securityStatus);
 
     expect(invalidated, isTrue);
     expect(clearedError, isFalse);
-    expect(shownError, isNull);
+    expect(notices, isEmpty);
   });
 
-  test('does nothing when the native passkey prompt is dismissed', () async {
-    var invalidated = false;
-    var clearedError = false;
-    String? shownError;
-
-    await maybeRegisterOnboardingPasskey(
-      registerPasskey: () async => null,
-      invalidateSecurityStatus: () => invalidated = true,
-      readAuthState: () => AuthState(),
-      clearAuthError: () => clearedError = true,
-      showError: (message) => shownError = message,
-    );
+  test('shows nothing when the native passkey prompt is dismissed', () async {
+    await offerPasskey(result: null);
 
     expect(invalidated, isFalse);
-    expect(clearedError, isFalse);
-    expect(shownError, isNull);
+    expect(notices, isEmpty);
   });
 
-  test('shows a follow-up error when passkey registration fails', () async {
-    var invalidated = false;
-    var clearedError = false;
-    String? shownError;
-
-    await maybeRegisterOnboardingPasskey(
-      registerPasskey: () async => null,
-      invalidateSecurityStatus: () => invalidated = true,
-      readAuthState: () => AuthState(
-        errorMessage: 'Passkeys are not configured for this build yet.',
-      ),
-      clearAuthError: () => clearedError = true,
-      showError: (message) => shownError = message,
+  test(
+      'a failure only says a passkey can be added later, and clears the '
+      'error', () async {
+    await offerPasskey(
+      result: null,
+      errorMessage: "Passkeys aren't available right now. Try again later.",
     );
 
     expect(invalidated, isFalse);
     expect(clearedError, isTrue);
-    expect(
-      shownError,
-      'Passkeys are not configured for this build yet. '
-      'You can add a passkey later in Settings.',
-    );
+    expect(notices, ['You can add a passkey later in Settings.']);
   });
 }

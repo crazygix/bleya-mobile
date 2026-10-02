@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:passkeys/exceptions.dart' as passkey_errors;
 import '../constants/theme.dart';
 import '../domain/entities/auth_result.dart';
 import '../platform/app_button.dart';
@@ -11,6 +10,7 @@ import '../providers/auth_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
+import '../utils/auth_error_messages.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/error_state.dart';
 import '../widgets/glass_header.dart';
@@ -90,8 +90,7 @@ class _PasskeysPageState extends ConsumerState<PasskeysPage> {
       return;
     }
 
-    final message = _passkeyErrorMessage(error) ??
-        (error is AppError ? error.getUserMessage() : fallback);
+    final message = authErrorMessage(error, fallback: fallback);
     if (message.isNotEmpty && mounted) {
       AppToast.showError(context, message);
     }
@@ -106,38 +105,6 @@ class _PasskeysPageState extends ConsumerState<PasskeysPage> {
     );
     if (!confirmed || !mounted) return;
     await ref.read(logoutProvider)();
-  }
-
-  /// A message for a platform passkey error, '' when the user cancelled, or
-  /// null when [error] didn't come from the passkey prompt.
-  String? _passkeyErrorMessage(Object error) {
-    if (error is passkey_errors.PasskeyAuthCancelledException) {
-      return '';
-    }
-    if (error is passkey_errors.ExcludeCredentialsCanNotBeRegisteredException) {
-      return 'This device already has a passkey for your account.';
-    }
-    if (error is passkey_errors.MissingGoogleSignInException ||
-        error is passkey_errors.SyncAccountNotAvailableException) {
-      return 'Sign in to a Google account on this device to use passkeys.';
-    }
-    if (error is passkey_errors.NoCreateOptionException) {
-      return 'Turn on a passkey provider in your device settings, then try again.';
-    }
-    if (error is passkey_errors.DomainNotAssociatedException) {
-      return 'Passkeys are not configured for this build yet.';
-    }
-    if (error is passkey_errors.PasskeyUnsupportedException ||
-        error is passkey_errors.DeviceNotSupportedException) {
-      return "Passkeys aren't available on this device yet.";
-    }
-    if (error is passkey_errors.TimeoutException) {
-      return 'That took too long. Try again.';
-    }
-    if (error is passkey_errors.AuthenticatorException) {
-      return "Couldn't finish setting up the passkey. Try again?";
-    }
-    return null;
   }
 
   String _formatDate(DateTime date) {

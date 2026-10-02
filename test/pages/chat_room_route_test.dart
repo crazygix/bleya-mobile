@@ -2,6 +2,7 @@ import 'package:bleya/domain/entities/direct_chat_status.dart';
 import 'package:bleya/domain/entities/message.dart';
 import 'package:bleya/domain/entities/room.dart';
 import 'package:bleya/domain/repositories/message_repository.dart';
+import 'package:bleya/domain/repositories/notification_repository.dart';
 import 'package:bleya/pages/chat_room_page.dart';
 import 'package:bleya/pages/thread_view_page.dart';
 import 'package:bleya/platform/app_route.dart';
@@ -71,6 +72,8 @@ void main() {
   late FakeSocketService socket;
   late MockRoomRepository rooms;
   late MockMessageRepository messages;
+  late MockUserRepository users;
+  late MockNotificationRepository notifications;
   late ProviderContainer container;
   late GlobalKey<NavigatorState> navigatorKey;
 
@@ -78,7 +81,18 @@ void main() {
     socket = FakeSocketService();
     rooms = MockRoomRepository();
     messages = MockMessageRepository();
+    users = MockUserRepository();
+    notifications = MockNotificationRepository();
     navigatorKey = GlobalKey<NavigatorState>();
+    when(() => users.blockUser(any())).thenAnswer((_) async {});
+    when(
+      () => notifications.fetchNotifications(
+        limit: any(named: 'limit'),
+        before: any(named: 'before'),
+      ),
+    ).thenAnswer(
+      (_) async => const NotificationPage(notifications: [], unreadCount: 0),
+    );
     when(() => rooms.getJoinedRooms()).thenAnswer((_) async => []);
     when(() => rooms.getDirectChatStatus(any())).thenAnswer(
       (_) async => const DirectChatStatus(
@@ -103,6 +117,8 @@ void main() {
         socketServiceProvider.overrideWithValue(socket),
         roomRepositoryProvider.overrideWithValue(rooms),
         messageRepositoryProvider.overrideWithValue(messages),
+        userRepositoryProvider.overrideWithValue(users),
+        notificationRepositoryProvider.overrideWithValue(notifications),
       ],
     );
     addTearDown(container.dispose);
@@ -291,6 +307,37 @@ void main() {
       findsOneWidget,
     );
 
+    await closeApp(tester);
+  });
+
+  testWidgets(
+      "long-pressing someone's message in the room blocks its author, whose "
+      'messages go', (tester) async {
+    await showApp(tester);
+    await push(tester, ChatRoomPage(room: _cityRoom));
+    socket.emit(
+      'room_joined',
+      _roomJoined(_cityRoom, [
+        _message('m1', 'Anyone at the market?'),
+        _message('m2', 'On my way', minute: 1),
+      ]),
+    );
+    await tester.pump();
+
+    await tester.longPress(find.text('On my way'));
+    await finishTransition(tester);
+    expect(find.text('Report message'), findsOneWidget);
+    await tester.tap(find.text('Block author'));
+    await finishTransition(tester);
+    await tester.tap(find.text('Block'));
+    await finishTransition(tester);
+
+    verify(() => users.blockUser('user-2')).called(1);
+    expect(find.text('User blocked.'), findsOneWidget);
+    expect(find.text('On my way'), findsNothing);
+    expect(find.text('Anyone at the market?'), findsNothing);
+
+    await tester.pump(const Duration(seconds: 4));
     await closeApp(tester);
   });
 }

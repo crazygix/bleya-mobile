@@ -22,22 +22,13 @@ final roomMessagesProvider =
 final threadParentRemovedProvider =
     StateProvider.autoDispose.family<bool, String>((ref, messageId) => false);
 
-/// Users blocked during this session. Their messages already on screen are
-/// hidden straight away; the server stops sending new ones.
+/// Users blocked during this session (recordBlockChange). Their messages
+/// already on screen are hidden straight away; the server stops sending new
+/// ones.
 final sessionBlockedUserIdsProvider = StateProvider<Set<String>>((ref) {
   ref.watch(sessionVersionProvider);
   return const <String>{};
 });
-
-/// Records a block or unblock so open chats update without reloading.
-void setUserBlockedInSession(WidgetRef ref, String userId, bool blocked) {
-  final notifier = ref.read(sessionBlockedUserIdsProvider.notifier);
-  final next = {...notifier.state};
-  final changed = blocked ? next.add(userId) : next.remove(userId);
-  if (changed) {
-    notifier.state = next;
-  }
-}
 
 /// [messages] without those whose authors are in [blockedUserIds].
 List<Message> withoutBlockedAuthors(

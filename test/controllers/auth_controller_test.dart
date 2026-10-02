@@ -1,7 +1,10 @@
 import 'package:bleya/controllers/auth_controller.dart';
 import 'package:bleya/domain/entities/auth_result.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
+import 'package:passkeys/exceptions.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../mocks.dart';
 
 void main() {
@@ -56,14 +59,17 @@ void main() {
       );
     });
 
-    test('stores user-facing error on failure', () async {
+    test("stores friendly copy on failure, never the error's text", () async {
       when(() => mockSignInWithGoogle()).thenThrow(Exception('Google failed'));
 
       final result = await controller.signInWithGoogle();
 
       expect(result, isNull);
       expect(controller.state.isLoading, false);
-      expect(controller.state.errorMessage, 'Google failed');
+      expect(
+        controller.state.errorMessage,
+        "Google sign-in didn't finish. Try again?",
+      );
       expect(storedTokens, isEmpty);
     });
 
@@ -103,6 +109,39 @@ void main() {
     });
   });
 
+  group('signInWithApple', () {
+    test('a failure shows friendly copy instead of the plugin error', () async {
+      when(() => mockSignInWithApple()).thenThrow(
+        const SignInWithAppleAuthorizationException(
+          code: AuthorizationErrorCode.unknown,
+          message: 'The operation couldn’t be completed. (1000)',
+        ),
+      );
+
+      final result = await controller.signInWithApple();
+
+      expect(result, isNull);
+      expect(
+        controller.state.errorMessage,
+        "Apple sign-in didn't finish. Try again?",
+      );
+    });
+
+    test('a cancel shows nothing', () async {
+      when(() => mockSignInWithApple()).thenThrow(
+        const SignInWithAppleAuthorizationException(
+          code: AuthorizationErrorCode.canceled,
+          message: 'The operation couldn’t be completed. (1001)',
+        ),
+      );
+
+      await controller.signInWithApple();
+
+      expect(controller.state.errorMessage, isNull);
+      expect(controller.state.isLoading, isFalse);
+    });
+  });
+
   group('signInWithPasskey', () {
     test('tracks the active action while running', () async {
       when(() => mockSignInWithPasskey()).thenAnswer((_) async => session);
@@ -112,6 +151,42 @@ void main() {
       expect(controller.state.activeAction, AuthAction.signInWithPasskey);
       await future;
       expect(controller.state.activeAction, isNull);
+    });
+
+    test('a build not trusted for passkeys says passkeys are unavailable',
+        () async {
+      when(() => mockSignInWithPasskey()).thenThrow(
+        DomainNotAssociatedException('Application is not associated'),
+      );
+
+      await controller.signInWithPasskey();
+
+      expect(
+        controller.state.errorMessage,
+        "Passkeys aren't available right now. Try again later.",
+      );
+    });
+
+    test('an unknown failure shows the passkey fallback', () async {
+      when(() => mockSignInWithPasskey()).thenThrow(
+        UnhandledAuthenticatorException('ios-unhandled', 'Internal', null),
+      );
+
+      await controller.signInWithPasskey();
+
+      expect(
+        controller.state.errorMessage,
+        "Passkey sign-in didn't finish. Try again?",
+      );
+    });
+
+    test('a cancel shows nothing', () async {
+      when(() => mockSignInWithPasskey())
+          .thenThrow(PasskeyAuthCancelledException());
+
+      await controller.signInWithPasskey();
+
+      expect(controller.state.errorMessage, isNull);
     });
   });
 
@@ -123,6 +198,25 @@ void main() {
 
       expect(result, securityStatus);
       verify(() => mockRegisterPasskey()).called(1);
+    });
+
+    test('a raw platform error shows the add-a-passkey fallback', () async {
+      when(() => mockRegisterPasskey()).thenThrow(
+        PlatformException(
+          code: 'android-unhandled: androidx.credentials.'
+              'TYPE_CREATE_PUBLIC_KEY_CREDENTIAL_DOM_EXCEPTION/'
+              'androidx.credentials.TYPE_UNKNOWN_ERROR',
+          message: 'Something internal',
+        ),
+      );
+
+      final result = await controller.registerPasskey();
+
+      expect(result, isNull);
+      expect(
+        controller.state.errorMessage,
+        "Couldn't add a passkey. Try again?",
+      );
     });
   });
 

@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../domain/entities/notification.dart';
 import '../use_cases/notification/get_notification_thread_context_use_case.dart';
 import 'auth_providers.dart';
+import 'chat_room_providers.dart';
 import 'repository_providers.dart';
 import 'use_case_providers.dart';
 
@@ -293,6 +294,45 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     }
   }
 
+  /// Drops the items a moderator removal took away, as the server deletes
+  /// them: the removed reply's, and the replies in the removed message's
+  /// thread.
+  void removeForMessage(String messageId) {
+    _apply(
+      (current) => _without(
+        current,
+        (n) => n.messageId == messageId || n.threadId == messageId,
+      ),
+    );
+  }
+
+  /// Follows a block or unblock made on this device. A blocked sender's
+  /// items go at once. Either way the list loads again quietly: the server
+  /// leaves out blocked users' items, and brings them back after an unblock.
+  Future<void> applySenderBlockChange(String userId, {required bool blocked}) {
+    if (blocked) {
+      _apply((current) => _without(current, (n) => n.senderId == userId));
+    }
+    return refresh(silent: true);
+  }
+
+  /// [current] without the items [test] matches, with the unread count
+  /// lowered for those that were unread.
+  static NotificationState _without(
+    NotificationState current,
+    bool Function(Notification) test,
+  ) {
+    final dropped = current.notifications.where(test).toList();
+    if (dropped.isEmpty) return current;
+    final droppedUnread = dropped.where((n) => !n.isRead).length;
+    return current.copyWith(
+      notifications: current.notifications.where((n) => !test(n)).toList(),
+      unreadCount: current.unreadCount > droppedUnread
+          ? current.unreadCount - droppedUnread
+          : 0,
+    );
+  }
+
   Future<NotificationThreadContext> fetchThreadContext({
     required String roomId,
     required String threadId,
@@ -304,6 +344,14 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   void handleNewNotification(Notification notification) {
     // Not loaded yet, and no refresh to keep it for.
     if (state.valueOrNull == null && !_isRefreshing) return;
+
+    // From someone just blocked on this device: the server stops sending
+    // these, but one may already be on its way.
+    if (ref
+        .read(sessionBlockedUserIdsProvider)
+        .contains(notification.senderId)) {
+      return;
+    }
 
     final openThreadId =
         ref.read(socketServiceProvider).openChat.value.threadId;
@@ -364,9 +412,10 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     final notifier = ref.read(notificationStateProvider.notifier);
 
     // A session change or dispose ends this listener. It then removes its
-    // handler, or registers none if it's still connecting.
+    // handlers, or registers none if it's still connecting.
     var superseded = false;
-    dynamic handler;
+    dynamic notificationHandler;
+    dynamic removalHandler;
     // Notifications sent while the socket was away never arrive, so Activity
     // catches up whenever the socket asks, keeping the list on screen. This
     // listens before connecting, so the first connect's request isn't missed.
@@ -376,8 +425,11 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     ref.onDispose(() {
       superseded = true;
       resyncSubscription.cancel();
-      if (handler != null) {
-        socketService.removeListener('new_notification', handler);
+      if (notificationHandler != null) {
+        socketService.removeListener('new_notification', notificationHandler);
+      }
+      if (removalHandler != null) {
+        socketService.removeListener('message_removed', removalHandler);
       }
     });
 
@@ -400,13 +452,21 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     }
 
     // Register the listener
-    handler = socketService.onNewNotificationEntity((notification) {
+    notificationHandler = socketService.onNewNotificationEntity((notification) {
       if (kDebugMode) {
         print('🔔 NEW NOTIFICATION RECEIVED: ${notification.id}');
       }
       notifier.handleNewNotification(notification);
       if (kDebugMode) {
         print('🔔 Notification added to state');
+      }
+    });
+    // A moderator removal also reaches this user's channel, so Activity
+    // drops what it quoted even with no chat open.
+    removalHandler = socketService.addListener('message_removed', (data) {
+      final removal = socketService.parseMessageRemovedPayload(data);
+      if (removal != null) {
+        notifier.removeForMessage(removal.messageId);
       }
     });
 

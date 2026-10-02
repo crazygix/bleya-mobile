@@ -37,7 +37,9 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
           ref.invalidate(authSecurityStatusProvider),
       readAuthState: () => ref.read(authControllerProvider),
       clearAuthError: controller.clearError,
-      showError: (message) => AppToast.showError(context, message),
+      showNotice: (message) {
+        if (mounted) AppToast.showInfo(context, message);
+      },
     );
 
     if (!mounted) return;

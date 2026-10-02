@@ -5,14 +5,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
-import '../providers/profile_providers.dart';
-import '../providers/use_case_providers.dart';
 import '../platform/app_button.dart';
-import '../platform/app_dialog.dart';
 import '../platform/app_icon.dart';
 import '../platform/app_route.dart';
-import '../platform/app_sheet.dart';
-import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../utils/navigation.dart';
 import '../widgets/report_actions.dart';
@@ -131,51 +126,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
     if (error != null) {
       restoreUnsentDraft(_messageController, text);
       AppToast.showError(context, error.message);
-    }
-  }
-
-  // Long-press on another user's message: report it or block its author.
-  Future<void> _showMessageActions(Message message) async {
-    final selected = await AppSheet.actions<String>(
-      context: context,
-      actions: const [
-        AppSheetAction<String>(value: 'report', label: 'Report message'),
-        AppSheetAction<String>(
-            value: 'block', label: 'Block author', isDestructive: true),
-      ],
-    );
-    if (!mounted || selected == null) return;
-
-    if (selected == 'report') {
-      await showReportSheet(
-        context: context,
-        ref: ref,
-        messageId: message.id,
-        reportedUserId: message.userId,
-      );
-    } else if (selected == 'block') {
-      final confirmed = await AppDialog.confirm(
-        context,
-        title: 'Block user?',
-        message: 'They will not be able to message you anymore.',
-        confirmText: 'Block',
-        destructive: true,
-      );
-      if (!mounted || !confirmed) return;
-      try {
-        await ref.read(blockUserUseCaseProvider)(message.userId);
-        if (!mounted) return;
-        setUserBlockedInSession(ref, message.userId, true);
-        ref.invalidate(blockedUsersProvider);
-        unawaited(ref.read(roomsListProvider.notifier).refresh());
-        AppToast.showInfo(context, 'User blocked.');
-      } catch (e) {
-        if (!mounted) return;
-        final errorMessage = e is AppError
-            ? e.getUserMessage()
-            : "Couldn't block this user right now.";
-        AppToast.showError(context, errorMessage);
-      }
     }
   }
 
@@ -516,9 +466,15 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
                                       ),
                                     );
                                   },
+                                  // The page's context: the row's goes
+                                  // away if the list empties.
                                   onLongPress: isCurrentUser
                                       ? null
-                                      : () => _showMessageActions(message),
+                                      : () => showMessageActions(
+                                            context: this.context,
+                                            ref: ref,
+                                            message: message,
+                                          ),
                                 ),
                               );
                             },

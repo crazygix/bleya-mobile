@@ -221,6 +221,7 @@ void main() {
 
       expect(activityIds(), ['alice-1']);
       expect(socket.listenerCount('new_notification'), 1);
+      expect(socket.listenerCount('message_removed'), 1);
 
       // Log out: the token is cleared while the dashboard still shows, then
       // the app goes back to the intro.
@@ -228,6 +229,7 @@ void main() {
       expect(activityIds(), isEmpty);
       expect(activity().unreadCount, 0);
       expect(socket.listenerCount('new_notification'), 0);
+      expect(socket.listenerCount('message_removed'), 0);
       for (final subscription in firstDashboard) {
         subscription.close();
       }
@@ -239,6 +241,7 @@ void main() {
       expect(activityIds(), ['bob-1']);
       expect(activity().unreadCount, 1);
       expect(socket.listenerCount('new_notification'), 1);
+      expect(socket.listenerCount('message_removed'), 1);
       verify(
         () => repository.fetchNotifications(
           limit: any(named: 'limit'),
@@ -250,6 +253,16 @@ void main() {
 
       expect(activityIds(), ['bob-2', 'bob-1']);
       expect(activity().unreadCount, 2);
+
+      // Removals reach the new session's Activity too.
+      socket.emit('message_removed', {
+        'messageId': 'reply-bob-2',
+        'roomId': 'room-1',
+        'parentMessageId': 'thread-1',
+      });
+
+      expect(activityIds(), ['bob-1']);
+      expect(activity().unreadCount, 1);
     });
 
     test('a sign-out while the socket connects registers no handler', () async {
@@ -262,10 +275,12 @@ void main() {
       await pumpEventQueue();
 
       expect(socket.listenerCount('new_notification'), 0);
+      expect(socket.listenerCount('message_removed'), 0);
 
       await setToken(bobToken);
 
       expect(socket.listenerCount('new_notification'), 1);
+      expect(socket.listenerCount('message_removed'), 1);
     });
 
     test('a refresh that finishes after an account switch is dropped',
@@ -372,10 +387,12 @@ void main() {
 
       expect(roomIds(), ['alice-room']);
       expect(socket.listenerCount('room_summary_updated'), 1);
+      expect(socket.listenerCount('message_removed'), 1);
 
       await setToken(null);
       expect(roomIds(), isEmpty);
       expect(socket.listenerCount('room_summary_updated'), 0);
+      expect(socket.listenerCount('message_removed'), 0);
       dashboard.close();
 
       await setToken(bobToken);
@@ -384,6 +401,7 @@ void main() {
 
       expect(roomIds(), ['bob-room']);
       expect(socket.listenerCount('room_summary_updated'), 1);
+      expect(socket.listenerCount('message_removed'), 1);
     });
 
     test('a sign-out while the list connects registers no listener', () async {

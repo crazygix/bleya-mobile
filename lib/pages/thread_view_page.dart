@@ -6,10 +6,12 @@ import '../providers/auth_providers.dart';
 import '../platform/app_button.dart';
 import '../platform/app_route.dart';
 import '../services/socket_service.dart';
+import '../utils/app_errors.dart';
 import '../utils/app_toast.dart';
 import '../utils/navigation.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
+import '../widgets/report_actions.dart';
 import '../widgets/swipeable_message_bubble.dart';
 import '../widgets/message_input_field.dart';
 import '../widgets/glass_header.dart';
@@ -145,8 +147,29 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
           ),
         );
       },
+      // The first message and other people's replies can be reported, and
+      // their authors blocked. Blocking the first message's author leaves
+      // the thread open; their replies disappear.
+      onLongPress: isCurrentUser
+          ? null
+          : () => showMessageActions(
+                context: context,
+                ref: ref,
+                message: message,
+              ),
       showReplyBadge: false,
     );
+  }
+
+  /// Why the thread didn't load, in words for the user.
+  String _loadErrorMessage(Object error) {
+    if (error is AppError) {
+      // Removed, or written by someone blocked.
+      return error.code == AppErrorCode.notFound
+          ? 'This message is no longer available.'
+          : error.getUserMessage();
+    }
+    return 'Something went wrong. Try again?';
   }
 
   Widget _buildThreadLoadingSkeleton() {
@@ -386,7 +409,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
                           ),
                           const SizedBox(height: 8),
                           Text(
-                            error.toString(),
+                            _loadErrorMessage(error),
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 14,

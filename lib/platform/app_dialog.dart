@@ -3,6 +3,33 @@ import 'package:flutter/material.dart';
 
 import 'ui_platform.dart';
 
+/// A dialog shown with [AppDialog.open]. Closing it closes only this dialog,
+/// whatever is on top of it by then.
+class AppDialogHandle {
+  AppDialogHandle._(this._route);
+
+  final Route<void> _route;
+
+  /// Whether the dialog is still up. False once it's closed, including by
+  /// the Android back button.
+  bool get isOpen => _route.isActive;
+
+  /// Whether the dialog is up with nothing on top of it.
+  bool get isOnTop => _route.isCurrent;
+
+  /// Closes the dialog: with its animation when it's on top, and right away
+  /// from under a screen pushed over it. Does nothing once it's closed.
+  void close() {
+    final navigator = _route.navigator;
+    if (navigator == null || !_route.isActive) return;
+    if (_route.isCurrent) {
+      navigator.pop();
+    } else {
+      navigator.removeRoute(_route);
+    }
+  }
+}
+
 class AppDialog {
   static Future<T?> show<T>({
     required BuildContext context,
@@ -22,6 +49,34 @@ class AppDialog {
       barrierDismissible: barrierDismissible,
       builder: builder,
     );
+  }
+
+  /// Shows a dialog that its caller closes, such as a loader, as [show]
+  /// does. The handle closes exactly this dialog and tells whether it's
+  /// still up, so a caller can tell the user closed it.
+  static AppDialogHandle open({
+    required BuildContext context,
+    required WidgetBuilder builder,
+    bool barrierDismissible = false,
+  }) {
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final Route<void> route;
+    if (isIosPlatform(context)) {
+      route = CupertinoDialogRoute<void>(
+        context: context,
+        builder: builder,
+        barrierDismissible: barrierDismissible,
+      );
+    } else {
+      route = DialogRoute<void>(
+        context: context,
+        builder: builder,
+        barrierDismissible: barrierDismissible,
+        themes: InheritedTheme.capture(from: context, to: navigator.context),
+      );
+    }
+    navigator.push(route);
+    return AppDialogHandle._(route);
   }
 
   static Future<bool> confirm(

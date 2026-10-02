@@ -230,6 +230,49 @@ void main() {
     });
   });
 
+  group('SocketService.parseMessageRemovedPayload', () {
+    final service = SocketService();
+
+    test('reads a removal with its author and time', () {
+      final removal = service.parseMessageRemovedPayload({
+        'messageId': 'm1',
+        'roomId': 'r1',
+        'parentMessageId': 'p1',
+        'userId': 'u1',
+        'createdAt': 1700000000000,
+      })!;
+
+      expect(removal.messageId, 'm1');
+      expect(removal.roomId, 'r1');
+      expect(removal.parentMessageId, 'p1');
+      expect(removal.userId, 'u1');
+      expect(
+        removal.createdAt,
+        DateTime.fromMillisecondsSinceEpoch(1700000000000),
+      );
+    });
+
+    test('reads a top-level removal from an older backend', () {
+      final removal = service.parseMessageRemovedPayload({
+        'messageId': 'm1',
+        'roomId': 'r1',
+        'parentMessageId': null,
+      })!;
+
+      expect(removal.parentMessageId, isNull);
+      expect(removal.userId, isNull);
+      expect(removal.createdAt, isNull);
+    });
+
+    test('ignores a payload without a message or room', () {
+      expect(service.parseMessageRemovedPayload({'roomId': 'r1'}), isNull);
+      expect(
+        service.parseMessageRemovedPayload({'messageId': 'm1', 'roomId': ''}),
+        isNull,
+      );
+    });
+  });
+
   group('SocketService.sendMessage', () {
     test('fails right away instead of dropping the text when offline',
         () async {

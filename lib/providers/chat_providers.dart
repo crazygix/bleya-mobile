@@ -83,8 +83,14 @@ class RoomsListController
   final Ref ref;
   final SocketService socketService;
 
+  // How long the list waits after a removed preview before loading again,
+  // so the removals of one moderation action load it once.
+  static const _removalRefreshDelay = Duration(milliseconds: 500);
+
   bool _hasLoggedUnreadFallback = false;
   dynamic _roomSummaryHandler;
+  dynamic _messageRemovedHandler;
+  Timer? _removalRefresh;
   StreamSubscription<void>? _resyncSubscription;
 
   // One fetch of the list runs at a time. refresh() calls made during it
@@ -157,6 +163,61 @@ class RoomsListController
     }
   }
 
+  /// Listens for the socket events that change the list, once.
+  void _listen() {
+    _roomSummaryHandler = socketService.addListener(
+      'room_summary_updated',
+      _onRoomSummaryUpdated,
+    );
+    _messageRemovedHandler = socketService.addListener(
+      'message_removed',
+      _onMessageRemoved,
+    );
+  }
+
+  /// A moderator removed a message. If a chat may show it as its preview,
+  /// the list loads again: the new preview is the latest message this user
+  /// can see, which only the server knows. One action can remove many
+  /// messages, one event each, so the list loads once, after the last.
+  void _onMessageRemoved(Map<String, dynamic> data) {
+    final removal = socketService.parseMessageRemovedPayload(data);
+    // A reply is never a chat's preview.
+    if (removal == null || removal.parentMessageId != null) return;
+    // A list on its way may still have it, even for a chat not listed yet.
+    if (!_isFetching && !_mayShowAsPreview(removal)) return;
+
+    _removalRefresh?.cancel();
+    _removalRefresh = Timer(_removalRefreshDelay, () {
+      _removalRefresh = null;
+      unawaited(refresh());
+    });
+  }
+
+  /// Whether the list may show [removal] as its chat's preview. Without the
+  /// message's author and time (older backends), any listed chat in its room
+  /// may.
+  bool _mayShowAsPreview(MessageRemovedEventData removal) {
+    final items = state.valueOrNull ?? const <RoomListItem>[];
+    for (final item in items) {
+      final room = item.room;
+      if (room.id != removal.roomId) continue;
+
+      final sentAt = removal.createdAt;
+      final shownAt = room.lastMessageTime;
+      if (sentAt != null &&
+          shownAt != null &&
+          !sentAt.isAtSameMomentAs(shownAt)) {
+        return false;
+      }
+      final authorId = removal.userId;
+      final shownAuthorId = room.lastMessageUserId;
+      return authorId == null ||
+          shownAuthorId == null ||
+          authorId == shownAuthorId;
+    }
+    return false;
+  }
+
   /// Fetches the list again, with the server's unread counts. A call made
   /// while a fetch runs is served by one more fetch after it.
   Future<void> refresh() {
@@ -195,10 +256,7 @@ class RoomsListController
         await socketService.ensureConnectedForUserChannel();
         // Disposed meanwhile (the session changed): register nothing.
         if (!mounted) return;
-        _roomSummaryHandler = socketService.addListener(
-          'room_summary_updated',
-          _onRoomSummaryUpdated,
-        );
+        _listen();
       }
 
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
@@ -414,11 +472,15 @@ class RoomsListController
   @override
   void dispose() {
     _resyncSubscription?.cancel();
+    _removalRefresh?.cancel();
     if (_roomSummaryHandler != null) {
       socketService.removeListener(
         'room_summary_updated',
         _roomSummaryHandler,
       );
+    }
+    if (_messageRemovedHandler != null) {
+      socketService.removeListener('message_removed', _messageRemovedHandler);
     }
     // No fetch is coming for those still waiting.
     _nextFetch?.complete();
@@ -657,6 +719,8 @@ Future<DirectChatActionResult> deleteDirectChat(
   }
 }
 
+/// Blocks [otherUserId] from the direct chat. The caller records the block
+/// with recordBlockChange, which also loads the chat list again.
 Future<DirectChatActionResult> blockDirectChat(
   WidgetRef ref,
   String otherUserId,
@@ -666,8 +730,6 @@ Future<DirectChatActionResult> blockDirectChat(
     final result = await useCase(otherUserId);
 
     ref.invalidate(joinedRoomsFutureProvider);
-    ref.invalidate(roomsListProvider);
-    ref.invalidate(directChatStatusProvider(otherUserId));
 
     return result;
   } catch (e) {
@@ -678,6 +740,8 @@ Future<DirectChatActionResult> blockDirectChat(
   }
 }
 
+/// Unblocks [otherUserId] in the direct chat. The caller records the
+/// unblock with recordBlockChange, which also loads the chat list again.
 Future<DirectChatActionResult> unblockDirectChat(
   WidgetRef ref,
   String otherUserId,
@@ -687,8 +751,6 @@ Future<DirectChatActionResult> unblockDirectChat(
     final result = await useCase(otherUserId);
 
     ref.invalidate(joinedRoomsFutureProvider);
-    ref.invalidate(roomsListProvider);
-    ref.invalidate(directChatStatusProvider(otherUserId));
 
     return result;
   } catch (e) {

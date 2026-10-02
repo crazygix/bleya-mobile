@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/providers/chat_providers.dart';
 import 'package:bleya/providers/repository_providers.dart';
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -29,17 +30,35 @@ Room _room(
   int unread = 0,
   DateTime? at,
   String text = 'Morning!',
+  String from = 'bob',
 }) {
   return Room(
     id: id,
     name: 'Room $id',
     lastMessageText: text,
     lastMessageTime: at ?? _monday,
-    lastMessageUserId: 'bob',
-    lastMessageUsername: 'bob',
+    lastMessageUserId: from,
+    lastMessageUsername: from,
     unreadCount: unread,
     hasUnreadCount: true,
   );
+}
+
+/// A message_removed event for a message [from] sent [at] in [roomId], as
+/// the server sends it to the chat lists.
+Map<String, dynamic> _removal(
+  String roomId,
+  DateTime at, {
+  String from = 'bob',
+  String? parentMessageId,
+}) {
+  return {
+    'messageId': 'message-${at.millisecondsSinceEpoch}',
+    'roomId': roomId,
+    'parentMessageId': parentMessageId,
+    'userId': from,
+    'createdAt': at.millisecondsSinceEpoch,
+  };
 }
 
 /// A room_summary_updated event for a new message in [roomId].
@@ -312,5 +331,129 @@ void main() {
     await pumpEventQueue();
 
     expect(items().map((item) => item.room.id), ['room-d']);
+  });
+
+  group('moderator removals', () {
+    /// Runs [body] with timers under its control, the chat list showing.
+    void withList(void Function(FakeAsync async) body) {
+      fakeAsync((async) {
+        container.listen(roomsListProvider, (_, __) {});
+        async.flushMicrotasks();
+        clearInteractions(rooms);
+        body(async);
+      });
+    }
+
+    test(
+        'removing previews loads the list once, half a second after the last '
+        'removal', () {
+      answerRooms(
+        () async => [
+          _room('room-d', at: _at(3), text: 'Spam'),
+          _room('room-x', at: _at(2), text: 'Spam', from: 'eve'),
+        ],
+      );
+      withList((async) {
+        answerRooms(
+          () async => [
+            _room('room-x', at: _at(1), text: 'Hello'),
+            _room('room-d', at: _at(0), text: 'Morning!'),
+          ],
+        );
+        // One moderator action removes three messages.
+        socket.emit('message_removed', _removal('room-d', _at(3)));
+        async.elapse(const Duration(milliseconds: 300));
+        socket.emit('message_removed', _removal('room-d', _at(1)));
+        socket.emit(
+          'message_removed',
+          _removal('room-x', _at(2), from: 'eve'),
+        );
+        async.elapse(const Duration(milliseconds: 499));
+        verifyNever(() => rooms.getJoinedRooms());
+
+        async.elapse(const Duration(milliseconds: 1));
+        async.flushMicrotasks();
+
+        verify(() => rooms.getJoinedRooms()).called(1);
+        expect(item('room-x').room.lastMessageText, 'Hello');
+        expect(item('room-d').room.lastMessageText, 'Morning!');
+      });
+    });
+
+    test('a removed reply, an older message or another room loads nothing', () {
+      answerRooms(() async => [_room('room-d', at: _at(3))]);
+      withList((async) {
+        socket.emit(
+          'message_removed',
+          _removal('room-d', _at(3), parentMessageId: 'message-1'),
+        );
+        socket.emit('message_removed', _removal('room-d', _at(2)));
+        socket.emit('message_removed', _removal('room-d', _at(3), from: 'eve'));
+        socket.emit('message_removed', _removal('room-q', _at(3)));
+        async.elapse(const Duration(seconds: 2));
+
+        verifyNever(() => rooms.getJoinedRooms());
+      });
+    });
+
+    test("without the message's author and time, a listed room loads again",
+        () {
+      answerRooms(() async => [_room('room-d', at: _at(3))]);
+      withList((async) {
+        socket.emit('message_removed', {
+          'messageId': 'message-9',
+          'roomId': 'room-d',
+          'parentMessageId': null,
+        });
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+
+        verify(() => rooms.getJoinedRooms()).called(1);
+      });
+    });
+
+    test('a removal while the list loads loads it again afterwards', () {
+      answerRooms(() async => [_room('room-d', at: _at(3))]);
+      withList((async) {
+        final page = Completer<List<Room>>();
+        answerRooms(() => page.future);
+        controller().refresh();
+        async.flushMicrotasks();
+
+        // The answer on its way may still show the removed message.
+        socket.emit('message_removed', _removal('room-n', _at(4)));
+        page.complete(
+          [_room('room-n', at: _at(4), text: 'Spam'), _room('room-d')],
+        );
+        async.flushMicrotasks();
+        answerRooms(() async => [_room('room-d', at: _at(3))]);
+        async.elapse(const Duration(milliseconds: 500));
+        async.flushMicrotasks();
+
+        verify(() => rooms.getJoinedRooms()).called(2);
+        expect(items().map((item) => item.room.id), ['room-d']);
+      });
+    });
+
+    test('listens once, and stops when the list goes', () {
+      answerRooms(() async => [_room('room-d')]);
+      withList((async) {
+        controller().refresh();
+        async.flushMicrotasks();
+
+        expect(socket.listenerCount('message_removed'), 1);
+        expect(socket.listenerCount('room_summary_updated'), 1);
+
+        // A removal waits to load the list when the session ends.
+        socket.emit('message_removed', _removal('room-d', _monday));
+        container.read(tokenProvider.notifier).state = null;
+        async.flushMicrotasks();
+        async.elapse(const Duration(seconds: 1));
+
+        expect(socket.listenerCount('message_removed'), 0);
+        expect(socket.listenerCount('room_summary_updated'), 0);
+        verify(() => rooms.getJoinedRooms()).called(1);
+      });
+    });
   });
 }

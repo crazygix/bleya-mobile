@@ -1,11 +1,9 @@
-import 'dart:async';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_providers.dart';
+import '../providers/block_providers.dart';
 import '../providers/chat_providers.dart';
-import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../platform/app_button.dart';
 import '../platform/app_dialog.dart';
@@ -208,8 +206,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await unblockDirectChat(ref, widget.userId);
       if (!mounted) return;
-      setUserBlockedInSession(ref, widget.userId, false);
-      ref.invalidate(blockedUsersProvider);
+      recordBlockChange(ref, widget.userId, blocked: false);
       _handleDirectActionResult(result, shouldCloseCurrentChat: false);
     } catch (e) {
       if (!mounted) return;
@@ -229,8 +226,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       final result = await blockDirectChat(ref, widget.userId);
       if (!mounted) return;
-      setUserBlockedInSession(ref, widget.userId, true);
-      ref.invalidate(blockedUsersProvider);
+      recordBlockChange(ref, widget.userId, blocked: true);
       _handleDirectActionResult(result, shouldCloseCurrentChat: true);
     } catch (e) {
       if (!mounted) return;
@@ -316,10 +312,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       await ref.read(blockUserUseCaseProvider)(widget.userId);
       if (!mounted) return;
-      setUserBlockedInSession(ref, widget.userId, true);
-      ref.invalidate(blockedUsersProvider);
-      ref.invalidate(directChatStatusProvider(widget.userId));
-      unawaited(ref.read(roomsListProvider.notifier).refresh());
+      recordBlockChange(ref, widget.userId, blocked: true);
       AppToast.showInfo(context, 'User blocked.');
     } catch (e) {
       if (!mounted) return;
@@ -339,10 +332,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     try {
       await ref.read(unblockUserUseCaseProvider)(widget.userId);
       if (!mounted) return;
-      setUserBlockedInSession(ref, widget.userId, false);
-      ref.invalidate(blockedUsersProvider);
-      ref.invalidate(directChatStatusProvider(widget.userId));
-      unawaited(ref.read(roomsListProvider.notifier).refresh());
+      recordBlockChange(ref, widget.userId, blocked: false);
       AppToast.showInfo(context, 'User unblocked.');
     } catch (e) {
       if (!mounted) return;
