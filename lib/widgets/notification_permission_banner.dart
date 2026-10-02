@@ -6,7 +6,8 @@ import '../providers/controller_providers.dart';
 
 /// Dismissable banner shown when system notifications are disabled, prompting
 /// the user to enable them. Self-hides when notifications are authorized or the
-/// banner has been dismissed.
+/// banner has been dismissed. Its button shows Android's system dialog once
+/// more when Android still allows it, and opens the app's settings otherwise.
 class NotificationPermissionBanner extends ConsumerWidget {
   const NotificationPermissionBanner({super.key});
 
@@ -21,6 +22,11 @@ class NotificationPermissionBanner extends ConsumerWidget {
       return const SizedBox.shrink();
     }
 
+    final asksAgain = ref.watch(
+      pushNotificationsControllerProvider
+          .select((state) => state.canRequestPermissionAgain),
+    );
+
     final controller = ref.read(pushNotificationsControllerProvider.notifier);
 
     return Padding(
@@ -32,8 +38,8 @@ class NotificationPermissionBanner extends ConsumerWidget {
       ),
       child: Container(
         decoration: BoxDecoration(
-          color:
-              BleyaTheme.glassSurface.withValues(alpha: BleyaTheme.glassOpacity),
+          color: BleyaTheme.glassSurface
+              .withValues(alpha: BleyaTheme.glassOpacity),
           borderRadius: BorderRadius.circular(BleyaTheme.radiusLarge),
           border: Border.all(color: BleyaTheme.border, width: 1),
           boxShadow: BleyaTheme.glassShadow,
@@ -75,24 +81,27 @@ class NotificationPermissionBanner extends ConsumerWidget {
                     ),
                     SizedBox(height: BleyaTheme.spacingSM),
                     GestureDetector(
-                      onTap: controller.openNotificationSettings,
+                      onTap: controller.turnOnNotifications,
                       behavior: HitTestBehavior.opaque,
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Text(
-                            'Open Settings',
+                            asksAgain ? 'Turn on' : 'Open Settings',
                             style: BleyaTheme.bodyMedium.copyWith(
                               color: BleyaTheme.primary,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                          SizedBox(width: BleyaTheme.spacingXS),
-                          Icon(
-                            CupertinoIcons.arrow_up_right,
-                            color: BleyaTheme.primary,
-                            size: 14,
-                          ),
+                          // Settings opens outside the app.
+                          if (!asksAgain) ...[
+                            SizedBox(width: BleyaTheme.spacingXS),
+                            Icon(
+                              CupertinoIcons.arrow_up_right,
+                              color: BleyaTheme.primary,
+                              size: 14,
+                            ),
+                          ],
                         ],
                       ),
                     ),

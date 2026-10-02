@@ -3,7 +3,6 @@ import 'package:mocktail/mocktail.dart';
 import 'package:bleya/use_cases/notification/get_notification_thread_context_use_case.dart';
 import 'package:bleya/use_cases/notification/mark_notification_as_read_use_case.dart';
 import 'package:bleya/use_cases/notification/register_push_token_use_case.dart';
-import 'package:bleya/use_cases/notification/unregister_push_token_use_case.dart';
 import 'package:bleya/domain/entities/message.dart';
 import 'package:bleya/domain/entities/room.dart';
 import '../mocks.dart';
@@ -75,6 +74,7 @@ void main() {
     when(() => mockNotificationRepo.registerPushToken(
           token: any(named: 'token'),
           platform: any(named: 'platform'),
+          badge: any(named: 'badge'),
         )).thenAnswer((_) async {});
 
     final registerUseCase = RegisterPushTokenUseCase(mockNotificationRepo);
@@ -86,21 +86,28 @@ void main() {
     verify(() => mockNotificationRepo.registerPushToken(
           token: 'test-token',
           platform: 'ios',
+          badge: false,
         )).called(1);
   });
 
-  test('UnregisterPushTokenUseCase delegates to repository.unregisterPushToken',
+  test('RegisterPushTokenUseCase passes on that the app keeps the badge',
       () async {
-    when(() => mockNotificationRepo.unregisterPushToken(
+    when(() => mockNotificationRepo.registerPushToken(
           token: any(named: 'token'),
+          platform: any(named: 'platform'),
+          badge: any(named: 'badge'),
         )).thenAnswer((_) async {});
 
-    final unregisterUseCase =
-        UnregisterPushTokenUseCase(mockNotificationRepo);
-    await unregisterUseCase(token: 'test-token');
+    await RegisterPushTokenUseCase(mockNotificationRepo)(
+      token: 'test-token',
+      platform: 'ios',
+      badge: true,
+    );
 
-    verify(() => mockNotificationRepo.unregisterPushToken(
+    verify(() => mockNotificationRepo.registerPushToken(
           token: 'test-token',
+          platform: 'ios',
+          badge: true,
         )).called(1);
   });
 

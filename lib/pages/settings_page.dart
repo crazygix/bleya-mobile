@@ -1,11 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 import '../constants/theme.dart';
 import '../constants/urls.dart';
@@ -96,22 +94,27 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
   }
 
   Future<void> _handleExportData() async {
+    final exportFile = ref.read(dataExportFileProvider);
     try {
       final data = await ref.read(exportDataUseCaseProvider)();
       final encoded = const JsonEncoder.withIndent('  ').convert(data);
-      final dir = await getTemporaryDirectory();
-      final file = File('${dir.path}/bleya-data-export.json');
-      await file.writeAsString(encoded);
-      if (!mounted) return;
-      // On iPad the share sheet is a popover that must be anchored to a source
-      // rect — omitting sharePositionOrigin makes shareXFiles throw there.
-      final box = context.findRenderObject() as RenderBox?;
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'My Bleya data',
-        sharePositionOrigin:
-            box != null ? box.localToGlobal(Offset.zero) & box.size : null,
-      );
+      final file = await exportFile.write(encoded);
+      try {
+        if (!mounted) return;
+        // On iPad the share sheet is a popover that must be anchored to a
+        // source rect — omitting sharePositionOrigin makes shareXFiles throw
+        // there.
+        final box = context.findRenderObject() as RenderBox?;
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          subject: 'My Bleya data',
+          sharePositionOrigin:
+              box != null ? box.localToGlobal(Offset.zero) & box.size : null,
+        );
+      } finally {
+        // The receiving app has what it needs once the share sheet closes.
+        await exportFile.delete();
+      }
     } catch (e, stackTrace) {
       if (kDebugMode) {
         debugPrint('Export data failed: $e');
@@ -139,7 +142,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     try {
       await ref.read(deleteAccountUseCaseProvider)();
       final logout = ref.read(logoutProvider);
-      await logout();
+      await logout(accountDeleted: true);
     } catch (e) {
       if (!mounted) return;
       final message = e is AppError

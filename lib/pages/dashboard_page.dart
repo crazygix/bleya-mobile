@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +11,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/glass_circle_icon_button.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
 import '../widgets/notification_permission_banner.dart';
+import '../providers/app_badge_provider.dart';
 import '../providers/chat_providers.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
@@ -43,7 +46,11 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
         return;
       }
 
-      ref.read(pushNotificationsControllerProvider.notifier).markContentReady();
+      final push = ref.read(pushNotificationsControllerProvider.notifier);
+      unawaited(push.markContentReady());
+      // The chat list is where the app asks for notification permission,
+      // once per install, after signing in and onboarding are done.
+      unawaited(push.requestPermissionIfUndecided());
     });
   }
 
@@ -75,6 +82,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     // Keeps the server's read position current for the chats opened from
     // here.
     ref.watch(roomReadSyncProvider);
+    // Keeps the iOS app-icon badge equal to the unread counts shown here.
+    ref.watch(appBadgeProvider);
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,

@@ -1,17 +1,22 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:bleya/constants/urls.dart';
 import 'package:bleya/domain/repositories/auth_repository.dart';
 import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/providers/repository_providers.dart';
 import 'package:bleya/services/auth_manager.dart';
+import 'package:bleya/services/data_export_file.dart';
 import 'package:bleya/services/push_messaging_service.dart';
+import 'package:bleya/services/secure_cookie_storage.dart';
 import 'package:bleya/services/socket_service.dart';
+import 'package:cookie_jar/cookie_jar.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
+import '../fakes/fake_app_badge_service.dart';
 import '../fakes/fake_http_adapter.dart';
 import '../fakes/in_memory_secure_storage.dart';
 
@@ -42,6 +47,7 @@ void main() {
   late MockSocketService socketService;
   late MockAuthRepository authRepository;
   late MockPushMessagingService pushMessagingService;
+  late FakeHttpAdapter sessionCleanup;
 
   setUp(() async {
     storageDir = await Directory.systemTemp.createTemp('bleya-dio-test');
@@ -49,11 +55,27 @@ void main() {
     socketService = MockSocketService();
     authRepository = MockAuthRepository();
     pushMessagingService = MockPushMessagingService();
+    sessionCleanup = FakeHttpAdapter(
+      (_) async => jsonResponse(200, {'success': true}),
+    );
 
     when(() => socketService.disconnect()).thenReturn(null);
-    when(() => authRepository.logout()).thenAnswer((_) async {});
-    when(() => pushMessagingService.getToken()).thenAnswer((_) async => null);
+    when(() => pushMessagingService.deleteTokenAfterSignOut())
+        .thenAnswer((_) async {});
+    // The session's refresh cookie.
+    await PersistCookieJar(storage: SecureCookieStorage(secureStorage))
+        .saveFromResponse(Uri.parse(ApiUrls.baseUrl), [
+      Cookie('refreshToken', 'refresh-1')..path = '/',
+    ]);
   });
+
+  /// Whether the cookie jar still holds a session.
+  Future<bool> hasSessionCookie() async {
+    final cookies =
+        await PersistCookieJar(storage: SecureCookieStorage(secureStorage))
+            .loadForRequest(Uri.parse(ApiUrls.baseUrl));
+    return cookies.isNotEmpty;
+  }
 
   tearDown(() async {
     await storageDir.delete(recursive: true);
@@ -71,6 +93,11 @@ void main() {
         socketServiceProvider.overrideWithValue(socketService),
         authRepositoryProvider.overrideWithValue(authRepository),
         pushMessagingServiceProvider.overrideWithValue(pushMessagingService),
+        sessionCleanupDioProvider.overrideWithValue(fakeDio(sessionCleanup)),
+        dataExportFileProvider.overrideWithValue(
+          DataExportFile(temporaryDirectory: () async => storageDir),
+        ),
+        appBadgeServiceProvider.overrideWithValue(FakeAppBadgeService()),
       ],
     );
     addTearDown(container.dispose);
@@ -134,6 +161,8 @@ void main() {
       expect(error?.type, DioExceptionType.connectionError);
       expect(setup.container.read(tokenProvider), validToken);
       verifyNever(() => socketService.disconnect());
+      expect(await hasSessionCookie(), isTrue);
+      verifyNever(() => pushMessagingService.deleteTokenAfterSignOut());
     });
   });
 
@@ -162,6 +191,11 @@ void main() {
         'This account has been banned.',
       );
       verify(() => socketService.disconnect()).called(1);
+      // The same sign-out as a logout: nothing of the session stays, and
+      // the account's pushes stop.
+      expect(await hasSessionCookie(), isFalse);
+      await pumpEventQueue();
+      verify(() => pushMessagingService.deleteTokenAfterSignOut()).called(1);
     });
 
     test('a rejected refresh token signs out without a message', () async {
@@ -180,6 +214,10 @@ void main() {
 
       expect(setup.container.read(tokenProvider), isNull);
       expect(setup.container.read(fatalAuthMessageProvider), isNull);
+      expect(secureStorage.values['auth_token'], isNull);
+      expect(await hasSessionCookie(), isFalse);
+      await pumpEventQueue();
+      verify(() => pushMessagingService.deleteTokenAfterSignOut()).called(1);
     });
 
     test('a ban found by the early refresh blocks the request', () async {

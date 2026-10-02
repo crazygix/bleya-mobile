@@ -27,7 +27,6 @@ import '../use_cases/message/get_room_messages_page_use_case.dart';
 import '../use_cases/notification/get_notification_thread_context_use_case.dart';
 import '../use_cases/notification/mark_notification_as_read_use_case.dart';
 import '../use_cases/notification/register_push_token_use_case.dart';
-import '../use_cases/notification/unregister_push_token_use_case.dart';
 import '../use_cases/location/get_current_location_use_case.dart';
 import '../use_cases/city/get_nearby_cities_use_case.dart';
 import '../use_cases/city/join_city_use_case.dart';
@@ -182,12 +181,6 @@ final markNotificationAsReadUseCaseProvider =
     Provider<MarkNotificationAsReadUseCase>((ref) {
   final repository = ref.watch(notificationRepositoryProvider);
   return MarkNotificationAsReadUseCase(repository);
-});
-
-final unregisterPushTokenUseCaseProvider =
-    Provider<UnregisterPushTokenUseCase>((ref) {
-  final repository = ref.watch(notificationRepositoryProvider);
-  return UnregisterPushTokenUseCase(repository);
 });
 
 final getRoomMessagesPageUseCaseProvider =

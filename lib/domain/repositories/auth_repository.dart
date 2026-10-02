@@ -14,5 +14,8 @@ abstract class AuthRepository {
   Future<bool> hasRegisteredPasskeyOnDevice();
   Future<bool> checkUsername({required String username});
   Future<UserProfile> setUsername({required String username});
-  Future<void> logout();
+
+  /// Forgets that this device has a passkey for sign-in, so the sign-in
+  /// screen stops offering one, e.g. after the account was deleted.
+  Future<void> forgetRegisteredPasskey();
 }

@@ -8,10 +8,12 @@ class RegisterPushTokenUseCase {
   Future<void> call({
     required String token,
     required String platform,
+    bool badge = false,
   }) async {
     await _notificationRepository.registerPushToken(
       token: token,
       platform: platform,
+      badge: badge,
     );
   }
 }

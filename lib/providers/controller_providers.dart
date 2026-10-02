@@ -7,6 +7,7 @@ import '../controllers/auth_controller.dart';
 import '../controllers/join_room_controller.dart';
 import '../controllers/push_notifications_controller.dart';
 import 'auth_providers.dart';
+import 'connectivity_provider.dart';
 import 'use_case_providers.dart';
 
 final usernameControllerProvider =
@@ -71,6 +72,11 @@ final pushNotificationsControllerProvider =
 
   ref.listen<String?>(tokenProvider, (previous, next) {
     unawaited(controller.handleAuthTokenChanged(next));
+  });
+  ref.listen<bool>(isOnlineProvider, (wasOnline, online) {
+    if (wasOnline == false && online) {
+      controller.handleConnectionRestored();
+    }
   });
 
   controller.start();

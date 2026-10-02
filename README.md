@@ -135,12 +135,36 @@ backend push endpoints/socket presence flow.
 App behavior:
 
 - FCM is initialized at app startup.
-- After login, the app requests notification permission, fetches the FCM token,
-  and registers it with the backend.
-- On logout, the app unregisters the active push token from the backend.
+- After sign-in, the app fetches the FCM token and registers it with the
+  backend, whatever the notification permission: the token works without it,
+  so pushes arrive as soon as the user allows them. Registration never prompts.
+  On iOS it retries for about a minute if the APNs token hasn't arrived yet.
+- The app asks for notification permission once per install, the first time
+  the chat list shows after sign-in and onboarding: when iOS reports "not
+  determined", or when Android reports "denied" and the app hasn't asked yet
+  (Android 13+ reports a permission nobody asked for as denied). A flag in
+  secure storage records the ask, and logout keeps it.
+- After a refusal, a "Notifications are off" banner shows on the dashboard.
+  On Android its button first shows the system dialog once more (Android
+  allows one more ask), then opens the app's settings; on iOS it opens
+  Settings. The permission is read again at sign-in and on every return to
+  the app, so turning notifications on in Settings hides the banner.
+- On logout, the app signs out on the device first: the token, the stored
+  session and the cookies go before the intro shows. Then, without waiting, it
+  ends the session on the server (`/auth/logout`, which also switches off the
+  account's push token) and deletes the FCM token. A deletion that fails is
+  tried again while signed out: at launch, on return to the app and when the
+  connection comes back.
+- iOS app-icon badge: unread Activity items plus DMs with unread messages
+  (city rooms don't count). The app keeps it current while it runs, pushes
+  carry the server's count while it's away (the app registers its token with
+  `badge: true`), and logout clears it. Android launchers show their own
+  notification dots.
 - Notification taps route into the correct screen:
   - `message` -> open the room
   - `reply` -> open the exact thread
+- The notification that launched the app opens once per app run, so it isn't
+  replayed after signing out and back in.
 - Foreground realtime still comes from sockets. V1 does not show local
   in-app banners while the user is already active in the app.
 - Thread presence is mirrored to the backend with socket events

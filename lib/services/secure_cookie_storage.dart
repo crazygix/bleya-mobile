@@ -4,6 +4,8 @@ import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
+import 'push_messaging_service.dart';
+
 /// Cookie jar storage backed by the platform keystore (Keychain on iOS,
 /// Keystore-encrypted preferences on Android) instead of plain files, because
 /// the jar holds the long-lived refresh token.
@@ -60,7 +62,9 @@ class SecureCookieStorage implements Storage {
 ///   in. If that fails, the files stay and are used until a later launch
 ///   manages the move (see [usesLegacyCookieFiles]).
 /// - Fresh install: iOS keeps Keychain items after an app is deleted, so a
-///   reinstalled app would start inside the old session. It is cleared.
+///   reinstalled app would start inside the old session. It is cleared,
+///   together with a push token deletion the old install left pending, which
+///   would otherwise delete the new install's token.
 class SessionStorageMigration {
   // Written once per install. Its absence (with no legacy cookie folder) is
   // what identifies a fresh install.
@@ -144,5 +148,8 @@ class SessionStorageMigration {
     await secureStorage.delete(key: _authTokenKey);
     await PersistCookieJar(storage: SecureCookieStorage(secureStorage))
         .deleteAll();
+    await secureStorage.delete(
+      key: PushMessagingService.tokenDeletionPendingKey,
+    );
   }
 }

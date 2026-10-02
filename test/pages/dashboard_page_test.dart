@@ -40,13 +40,33 @@ class TestNotificationNotifier extends NotificationNotifier {
 }
 
 class TestPushMessagingService extends Fake implements PushMessagingService {
-  @override
-  Future<NotificationSettings> getNotificationSettings() async =>
-      _authorizedNotificationSettings;
+  TestPushMessagingService({
+    this.settings = _authorizedNotificationSettings,
+  });
+
+  /// What the platform reports for the notification permission.
+  final NotificationSettings settings;
+
+  int permissionRequests = 0;
+  bool askedForPermission = false;
 
   @override
-  Future<NotificationSettings> requestPermission() async =>
-      _authorizedNotificationSettings;
+  Future<NotificationSettings> getNotificationSettings() async => settings;
+
+  @override
+  Future<NotificationSettings> requestPermission() async {
+    permissionRequests++;
+    return settings;
+  }
+
+  @override
+  Future<bool> hasRequestedPermission() async => askedForPermission;
+
+  @override
+  Future<void> markPermissionRequested() async => askedForPermission = true;
+
+  @override
+  Future<bool> hasRequestedPermissionAgain() async => false;
 
   @override
   Future<String?> getToken() async => null;
@@ -88,6 +108,21 @@ const _authorizedNotificationSettings = NotificationSettings(
   providesAppNotificationSettings: AppleNotificationSetting.notSupported,
 );
 
+const _deniedNotificationSettings = NotificationSettings(
+  authorizationStatus: AuthorizationStatus.denied,
+  alert: AppleNotificationSetting.notSupported,
+  announcement: AppleNotificationSetting.notSupported,
+  badge: AppleNotificationSetting.notSupported,
+  carPlay: AppleNotificationSetting.notSupported,
+  lockScreen: AppleNotificationSetting.notSupported,
+  notificationCenter: AppleNotificationSetting.notSupported,
+  showPreviews: AppleShowPreviewSetting.notSupported,
+  sound: AppleNotificationSetting.notSupported,
+  timeSensitive: AppleNotificationSetting.notSupported,
+  criticalAlert: AppleNotificationSetting.notSupported,
+  providesAppNotificationSettings: AppleNotificationSetting.notSupported,
+);
+
 void main() {
   late MockRoomRepository mockRoomRepository;
 
@@ -95,7 +130,7 @@ void main() {
     mockRoomRepository = MockRoomRepository();
   });
 
-  ProviderScope buildApp() {
+  ProviderScope buildApp({PushNotificationsController Function()? push}) {
     return ProviderScope(
       overrides: [
         tokenProvider.overrideWith((ref) => 'test-token'),
@@ -105,16 +140,17 @@ void main() {
         notificationSocketListenerProvider
             .overrideWith(TestNotificationSocketListenerNotifier.new),
         pushNotificationsControllerProvider.overrideWith((ref) {
-          return PushNotificationsController(
-            TestPushMessagingService(),
-            TestRegisterPushTokenUseCase(),
-            TestGetRoomUseCase(),
-            TestGetNotificationThreadContextUseCase(),
-            TestMarkNotificationAsReadUseCase(),
-            () => 'test-token',
-            supportsPushPlatform: () => false,
-            platformName: () => 'ios',
-          );
+          return push?.call() ??
+              PushNotificationsController(
+                TestPushMessagingService(),
+                TestRegisterPushTokenUseCase(),
+                TestGetRoomUseCase(),
+                TestGetNotificationThreadContextUseCase(),
+                TestMarkNotificationAsReadUseCase(),
+                () => 'test-token',
+                supportsPushPlatform: () => false,
+                platformName: () => 'ios',
+              );
         }),
       ],
       child: const MaterialApp(
@@ -194,5 +230,34 @@ void main() {
     await tester.pumpAndSettle();
 
     verify(() => mockRoomRepository.getJoinedRooms()).called(1);
+  });
+
+  testWidgets(
+      'asks for notification permission once, when the chat list first shows',
+      (tester) async {
+    when(() => mockRoomRepository.getJoinedRooms()).thenAnswer((_) async => []);
+    // Android 13+, never asked: the permission reads as denied.
+    final pushMessaging =
+        TestPushMessagingService(settings: _deniedNotificationSettings);
+
+    await tester.pumpWidget(buildApp(
+      push: () => PushNotificationsController(
+        pushMessaging,
+        TestRegisterPushTokenUseCase(),
+        TestGetRoomUseCase(),
+        TestGetNotificationThreadContextUseCase(),
+        TestMarkNotificationAsReadUseCase(),
+        () => 'test-token',
+        supportsPushPlatform: () => true,
+        platformName: () => 'android',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(pushMessaging.permissionRequests, 1);
+    expect(pushMessaging.askedForPermission, isTrue);
+    // Refused: the banner offers to turn notifications on.
+    expect(find.text('Notifications are off'), findsOneWidget);
+    expect(find.text('Turn on'), findsOneWidget);
   });
 }

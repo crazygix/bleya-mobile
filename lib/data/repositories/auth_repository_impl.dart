@@ -232,16 +232,7 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> logout() async {
-    try {
-      await _dio.post(
-        '/auth/logout',
-        options: Options(
-          extra: {'logout': true},
-        ),
-      );
-    } catch (_) {}
-    await _providerAuthService.clearCachedProviderSession();
-    await _secureStorage.delete(key: 'auth_token');
+  Future<void> forgetRegisteredPasskey() async {
+    await _secureStorage.delete(key: _hasRegisteredPasskeyKey);
   }
 }

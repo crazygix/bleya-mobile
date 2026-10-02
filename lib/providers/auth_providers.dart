@@ -4,7 +4,9 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../domain/entities/auth_result.dart';
+import '../services/app_badge_service.dart';
 import '../services/auth_manager.dart';
+import '../services/data_export_file.dart';
 import '../services/passkey_auth_service.dart';
 import '../services/provider_auth_service.dart';
 import '../services/push_messaging_service.dart';
@@ -70,7 +72,15 @@ final passkeyAuthServiceProvider = Provider<PasskeyAuthService>((ref) {
 });
 
 final pushMessagingServiceProvider = Provider<PushMessagingService>((ref) {
-  return PushMessagingService();
+  return PushMessagingService(storage: ref.watch(secureStorageProvider));
+});
+
+final dataExportFileProvider = Provider<DataExportFile>((ref) {
+  return DataExportFile();
+});
+
+final appBadgeServiceProvider = Provider<AppBadgeService>((ref) {
+  return AppBadgeService();
 });
 
 // Auth manager provider
@@ -176,10 +186,10 @@ final dioProvider = Provider<Dio>((ref) {
           return handler.next(error);
         }
 
-        // Skip refresh logic for refresh and logout calls
+        // Skip refresh logic for the refresh call itself
         final reqExtra = error.requestOptions.extra;
-        if (reqExtra['refresh'] == true || reqExtra['logout'] == true) {
-          // Refresh/logout failed - don't trigger another logout
+        if (reqExtra['refresh'] == true) {
+          // Refresh failed - don't trigger another logout
           return handler.next(error);
         }
 
@@ -254,6 +264,24 @@ final dioProvider = Provider<Dio>((ref) {
   ));
 
   return dio;
+});
+
+/// Ends a session on the server after this device has already signed out.
+/// It has no cookie jar, so it can't read or clear the next session's
+/// cookie, no sign-in handling, and short timeouts, because nothing waits
+/// for it.
+final sessionCleanupDioProvider = Provider<Dio>((ref) {
+  return Dio(BaseOptions(
+    baseUrl: ApiUrls.baseUrl,
+    responseType: ResponseType.json,
+    connectTimeout: const Duration(seconds: 5),
+    sendTimeout: const Duration(seconds: 5),
+    receiveTimeout: const Duration(seconds: 5),
+    headers: {
+      'Content-Type': 'application/json',
+      'Accept': 'application/json',
+    },
+  ));
 });
 
 // Current user info derived from JWT (no network call)
@@ -409,11 +437,13 @@ final authSecurityStatusProvider =
   return getSecurityStatus();
 });
 
-// Logout provider to allow logout from UI
-final logoutProvider = Provider<Future<void> Function()>((ref) {
-  return () async {
+// Logout provider to allow logout from UI. [accountDeleted] also forgets
+// this device's passkey.
+final logoutProvider =
+    Provider<Future<void> Function({bool accountDeleted})>((ref) {
+  return ({bool accountDeleted = false}) {
     final authManager = ref.read(authManagerProvider);
-    await authManager.logout();
+    return authManager.logout(accountDeleted: accountDeleted);
   };
 });
 
@@ -440,7 +470,12 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
       // Only logout on explicit 401s; otherwise keep token and let app show offline/retry
       final isUnauthorized = e is UnauthorizedError;
       if (isUnauthorized) {
-        await authManager.logout();
+        // Usually the interceptor has already ended the session; signing out
+        // again would navigate a second time.
+        final token = ref.read(tokenProvider);
+        if (token != null && token.isNotEmpty) {
+          await authManager.logout();
+        }
         return false;
       }
       // Non-401 (e.g., 5xx/network): keep token; treat as not fully validated yet

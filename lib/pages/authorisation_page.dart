@@ -10,6 +10,7 @@ import '../platform/ui_platform.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../utils/app_toast.dart';
+import '../utils/navigation.dart';
 import '../utils/passkey_onboarding.dart';
 import '../widgets/app_navigation_bar.dart';
 import '../widgets/app_spinner.dart';
@@ -40,7 +41,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
     );
 
     if (!mounted) return;
-    await Navigator.of(context).pushReplacementNamed('/home');
+    await showHomeAsOnlyRoute(Navigator.of(context));
   }
 
   Future<void> _handleNavigation(
@@ -65,7 +66,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         await _completePasskeyOnboarding();
         return;
       case AuthNavigationTarget.home:
-        await Navigator.of(context).pushReplacementNamed('/home');
+        await showHomeAsOnlyRoute(Navigator.of(context));
         return;
     }
   }

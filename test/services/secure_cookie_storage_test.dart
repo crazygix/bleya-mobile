@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:bleya/services/push_messaging_service.dart';
 import 'package:bleya/services/secure_cookie_storage.dart';
 import 'package:cookie_jar/cookie_jar.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -97,6 +98,12 @@ void main() {
         [Cookie('refreshToken', 'old-refresh')],
       );
       await secureStorage.write(key: 'has_registered_passkey', value: 'true');
+      // The old install's sign-out never managed to delete its push token.
+      // Left pending, it would delete the new install's token.
+      await secureStorage.write(
+        key: PushMessagingService.tokenDeletionPendingKey,
+        value: 'true',
+      );
 
       await SessionStorageMigration.run(
         basePath: basePath.path,

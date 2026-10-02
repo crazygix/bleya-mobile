@@ -64,6 +64,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
   Future<void> registerPushToken({
     required String token,
     required String platform,
+    bool badge = false,
   }) async {
     try {
       await _dio.post(
@@ -71,20 +72,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
         data: {
           'token': token,
           'platform': platform,
-        },
-      );
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
-  Future<void> unregisterPushToken({required String token}) async {
-    try {
-      await _dio.post(
-        '/notifications/push/unregister',
-        data: {
-          'token': token,
+          if (badge) 'badge': true,
         },
       );
     } on DioException catch (e) {
