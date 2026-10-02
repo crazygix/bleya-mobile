@@ -108,6 +108,10 @@ class FakeIoSocket extends io.Socket {
   /// The server accepts the connection.
   void acceptConnection() => onconnect('fake-socket-id', null);
 
+  /// The connection attempt fails before reaching the server, as when the
+  /// network is down or WebSockets are blocked. socket.io keeps retrying.
+  void failConnection() => onerror('websocket error');
+
   /// The server refuses the handshake, e.g. `{'message': 'Account blocked:
   /// ...'}`.
   void refuseHandshake(Map<String, dynamic> payload) => emit('error', payload);

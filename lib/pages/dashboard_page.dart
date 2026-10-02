@@ -72,6 +72,9 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
 
     // Keep notification socket listener alive
     ref.watch(notificationSocketListenerProvider);
+    // Keeps the server's read position current for the chats opened from
+    // here.
+    ref.watch(roomReadSyncProvider);
 
     return Scaffold(
       backgroundColor: BleyaTheme.background,

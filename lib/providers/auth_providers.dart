@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../domain/entities/auth_result.dart';
@@ -272,8 +273,41 @@ final currentUserProvider = Provider<Map<String, dynamic>?>((ref) {
 /// logout triggered by a socket ban rejection.
 final fatalAuthMessageProvider = StateProvider<String?>((ref) => null);
 
+/// Keeps [service] in step with the app: connected in the foreground
+/// (resumed) and disconnected in the background (hidden, paused or
+/// detached). Inactive changes nothing, so the app switcher, Face ID,
+/// permission prompts and share sheets keep the chat live. Until the first
+/// state arrives, the app counts as in the foreground. Dispose the result to
+/// stop following.
+AppLifecycleListener followAppLifecycle(SocketService service) {
+  void follow(AppLifecycleState state) {
+    final foreground = switch (state) {
+      AppLifecycleState.resumed => true,
+      AppLifecycleState.hidden ||
+      AppLifecycleState.paused ||
+      AppLifecycleState.detached =>
+        false,
+      AppLifecycleState.inactive => null,
+    };
+    if (foreground != null) {
+      service.setForeground(foreground);
+    }
+  }
+
+  final initialState = WidgetsBinding.instance.lifecycleState;
+  if (initialState != null) {
+    follow(initialState);
+  }
+  return AppLifecycleListener(onStateChange: follow);
+}
+
 final socketServiceProvider = Provider<SocketService>((ref) {
   final service = SocketService();
+
+  // The socket leaves in the background, so the server sends this user's
+  // pushes, and comes back in the foreground.
+  final lifecycle = followAppLifecycle(service);
+  ref.onDispose(lifecycle.dispose);
 
   // When the socket experiences an authentication error, refresh the token
   // and let SocketService reconnect/retry joins with the new token. Returns

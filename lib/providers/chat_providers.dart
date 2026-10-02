@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart' show AppLifecycleListener;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'auth_providers.dart';
 import '../services/socket_service.dart';
@@ -63,6 +66,16 @@ final directChatStatusProvider =
   },
 );
 
+/// A room_summary_updated event to apply to the list being fetched, and the
+/// unread message it adds.
+class _SummaryDuringFetch {
+  _SummaryDuringFetch(this.roomId, this.payload, this.unreadIncrement);
+
+  final String roomId;
+  final Map<String, dynamic> payload;
+  int unreadIncrement;
+}
+
 /// Controller for the rooms list on the dashboard, including realtime updates
 /// from the socket and per-session unread counts.
 class RoomsListController
@@ -70,78 +83,41 @@ class RoomsListController
   final Ref ref;
   final SocketService socketService;
 
-  bool _isInitialized = false;
-  bool _isRefreshingRooms = false;
   bool _hasLoggedUnreadFallback = false;
   dynamic _roomSummaryHandler;
-  final Map<String, Map<String, dynamic>> _pendingRoomSummaries = {};
-  final Map<String, int> _pendingUnreadIncrements = {};
+  StreamSubscription<void>? _resyncSubscription;
+
+  // One fetch of the list runs at a time. refresh() calls made during it
+  // share one more fetch after it, so none of them is dropped.
+  bool _isFetching = false;
+  Completer<void>? _nextFetch;
+  // What changed while the list was being fetched, applied to the result
+  // too: the server may have answered before or after it.
+  final List<_SummaryDuringFetch> _summariesDuringFetch = [];
+  final Set<String> _readDuringFetch = {};
 
   RoomsListController(this.ref, this.socketService)
       : super(const AsyncValue.loading()) {
     _initialize();
   }
 
-  Future<void> _initialize() async {
-    if (_isInitialized) return;
-    _isInitialized = true;
-
-    try {
-      final token = ref.read(tokenProvider);
-      if (token == null || token.isEmpty) {
-        state = const AsyncValue.data([]);
-        return;
-      }
-
-      // Ensure socket is connected so per-user dashboard events can be received.
-      await socketService.ensureConnectedForUserChannel();
-      // Disposed meanwhile (the session changed): register nothing.
-      if (!mounted) return;
-
-      // Listen for lightweight room summary updates pushed via socket.
-      // Registering before REST fetch avoids dropping updates during initial load.
-      _roomSummaryHandler = socketService.addListener(
-          'room_summary_updated', _onRoomSummaryUpdated);
-
-      // Initial load from REST API (same data as joinedRoomsFutureProvider).
-      final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
-      final rooms = await getJoinedRoomsUseCase();
-      if (!mounted) return;
-
-      var items = rooms
-          .map(
-            (room) => RoomListItem(
-              room: room,
-              unreadCount: _initialUnreadForRoom(room),
-            ),
-          )
-          .toList();
-
-      if (_pendingRoomSummaries.isNotEmpty) {
-        for (final entry in _pendingRoomSummaries.entries) {
-          final roomId = entry.key;
-          final unreadIncrement = _pendingUnreadIncrements[roomId] ?? 0;
-          items = _applySummaryUpdate(
-            items,
-            roomId: roomId,
-            payload: entry.value,
-            unreadIncrement: unreadIncrement,
-          );
-        }
-        _pendingRoomSummaries.clear();
-        _pendingUnreadIncrements.clear();
-      }
-
-      _sortByLastMessageTime(items);
-      state = AsyncValue.data(items);
-    } catch (e, stack) {
-      if (!mounted) return;
-      state = AsyncValue.error(e, stack);
+  void _initialize() {
+    final token = ref.read(tokenProvider);
+    if (token == null || token.isEmpty) {
+      state = const AsyncValue.data([]);
+      return;
     }
+
+    // Events sent while the socket was away never arrive, so the list
+    // catches up whenever the socket asks.
+    _resyncSubscription = socketService.resyncRequests.listen((_) {
+      unawaited(refresh());
+    });
+    unawaited(refresh());
   }
 
   void _onRoomSummaryUpdated(Map<String, dynamic> data) {
-    final roomId = data['roomId'] as String?;
+    final roomId = data['roomId']?.toString();
     if (roomId == null || roomId.isEmpty) return;
 
     final openRoomId = socketService.openChat.value.roomId;
@@ -152,22 +128,22 @@ class RoomsListController
         currentUserId != null && messageUserId == currentUserId;
     final unreadIncrement = (openRoomId == roomId || isOwnMessage) ? 0 : 1;
 
-    final current = state.value;
-    if (current == null) {
-      _pendingRoomSummaries[roomId] = data;
-      _pendingUnreadIncrements[roomId] =
-          (_pendingUnreadIncrements[roomId] ?? 0) + unreadIncrement;
-      return;
+    final current = state.valueOrNull;
+    final isListed =
+        current != null && current.any((item) => item.room.id == roomId);
+    if (_isFetching || !isListed) {
+      // Also applied to the result of the fetch running now, or of the one
+      // started for it below.
+      _summariesDuringFetch.add(
+        _SummaryDuringFetch(roomId, data, unreadIncrement),
+      );
+      if (!isListed && (current != null || !_isFetching)) {
+        // A chat the list doesn't show yet, such as a new one, or a list
+        // that didn't load: fetch the list, once more if a fetch is running.
+        unawaited(refresh());
+      }
     }
-
-    final roomExists = current.any((item) => item.room.id == roomId);
-    if (!roomExists) {
-      _pendingRoomSummaries[roomId] = data;
-      _pendingUnreadIncrements[roomId] =
-          (_pendingUnreadIncrements[roomId] ?? 0) + unreadIncrement;
-      refresh();
-      return;
-    }
+    if (current == null || !isListed) return;
 
     final updated = _applySummaryUpdate(
       current,
@@ -181,13 +157,43 @@ class RoomsListController
     }
   }
 
-  Future<void> refresh() async {
-    if (_isRefreshingRooms) return;
-    _isRefreshingRooms = true;
+  /// Fetches the list again, with the server's unread counts. A call made
+  /// while a fetch runs is served by one more fetch after it.
+  Future<void> refresh() {
+    if (_isFetching) {
+      return (_nextFetch ??= Completer<void>()).future;
+    }
+    return _fetchWhileAsked();
+  }
 
+  Future<void> _fetchWhileAsked() async {
+    _isFetching = true;
+    try {
+      await _fetch();
+      while (mounted) {
+        final next = _nextFetch;
+        if (next == null) break;
+        _nextFetch = null;
+        try {
+          await _fetch();
+        } finally {
+          next.complete();
+        }
+      }
+    } finally {
+      _isFetching = false;
+      // Disposed meanwhile: no fetch is coming for those still waiting.
+      _nextFetch?.complete();
+      _nextFetch = null;
+    }
+  }
+
+  Future<void> _fetch() async {
     try {
       if (_roomSummaryHandler == null) {
+        // Per-user events like room_summary_updated need the socket.
         await socketService.ensureConnectedForUserChannel();
+        // Disposed meanwhile (the session changed): register nothing.
         if (!mounted) return;
         _roomSummaryHandler = socketService.addListener(
           'room_summary_updated',
@@ -199,66 +205,68 @@ class RoomsListController
       final rooms = await getJoinedRoomsUseCase();
       if (!mounted) return;
 
-      final existingItems = state.valueOrNull ?? const <RoomListItem>[];
-      final existingUnreadByRoomId = <String, int>{
-        for (final item in existingItems) item.room.id: item.unreadCount,
-      };
-
-      var refreshedItems = rooms
-          .map(
-            (room) => RoomListItem(
-              room: room,
-              unreadCount: existingUnreadByRoomId[room.id] ??
-                  _initialUnreadForRoom(room),
-            ),
-          )
-          .toList();
-
-      if (_pendingRoomSummaries.isNotEmpty) {
-        final unresolvedSummaries = <String, Map<String, dynamic>>{};
-        final unresolvedUnreadIncrements = <String, int>{};
-
-        for (final entry in _pendingRoomSummaries.entries) {
-          final roomId = entry.key;
-          final unreadIncrement = _pendingUnreadIncrements[roomId] ?? 0;
-          final roomExists =
-              refreshedItems.any((item) => item.room.id == roomId);
-
-          if (!roomExists) {
-            unresolvedSummaries[roomId] = entry.value;
-            unresolvedUnreadIncrements[roomId] = unreadIncrement;
-            continue;
-          }
-
-          refreshedItems = _applySummaryUpdate(
-            refreshedItems,
-            roomId: roomId,
-            payload: entry.value,
-            unreadIncrement: unreadIncrement,
-          );
-        }
-
-        _pendingRoomSummaries
-          ..clear()
-          ..addAll(unresolvedSummaries);
-        _pendingUnreadIncrements
-          ..clear()
-          ..addAll(unresolvedUnreadIncrements);
-      }
-
-      _sortByLastMessageTime(refreshedItems);
-      state = AsyncValue.data(refreshedItems);
+      state = AsyncValue.data(
+        _withChangesDuringFetch(_itemsFromServer(rooms)),
+      );
     } catch (e, stack) {
       if (kDebugMode) {
-        print('Error refreshing joined rooms for realtime updates: $e');
-        print(stack);
+        print('Error loading joined rooms: $e');
       }
+      // A list on screen stays, with what arrived meanwhile already on it.
+      if (!mounted || state.hasValue) return;
+      state = AsyncValue.error(e, stack);
+      // Load again once the socket connects, e.g. after an offline start.
+      socketService.requestResyncOnConnect();
     } finally {
-      _isRefreshingRooms = false;
+      _summariesDuringFetch.clear();
+      _readDuringFetch.clear();
     }
   }
 
-  int _initialUnreadForRoom(Room room) {
+  /// [rooms] as the server sent them, with its unread counts. The open room
+  /// counts as read.
+  List<RoomListItem> _itemsFromServer(List<Room> rooms) {
+    final openRoomId = socketService.openChat.value.roomId;
+    final shownUnreadByRoomId = <String, int>{
+      for (final item in state.valueOrNull ?? const <RoomListItem>[])
+        item.room.id: item.unreadCount,
+    };
+    return [
+      for (final room in rooms)
+        RoomListItem(
+          room: room,
+          unreadCount: room.id == openRoomId
+              ? 0
+              : _serverUnreadForRoom(room, shownUnreadByRoomId[room.id]),
+        ),
+    ];
+  }
+
+  /// [items] with the rooms read and the summaries received during the
+  /// fetch.
+  List<RoomListItem> _withChangesDuringFetch(List<RoomListItem> items) {
+    var updated = [
+      for (final item in items)
+        _readDuringFetch.contains(item.room.id)
+            ? item.copyWith(unreadCount: 0)
+            : item,
+    ];
+    for (final summary in _summariesDuringFetch) {
+      updated = _applySummaryUpdate(
+        updated,
+        roomId: summary.roomId,
+        payload: summary.payload,
+        unreadIncrement: summary.unreadIncrement,
+      );
+    }
+    _sortByLastMessageTime(updated);
+    return updated;
+  }
+
+  /// The server's unread count for [room]. Older backends don't send one:
+  /// then the count [shown] stays, or one unread is assumed when someone
+  /// else sent the last message.
+  int _serverUnreadForRoom(Room room, int? shown) {
     if (room.hasUnreadCount) {
       return room.unreadCount;
     }
@@ -266,6 +274,9 @@ class RoomsListController
     if (!_hasLoggedUnreadFallback && kDebugMode) {
       _hasLoggedUnreadFallback = true;
       print('rooms/joined missing unreadCount; using last-message fallback');
+    }
+    if (shown != null) {
+      return shown;
     }
 
     final currentUser = ref.read(currentUserProvider);
@@ -280,6 +291,9 @@ class RoomsListController
     return lastMessageUserId == currentUserId ? 0 : 1;
   }
 
+  /// [source] with [payload] as [roomId]'s latest message. A summary that
+  /// isn't newer than the room's last message is already counted, e.g. by a
+  /// fetch that answered after it, so it changes nothing.
   List<RoomListItem> _applySummaryUpdate(
     List<RoomListItem> source, {
     required String roomId,
@@ -291,6 +305,14 @@ class RoomsListController
 
     final existingItem = source[index];
     final existingRoom = existingItem.room;
+
+    final summaryTime = _parseTimestamp(payload['lastMessageTime']);
+    final shownTime = existingRoom.lastMessageTime;
+    if (summaryTime != null &&
+        shownTime != null &&
+        !summaryTime.isAfter(shownTime)) {
+      return source;
+    }
 
     final updatedRoom = Room(
       id: existingRoom.id,
@@ -354,44 +376,53 @@ class RoomsListController
     });
   }
 
-  /// Mark a room as read locally (resets unread counter).
+  /// Marks [roomId] as read: on the server right away, even while the list
+  /// loads, and in the list once it's there.
   void markRoomAsRead(String roomId) {
-    final current = state.value;
-    if (current == null) return;
-
-    final updated = current
-        .map(
-          (item) =>
-              item.room.id == roomId ? item.copyWith(unreadCount: 0) : item,
-        )
-        .toList();
-
-    state = AsyncValue.data(updated);
-
-    // Best-effort: inform backend that this room has been read so that
-    // join_room can return an accurate lastReadAt cursor next time.
-    // This is fire-and-forget; errors are logged in debug but do not
-    // affect UI state.
-    Future(() async {
-      try {
-        final markReadUseCase = ref.read(markRoomAsReadUseCaseProvider);
-        await markReadUseCase(roomId);
-      } catch (e) {
-        if (kDebugMode) {
-          print('Failed to mark room $roomId as read on backend: $e');
+    final current = state.valueOrNull;
+    if (current != null) {
+      state = AsyncValue.data([
+        for (final item in current)
+          item.room.id == roomId ? item.copyWith(unreadCount: 0) : item,
+      ]);
+    }
+    if (_isFetching) {
+      // The list on its way may have been counted before this.
+      _readDuringFetch.add(roomId);
+      for (final summary in _summariesDuringFetch) {
+        if (summary.roomId == roomId) {
+          summary.unreadIncrement = 0;
         }
       }
-    });
+    }
+
+    // The server counts what's after this as unread, and so does the list
+    // when it loads next.
+    unawaited(_postRead(roomId));
+  }
+
+  Future<void> _postRead(String roomId) async {
+    try {
+      await ref.read(markRoomAsReadUseCaseProvider)(roomId);
+    } catch (e) {
+      if (kDebugMode) {
+        print('Failed to mark room $roomId as read on backend: $e');
+      }
+    }
   }
 
   @override
   void dispose() {
+    _resyncSubscription?.cancel();
     if (_roomSummaryHandler != null) {
       socketService.removeListener(
         'room_summary_updated',
         _roomSummaryHandler,
       );
     }
+    // No fetch is coming for those still waiting.
+    _nextFetch?.complete();
+    _nextFetch = null;
     super.dispose();
   }
 }
@@ -405,6 +436,52 @@ final roomsListProvider =
     return RoomsListController(ref, socketService);
   },
 );
+
+/// Keeps each room's read position on the server current, so the unread
+/// counts the chat list loads are right. Whenever the open chat changes, it
+/// marks read both the room that stopped being visible and the one that
+/// became visible. It also marks the open room read when the app goes
+/// inactive, which comes first when the app goes to the background or is
+/// closed from the iOS app switcher. The dashboard keeps it alive.
+final roomReadSyncProvider = Provider<void>((ref) {
+  ref.watch(sessionVersionProvider);
+  final socketService = ref.read(socketServiceProvider);
+  var visibleRoomId = socketService.openChat.value.roomId;
+
+  void markRead(String roomId) {
+    final token = ref.read(tokenProvider);
+    // Signed out: there's no read position to keep.
+    if (token == null || token.isEmpty) return;
+    ref.read(roomsListProvider.notifier).markRoomAsRead(roomId);
+  }
+
+  void onOpenChatChanged() {
+    final roomId = socketService.openChat.value.roomId;
+    if (roomId == visibleRoomId) return;
+    final previousRoomId = visibleRoomId;
+    visibleRoomId = roomId;
+    if (previousRoomId != null) {
+      markRead(previousRoomId);
+    }
+    if (roomId != null) {
+      markRead(roomId);
+    }
+  }
+
+  socketService.openChat.addListener(onOpenChatChanged);
+  final lifecycle = AppLifecycleListener(
+    onInactive: () {
+      final roomId = visibleRoomId;
+      if (roomId != null) {
+        markRead(roomId);
+      }
+    },
+  );
+  ref.onDispose(() {
+    socketService.openChat.removeListener(onOpenChatChanged);
+    lifecycle.dispose();
+  });
+});
 
 /// Room members loaded so far, one page at a time.
 class RoomMembersState {

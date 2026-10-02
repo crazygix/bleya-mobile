@@ -81,9 +81,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      // Mark room as read locally and on backend
-      ref.read(roomsListProvider.notifier).markRoomAsRead(widget.room.id);
-
       // The controller keeps the room's messages live. Another screen for
       // this room may already be in it, so make sure this one loads.
       ref.read(chatRoomControllerProvider(widget.room).notifier).ensureLoaded();

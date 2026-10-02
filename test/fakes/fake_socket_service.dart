@@ -24,6 +24,11 @@ class FakeSocketService extends SocketService {
   final List<String> retriedJoins = [];
   final StreamController<RoomJoinFailure> _joinFailures =
       StreamController<RoomJoinFailure>.broadcast(sync: true);
+  final StreamController<void> _resyncRequests =
+      StreamController<void>.broadcast(sync: true);
+
+  /// How often a list asked to catch up on the first connect.
+  int resyncOnConnectRequests = 0;
 
   /// Runs while a send waits for its acknowledgement.
   void Function()? duringSend;
@@ -48,6 +53,18 @@ class FakeSocketService extends SocketService {
 
   @override
   Stream<RoomJoinFailure> get joinFailures => _joinFailures.stream;
+
+  /// Asks the lists to catch up, as the service does after a reconnect.
+  void requestResync() => _resyncRequests.add(null);
+
+  @override
+  Stream<void> get resyncRequests => _resyncRequests.stream;
+
+  @override
+  void requestResyncOnConnect() {
+    resyncOnConnectRequests++;
+    super.requestResyncOnConnect();
+  }
 
   @override
   Future<void> ensureConnectedForUserChannel() async {

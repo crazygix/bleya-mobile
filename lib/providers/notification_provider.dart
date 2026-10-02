@@ -35,16 +35,37 @@ class NotificationState {
   }
 }
 
+/// A local change to Activity, such as a new notification or a dismissal.
+typedef _NotificationChange = NotificationState Function(NotificationState);
+
 class NotificationNotifier extends AsyncNotifier<NotificationState> {
   /// Changes whenever the session changes (this notifier is rebuilt) or it is
   /// disposed, so a page requested earlier can tell it arrived too late.
   int _sessionGeneration = 0;
 
+  /// Changes whenever a refresh replaces the list, so a next page requested
+  /// before it is dropped.
+  int _listGeneration = 0;
+
+  // The last refresh asked for this session; the next one waits for it.
+  Future<void>? _lastRefresh;
+
+  // Local changes made while a refresh fetches, applied to its page too: the
+  // server may have answered before it saw them.
+  List<_NotificationChange>? _changesDuringRefresh;
+
+  bool get _isRefreshing => _changesDuringRefresh != null;
+
   @override
   FutureOr<NotificationState> build() async {
     // Runs as soon as sessionVersionProvider changes, even when the rebuild
     // itself waits for the next frame.
-    ref.onDispose(() => _sessionGeneration++);
+    ref.onDispose(() {
+      _sessionGeneration++;
+      // The next session's refreshes don't wait for this one's.
+      _lastRefresh = null;
+      _changesDuringRefresh = null;
+    });
     ref.watch(sessionVersionProvider);
     final token = ref.read(tokenProvider);
     if (token == null || token.isEmpty) {
@@ -56,7 +77,13 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       );
     }
 
-    return _fetchPage();
+    try {
+      return await _fetchPage();
+    } catch (_) {
+      // Load again once the socket connects, e.g. after an offline start.
+      ref.read(socketServiceProvider).requestResyncOnConnect();
+      rethrow;
+    }
   }
 
   Future<NotificationState> _fetchPage({String? cursor}) async {
@@ -74,7 +101,14 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
 
   Future<void> loadMore() async {
     final current = state.valueOrNull;
-    if (current == null || !current.hasMore || state.isLoading) return;
+    // A refresh is about to replace the list; scrolling again after it loads
+    // more.
+    if (current == null ||
+        !current.hasMore ||
+        state.isLoading ||
+        _isRefreshing) {
+      return;
+    }
 
     // Prevent concurrent loads
     // state = const AsyncLoading(); // Ideally we want to keep showing list while loading more
@@ -82,6 +116,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     // For simplicity, let's just append.
 
     final session = _sessionGeneration;
+    final list = _listGeneration;
     try {
       final repo = ref.read(notificationRepositoryProvider);
       const limit = 20;
@@ -90,6 +125,8 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       // Signed out or switched accounts meanwhile: the page belongs to the
       // previous session.
       if (session != _sessionGeneration) return;
+      // A refresh replaced the list meanwhile: this page follows the old one.
+      if (list != _listGeneration) return;
 
       // Safeguard: only has more if we got a cursor AND we received a full page
       final hasMoreNotifications =
@@ -110,39 +147,80 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     }
   }
 
-  Future<void> refresh() async {
+  /// Fetches the first page again. A [silent] refresh keeps the list on
+  /// screen while it loads and when it fails, for catching up in the
+  /// background; otherwise the list shows loading, as on a pull to refresh.
+  /// Calls run one after another, and new notifications and other changes
+  /// made meanwhile are kept.
+  Future<void> refresh({bool silent = false}) {
     final session = _sessionGeneration;
-    state = const AsyncLoading();
+    final previous = _lastRefresh;
+    final run = previous == null
+        ? _refreshOnce(session, silent: silent)
+        : previous.then((_) => _refreshOnce(session, silent: silent));
+    // The next refresh waits for this one, whether or not it succeeds.
+    final done = run.then<void>((_) {}, onError: (Object _) {});
+    _lastRefresh = done;
+    unawaited(done.then((_) {
+      if (identical(_lastRefresh, done)) {
+        _lastRefresh = null;
+      }
+    }));
+    return run;
+  }
+
+  Future<void> _refreshOnce(int session, {required bool silent}) async {
+    // Signed out or switched accounts while it waited for the previous one.
+    if (session != _sessionGeneration) return;
+    if (!silent) {
+      state = const AsyncLoading();
+    }
+
+    final changes = <_NotificationChange>[];
+    _changesDuringRefresh = changes;
     final result = await AsyncValue.guard(() => _fetchPage());
+    if (identical(_changesDuringRefresh, changes)) {
+      _changesDuringRefresh = null;
+    }
     // Signed out or switched accounts meanwhile: the page belongs to the
     // previous session.
     if (session != _sessionGeneration) return;
-    state = result;
+
+    if (result case AsyncData(:final value)) {
+      _listGeneration++;
+      state = AsyncData(changes.fold(value, (page, change) => change(page)));
+    } else if (!silent || !state.hasValue) {
+      state = result;
+    }
+    // A silent refresh that failed keeps the list on screen.
+  }
+
+  /// Applies [change] to the list on screen, and to the page a refresh is
+  /// fetching, which may predate it.
+  void _apply(_NotificationChange change) {
+    _changesDuringRefresh?.add(change);
+    final current = state.valueOrNull;
+    if (current != null) {
+      state = AsyncData(change(current));
+    }
   }
 
   Future<void> markAsRead(String notificationId) async {
-    final current = state.valueOrNull;
-    if (current == null) return;
+    if (state.valueOrNull == null) return;
 
     // Update locally but stay in list
-    final updatedList = current.notifications.map((n) {
-      if (n.id == notificationId && !n.isRead) {
-        return n.copyWith(isRead: true);
-      }
-      return n;
-    }).toList();
-
-    // calculate new unread count
-    final wasUnread =
-        current.notifications.any((n) => n.id == notificationId && !n.isRead);
-    final newCount = wasUnread
-        ? (current.unreadCount > 0 ? current.unreadCount - 1 : 0)
-        : current.unreadCount;
-
-    state = AsyncData(current.copyWith(
-      notifications: updatedList,
-      unreadCount: newCount,
-    ));
+    _apply((current) {
+      final wasUnread =
+          current.notifications.any((n) => n.id == notificationId && !n.isRead);
+      if (!wasUnread) return current;
+      return current.copyWith(
+        notifications: [
+          for (final n in current.notifications)
+            n.id == notificationId ? n.copyWith(isRead: true) : n,
+        ],
+        unreadCount: current.unreadCount > 0 ? current.unreadCount - 1 : 0,
+      );
+    });
 
     try {
       final repo = ref.read(notificationRepositoryProvider);
@@ -153,17 +231,15 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> markAllAsRead() async {
-    final current = state.valueOrNull;
-    if (current == null) return;
+    if (state.valueOrNull == null) return;
 
     // Mark all as read but keep in list
-    final updatedList =
-        current.notifications.map((n) => n.copyWith(isRead: true)).toList();
-
-    state = AsyncData(current.copyWith(
-      notifications: updatedList,
-      unreadCount: 0,
-    ));
+    _apply((current) => current.copyWith(
+          notifications: [
+            for (final n in current.notifications) n.copyWith(isRead: true),
+          ],
+          unreadCount: 0,
+        ));
 
     try {
       final repo = ref.read(notificationRepositoryProvider);
@@ -174,24 +250,21 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> dismissNotification(String notificationId) async {
-    final current = state.valueOrNull;
-    if (current == null) return;
+    if (state.valueOrNull == null) return;
 
-    // Remove from list immediately (UX: it disappears when tapped/handled)
-    final updatedList =
-        current.notifications.where((n) => n.id != notificationId).toList();
-
-    // Also update unread count if it was unread
-    final wasUnread =
-        current.notifications.any((n) => n.id == notificationId && !n.isRead);
-    final newCount = wasUnread
-        ? (current.unreadCount > 0 ? current.unreadCount - 1 : 0)
-        : current.unreadCount;
-
-    state = AsyncData(current.copyWith(
-      notifications: updatedList,
-      unreadCount: newCount,
-    ));
+    // Remove from list immediately (UX: it disappears when tapped/handled),
+    // and lower the unread count if it was unread.
+    _apply((current) {
+      final wasUnread =
+          current.notifications.any((n) => n.id == notificationId && !n.isRead);
+      return current.copyWith(
+        notifications:
+            current.notifications.where((n) => n.id != notificationId).toList(),
+        unreadCount: wasUnread && current.unreadCount > 0
+            ? current.unreadCount - 1
+            : current.unreadCount,
+      );
+    });
 
     try {
       final repo = ref.read(notificationRepositoryProvider);
@@ -202,16 +275,15 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   Future<void> dismissAll() async {
-    final current = state.valueOrNull;
-    if (current == null) return;
+    if (state.valueOrNull == null) return;
 
     // Clear everything for "Inbox Zero"
-    state = AsyncData(current.copyWith(
-      notifications: [],
-      unreadCount: 0,
-      hasMore: false,
-      nextCursor: null,
-    ));
+    _apply((current) => current.copyWith(
+          notifications: [],
+          unreadCount: 0,
+          hasMore: false,
+          nextCursor: null,
+        ));
 
     try {
       final repo = ref.read(notificationRepositoryProvider);
@@ -230,8 +302,8 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
   }
 
   void handleNewNotification(Notification notification) {
-    final current = state.valueOrNull;
-    if (current == null) return; // Not loaded yet
+    // Not loaded yet, and no refresh to keep it for.
+    if (state.valueOrNull == null && !_isRefreshing) return;
 
     final openThreadId =
         ref.read(socketServiceProvider).openChat.value.threadId;
@@ -257,10 +329,16 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       return;
     }
 
-    state = AsyncData(current.copyWith(
-      notifications: [notification, ...current.notifications],
-      unreadCount: current.unreadCount + 1,
-    ));
+    _apply((current) {
+      // Already listed, e.g. on a page fetched after it arrived.
+      if (current.notifications.any((n) => n.id == notification.id)) {
+        return current;
+      }
+      return current.copyWith(
+        notifications: [notification, ...current.notifications],
+        unreadCount: current.unreadCount + 1,
+      );
+    });
   }
 }
 
@@ -289,8 +367,15 @@ class NotificationSocketListenerNotifier extends AsyncNotifier<void> {
     // handler, or registers none if it's still connecting.
     var superseded = false;
     dynamic handler;
+    // Notifications sent while the socket was away never arrive, so Activity
+    // catches up whenever the socket asks, keeping the list on screen. This
+    // listens before connecting, so the first connect's request isn't missed.
+    final resyncSubscription = socketService.resyncRequests.listen((_) {
+      unawaited(notifier.refresh(silent: true));
+    });
     ref.onDispose(() {
       superseded = true;
+      resyncSubscription.cancel();
       if (handler != null) {
         socketService.removeListener('new_notification', handler);
       }

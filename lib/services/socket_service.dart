@@ -249,6 +249,22 @@ class SocketService {
   /// true; it's cleared when the user signs out.
   bool _wantsConnection = false;
 
+  // In the background the socket stays disconnected and nothing reconnects;
+  // the claims and listeners stay for the return.
+  bool _inForeground = true;
+
+  // Catch-up for the chat list and Activity, see [resyncRequests].
+  final StreamController<void> _resyncRequests =
+      StreamController<void>.broadcast();
+  // Connected at least once this session, so the next connect is a
+  // reconnect.
+  bool _hasConnected = false;
+  // A list failed to load, so the session's first connect asks too.
+  bool _resyncOnConnect = false;
+  // Back in the foreground, until that return's reconnect completes or
+  // fails.
+  bool _awaitingReturnConnect = false;
+
   /// Single-flight connection attempt to prevent overlapping connect/reconnect calls.
   Completer<void>? _connectAttempt;
   Timer? _connectAttemptTimeout;
@@ -287,9 +303,96 @@ class SocketService {
   /// again until [retryJoin], a reconnect or another claim on top.
   Stream<RoomJoinFailure> get joinFailures => _joinFailures.stream;
 
+  /// Asks the chat list and Activity to catch up over HTTP, since events sent
+  /// while the socket was away never arrive. Fires once after each
+  /// reconnect, and once per return to the foreground as soon as that
+  /// return's reconnect completes or fails, so the lists catch up even where
+  /// WebSockets are blocked. The session's first connect fires it only after
+  /// [requestResyncOnConnect].
+  Stream<void> get resyncRequests => _resyncRequests.stream;
+
+  /// For a chat list or Activity that failed to load: [resyncRequests] also
+  /// fires on the session's first connect, e.g. once the network is back
+  /// after an offline start.
+  void requestResyncOnConnect() {
+    _resyncOnConnect = true;
+  }
+
+  /// Whether the app is in the foreground, as last set by [setForeground].
+  @visibleForTesting
+  bool get isInForeground => _inForeground;
+
   /// The claims held now, oldest first.
   @visibleForTesting
   List<RoomClaim> get claims => List.unmodifiable(_claims);
+
+  /// Follows the app in and out of the foreground.
+  ///
+  /// In the background the socket disconnects, so the server no longer
+  /// counts the user as present in the open chat and sends its pushes. The
+  /// claims and listeners stay, and nothing reconnects until the app is
+  /// back. Back in the foreground, it connects again if a screen wants the
+  /// socket; the newest claim is then joined again, with its thread.
+  void setForeground(bool foreground) {
+    if (foreground == _inForeground) return;
+    _inForeground = foreground;
+    if (foreground) {
+      _connectOnReturn();
+    } else {
+      _suspend();
+    }
+  }
+
+  void _suspend() {
+    if (kDebugMode) {
+      print('Socket: app in the background, disconnecting');
+    }
+    _awaitingReturnConnect = false;
+    // Nobody waits for a connect still in progress: it fails now, so the
+    // return starts a new one.
+    _finishConnectAttempt(StateError('App in the background'));
+    _cancelRetry();
+    _joinDeadline?.cancel();
+    _joinDeadline = null;
+    // Unlike disconnect(), this keeps the claims, the listeners and
+    // _wantsConnection for the return.
+    _socket?.disconnect();
+  }
+
+  void _connectOnReturn() {
+    if (!_wantsConnection || _currentToken == null) return;
+    if (kDebugMode) {
+      print('Socket: app back in the foreground, reconnecting');
+    }
+    _ensureSocketInitialized();
+    if (_socket?.connected == true) return;
+    _awaitingReturnConnect = true;
+    // The chat on top gets a fresh 10 s to open.
+    _armJoinDeadline();
+    // A token refresh still running connects once it has the new token.
+    if (_authRefreshInFlight) return;
+    unawaited(_ensureConnected().catchError((Object error) {
+      // A reconnect, a refresh or Try again takes it from here.
+      if (kDebugMode) {
+        print('Socket not connected after the return: $error');
+      }
+    }));
+  }
+
+  /// The return's reconnect failed for now. The lists still catch up over
+  /// HTTP.
+  void _returnConnectFailed() {
+    if (!_awaitingReturnConnect) return;
+    _awaitingReturnConnect = false;
+    _requestResync();
+  }
+
+  void _requestResync() {
+    if (kDebugMode) {
+      print('Socket: asking the chat list and Activity to catch up');
+    }
+    _resyncRequests.add(null);
+  }
 
   void setToken(String? token) {
     _currentToken = (token != null && token.isNotEmpty) ? token : null;
@@ -337,6 +440,18 @@ class SocketService {
       // try, and the newest claim decides which room to join, as it is now.
       _failedJoinRoomId = null;
       _scheduleSync();
+
+      // Events sent while the socket was away never arrive, so the lists
+      // catch up after a reconnect, a return to the foreground, or a first
+      // load that failed.
+      final resync =
+          _hasConnected || _awaitingReturnConnect || _resyncOnConnect;
+      _hasConnected = true;
+      _awaitingReturnConnect = false;
+      _resyncOnConnect = false;
+      if (resync) {
+        _requestResync();
+      }
     });
 
     _socket!.onDisconnect((reason) {
@@ -388,6 +503,7 @@ class SocketService {
       }
       // Transport failure: socket.io keeps retrying with its own backoff.
       _finishConnectAttempt(error ?? Exception('connect_error'));
+      _returnConnectFailed();
     });
 
     // Re-attach listeners that were registered before the socket existed.
@@ -488,7 +604,10 @@ class SocketService {
   Future<void> _refreshAndReconnect() async {
     if (_authRefreshInFlight) return;
     final refresher = refreshToken;
-    if (refresher == null) return;
+    if (refresher == null) {
+      _returnConnectFailed();
+      return;
+    }
 
     _authRefreshInFlight = true;
     String? newToken;
@@ -502,7 +621,8 @@ class SocketService {
 
     if (newToken != null && newToken.isNotEmpty) {
       setToken(newToken);
-      if (_wantsConnection) {
+      // In the background, connecting waits for the return.
+      if (_wantsConnection && _inForeground) {
         await _ensureConnected().catchError((_) {});
       }
     } else if (_currentToken != null) {
@@ -513,8 +633,10 @@ class SocketService {
   }
 
   void _scheduleReconnect({bool refreshFirst = false}) {
+    // Reconnecting has to wait for a retry; a return's lists catch up now.
+    _returnConnectFailed();
     _retryRefreshesFirst = _retryRefreshesFirst || refreshFirst;
-    if (!_wantsConnection || _currentToken == null) return;
+    if (!_wantsConnection || _currentToken == null || !_inForeground) return;
     if (_retryTimer?.isActive ?? false) return;
 
     final delay = _retryDelay(_retryAttempt++);
@@ -555,6 +677,10 @@ class SocketService {
     _consecutiveAuthRejections = 0;
     _stableConnectionTimer?.cancel();
     _finishConnectAttempt(StateError('Socket stopped'));
+    // The session is over: the next one's first connect isn't a reconnect.
+    _hasConnected = false;
+    _resyncOnConnect = false;
+    _awaitingReturnConnect = false;
   }
 
   void disconnect() {
@@ -682,14 +808,14 @@ class SocketService {
     _scheduleOpenChatUpdate();
   }
 
-  /// Starts connecting for the claims, if signed in. Once connected, [_sync]
-  /// joins the newest claim.
+  /// Starts connecting for the claims, if signed in and in the foreground.
+  /// Once connected, [_sync] joins the newest claim.
   void _connectForClaims() {
     final token = _currentToken;
     if (token == null || token.isEmpty) return;
     _wantsConnection = true;
     _ensureSocketInitialized();
-    if (_socket?.connected == true) return;
+    if (!_inForeground || _socket?.connected == true) return;
     unawaited(_ensureConnected().catchError((Object error) {
       // A reconnect, a refresh or Try again takes it from here.
       if (kDebugMode) {
@@ -852,9 +978,10 @@ class SocketService {
   }
 
   /// Gives the newest claim's room [_joinTimeout] to be joined, unless a
-  /// deadline is already running for it.
+  /// deadline is already running for it. In the background the deadline
+  /// waits for the return.
   void _armJoinDeadline() {
-    if (_joinDeadline != null) return;
+    if (_joinDeadline != null || !_inForeground) return;
     final target = _target;
     if (target == null ||
         target.room.id == _joinedRoomId ||
@@ -939,7 +1066,9 @@ class SocketService {
   /// Ensure the socket is connected using the current token without
   /// joining any specific chat room. Used for per-user channels such
   /// as dashboard updates. Returns once connected or once the attempt has
-  /// failed; listeners can be registered either way and survive reconnects.
+  /// failed, and right away in the background, where the socket connects
+  /// on the return; listeners can be registered either way and survive
+  /// reconnects.
   Future<void> ensureConnectedForUserChannel() async {
     if (_currentToken == null || _currentToken!.isEmpty) {
       if (kDebugMode) {
@@ -952,6 +1081,7 @@ class SocketService {
     }
     _wantsConnection = true;
     _ensureSocketInitialized();
+    if (!_inForeground) return;
     try {
       await _ensureConnected();
     } catch (e) {
@@ -968,7 +1098,11 @@ class SocketService {
 
   /// Connects with the current token. Completes on connect and fails on a
   /// rejection, a connection error or a timeout, so no caller waits forever.
+  /// Nothing connects in the background.
   Future<void> _ensureConnected() {
+    if (!_inForeground) {
+      return Future.error(StateError('App in the background'));
+    }
     // Single-flight: callers share one connect attempt.
     final existing = _connectAttempt;
     if (existing != null) return existing.future;
@@ -991,6 +1125,7 @@ class SocketService {
     _connectAttempt = attempt;
     _connectAttemptTimeout = Timer(_connectTimeout, () {
       _finishConnectAttempt(TimeoutException('Socket connection timed out'));
+      _returnConnectFailed();
     });
 
     _updateHeaderToken(token);

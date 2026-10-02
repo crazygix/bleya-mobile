@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bleya/domain/entities/room.dart';
 import 'package:bleya/services/socket_service.dart';
 import 'package:fake_async/fake_async.dart';
@@ -13,6 +15,13 @@ const _notInRoomEvent = {
   'error': {
     'code': 'NOT_IN_ROOM',
     'message': 'Not in a room. Reopen the chat and try again.',
+  },
+};
+
+const _tokenExpiredEvent = {
+  'error': {
+    'code': 'TOKEN_EXPIRED',
+    'message': 'Authentication error: session expired',
   },
 };
 
@@ -40,6 +49,7 @@ class _Harness {
     };
     service.onFatalError = (message) async => fatalMessages.add(message);
     service.joinFailures.listen(failures.add);
+    service.resyncRequests.listen((_) => resyncs++);
     service.setToken('token-1');
   }
 
@@ -50,6 +60,9 @@ class _Harness {
   final List<String> fatalMessages = [];
   int refreshCalls = 0;
   String? refreshedToken = 'token-2';
+
+  /// How often the lists were asked to catch up.
+  int resyncs = 0;
 
   FakeIoSocket get socket => sockets.last;
 
@@ -969,12 +982,7 @@ void main() {
       _runFake((h) {
         h.openChat(_roomX, threadId: 'thread-1');
 
-        h.socket.serverEmit('error', {
-          'error': {
-            'code': 'TOKEN_EXPIRED',
-            'message': 'Authentication error: session expired',
-          },
-        });
+        h.socket.serverEmit('error', _tokenExpiredEvent);
         h.socket.serverDisconnect();
         h.settle();
 
@@ -1039,6 +1047,287 @@ void main() {
         h.async.elapse(const Duration(seconds: 1));
 
         expect(finished, isTrue);
+      });
+    });
+  });
+
+  group('SocketService in the background', () {
+    test('background disconnects once, and nothing reconnects over two minutes',
+        () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        h.service.claimRoom(_roomX, threadId: 'thread-1');
+        h.settle();
+
+        h.service.setForeground(false);
+        h.service.setForeground(false);
+        h.settle();
+
+        expect(h.socket.disconnectCalls, 1);
+        expect(h.socket.connected, isFalse);
+
+        // Nothing that connects in the foreground connects now.
+        h.service.claimRoom(_dm);
+        h.service.ensureConnectedForUserChannel();
+        h.service.retryJoin(_dm);
+        h.settle();
+        h.async.elapse(const Duration(minutes: 2));
+
+        expect(h.socket.connectCalls, 1);
+        expect(h.failures, isEmpty);
+        // The server ends the room and the thread with the connection, and
+        // the screens keep their claims for the return.
+        expect(h.socket.sentEvents, ['join_room', 'open_thread']);
+        expect(
+          h.service.claims.map((claim) => claim.room.id),
+          ['room-x', 'room-x', 'room-d'],
+        );
+      });
+    });
+
+    test('a reconnect that was due when the app left is called off', () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        // A deploy ends the connection: a retry is due in about a second.
+        h.socket.serverDisconnect();
+
+        h.service.setForeground(false);
+        h.async.elapse(const Duration(minutes: 2));
+
+        expect(h.socket.connectCalls, 1);
+      });
+    });
+
+    test('foreground reconnects, rejoins the top claim and reopens the thread',
+        () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        h.service.claimRoom(_roomX, threadId: 'thread-1');
+        h.settle();
+        h.service.setForeground(false);
+        h.async.elapse(const Duration(minutes: 5));
+
+        h.service.setForeground(true);
+        h.settle();
+        expect(h.socket.connectCalls, 2);
+        h.connect();
+        h.joined(_roomX);
+
+        expect(h.socket.sentEvents, [
+          'join_room',
+          'open_thread',
+          'join_room',
+          'open_thread',
+        ]);
+        expect(h.socket.sent.every((packet) => packet.whileConnected), isTrue);
+        expect(
+          h.service.openChat.value,
+          const OpenChat(roomId: 'room-x', threadId: 'thread-1'),
+        );
+        expect(h.failures, isEmpty);
+      });
+    });
+
+    test(
+        'background while a connect is pending, then foreground within 25 s, '
+        'starts a new connect and rejoins the top claim', () {
+      _runFake((h) {
+        var firstAttemptEnded = false;
+        h.service.claimRoom(_roomX);
+        h.service
+            .ensureConnectedForUserChannel()
+            .then((_) => firstAttemptEnded = true);
+        h.settle();
+        expect(h.socket.connectCalls, 1);
+        h.async.elapse(const Duration(seconds: 5));
+
+        h.service.setForeground(false);
+        h.settle();
+        // Nobody waits for a connect that was given up.
+        expect(firstAttemptEnded, isTrue);
+        h.async.elapse(const Duration(seconds: 10));
+
+        h.service.setForeground(true);
+        h.settle();
+        expect(h.socket.connectCalls, 2);
+        h.async.elapse(const Duration(seconds: 5));
+        h.connect();
+        h.joined(_roomX);
+        // Well past the first attempt's 25 s: nothing of it is left to fail.
+        h.async.elapse(const Duration(seconds: 30));
+
+        expect(h.socket.joinRequests, ['room-x']);
+        expect(h.socket.connected, isTrue);
+        expect(h.failures, isEmpty);
+      });
+    });
+
+    test("a token refresh that finishes in the background doesn't connect", () {
+      _runFake((h) {
+        final refreshed = Completer<String?>();
+        h.service.refreshToken = () => refreshed.future;
+        h.openChat(_roomX);
+        h.socket.serverEmit('error', _tokenExpiredEvent);
+        h.socket.serverDisconnect();
+        h.settle();
+
+        h.service.setForeground(false);
+        refreshed.complete('token-2');
+        h.settle();
+        h.async.elapse(const Duration(minutes: 2));
+        expect(h.socket.connectCalls, 1);
+
+        h.service.setForeground(true);
+        h.settle();
+        expect(h.socket.connectCalls, 2);
+        expect(h.socket.handshakeToken, 'token-2');
+        h.connect();
+
+        expect(h.socket.joinRequests, ['room-x', 'room-x']);
+      });
+    });
+
+    test('a refresh still running at the return connects once it is done', () {
+      _runFake((h) {
+        final refreshed = Completer<String?>();
+        h.service.refreshToken = () => refreshed.future;
+        h.openChat(_roomX);
+        h.socket.serverEmit('error', _tokenExpiredEvent);
+        h.socket.serverDisconnect();
+        h.settle();
+
+        h.service.setForeground(false);
+        h.service.setForeground(true);
+        h.settle();
+        expect(h.socket.connectCalls, 1);
+
+        refreshed.complete('token-2');
+        h.settle();
+
+        expect(h.socket.connectCalls, 2);
+        expect(h.socket.handshakeToken, 'token-2');
+      });
+    });
+  });
+
+  group('SocketService.resyncRequests', () {
+    test('fires once after each reconnect, and not on the first connect', () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        expect(h.resyncs, 0);
+
+        h.socket.dropConnection();
+        // socket.io reconnects by itself after a network drop.
+        h.connect();
+        expect(h.resyncs, 1);
+
+        h.socket.serverDisconnect();
+        h.async.elapse(const Duration(seconds: 2));
+        h.connect();
+        expect(h.resyncs, 2);
+      });
+    });
+
+    test('one return to the foreground causes one resync, once reconnected',
+        () {
+      _runFake((h) {
+        h.openChat(_roomX);
+
+        h.service.setForeground(false);
+        h.service.setForeground(true);
+        h.settle();
+        expect(h.resyncs, 0);
+
+        h.connect();
+        h.joined(_roomX);
+        h.async.elapse(const Duration(minutes: 1));
+
+        expect(h.resyncs, 1);
+      });
+    });
+
+    test('a return whose reconnect fails resyncs right away, and only once',
+        () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        h.service.setForeground(false);
+        h.service.setForeground(true);
+        h.settle();
+
+        // WebSockets are blocked: the lists still catch up over HTTP.
+        h.socket.failConnection();
+        h.settle();
+        expect(h.resyncs, 1);
+
+        // socket.io keeps trying.
+        h.socket.failConnection();
+        h.async.elapse(const Duration(seconds: 30));
+        expect(h.resyncs, 1);
+
+        // Once it gets through, it's a reconnect like any other.
+        h.connect();
+        expect(h.resyncs, 2);
+      });
+    });
+
+    test('a return whose reconnect never answers resyncs after 25 s', () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        h.service.setForeground(false);
+        h.service.setForeground(true);
+
+        h.async.elapse(const Duration(seconds: 24));
+        expect(h.resyncs, 0);
+        h.async.elapse(const Duration(seconds: 1));
+
+        expect(h.resyncs, 1);
+      });
+    });
+
+    test('a return the server turns away for now resyncs before the retry', () {
+      _runFake((h) {
+        h.openChat(_roomX);
+        h.service.setForeground(false);
+        h.service.setForeground(true);
+        h.settle();
+
+        h.socket.refuseHandshake(
+          {'message': 'Server unavailable: please try again shortly.'},
+        );
+        h.settle();
+        expect(h.resyncs, 1);
+
+        h.async.elapse(const Duration(seconds: 2));
+        expect(h.socket.connectCalls, 3);
+        h.connect();
+        expect(h.resyncs, 2);
+      });
+    });
+
+    test('the first connect resyncs when a list failed to load', () {
+      _runFake((h) {
+        h.service.requestResyncOnConnect();
+        h.service.ensureConnectedForUserChannel();
+        h.settle();
+
+        h.connect();
+
+        expect(h.resyncs, 1);
+      });
+    });
+
+    test("a new session's first connect is not a reconnect", () {
+      _runFake((h) {
+        h.openChat(_roomX);
+
+        h.service.disconnect();
+        h.service.setToken('token-3');
+        h.service.ensureConnectedForUserChannel();
+        h.settle();
+        h.connect();
+
+        expect(h.sockets, hasLength(2));
+        expect(h.resyncs, 0);
       });
     });
   });
