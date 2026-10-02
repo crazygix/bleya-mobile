@@ -177,8 +177,6 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
 
       unawaited(_queueNavigationForPayload(payload));
     });
-
-    _retryPendingTokenDeletion();
   }
 
   Future<void> handleAuthTokenChanged(String? authToken) async {
@@ -201,8 +199,8 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
     ]);
   }
 
-  /// The device is back online: a token deletion left over from a sign-out
-  /// can go through now.
+  /// The device is back online, or the stored token has been read at launch:
+  /// a token deletion left over from a sign-out can go through now.
   void handleConnectionRestored() {
     _retryPendingTokenDeletion();
   }
@@ -294,7 +292,7 @@ class PushNotificationsController extends StateNotifier<PushNotificationsState>
   /// While signed out, finishes deleting the FCM token of a session whose
   /// deletion didn't go through at sign-out.
   void _retryPendingTokenDeletion() {
-    if (!_supportsPushPlatform() || _isSignedIn) {
+    if (!mounted || !_supportsPushPlatform() || _isSignedIn) {
       return;
     }
     unawaited(_pushMessagingService.retryPendingTokenDeletion());

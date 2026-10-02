@@ -83,5 +83,12 @@ final pushNotificationsControllerProvider =
 
   controller.start();
   unawaited(controller.handleAuthTokenChanged(ref.read(tokenProvider)));
+  // Until the stored token is read, a signed-in launch looks signed out, so
+  // a token deletion left over from a sign-out is retried only after that.
+  // If it can't be read, returning to the app or reconnecting retries it.
+  unawaited(ref.read(tokenInitializerProvider.future).then(
+        (_) => controller.handleConnectionRestored(),
+        onError: (Object _) {},
+      ));
   return controller;
 });

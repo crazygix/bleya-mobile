@@ -287,6 +287,44 @@ void main() {
       expect(chatState().nextCursor, 'older-cursor');
     });
 
+    test(
+        'a message that comes before the first room_joined, whose page lacks '
+        'it, stays listed after it, once and in order', () async {
+      // The socket was already in the room for a thread screen, so the
+      // server sends what's stored while it builds this screen's page.
+      controller().ensureLoaded();
+      socket.emit('new_message', _payload(_at(2)));
+      socket.emit('new_message', _payload(_at(3)));
+
+      // Built before m003 was stored.
+      socket.emit(
+        'room_joined',
+        _roomJoined([_at(1), _at(2)], hasMore: true, nextCursor: 'cursor-1'),
+      );
+
+      expect(_ids(messages()), ['m001', 'm002', 'm003']);
+      expect(chatState().hasMore, isTrue);
+      expect(chatState().nextCursor, 'cursor-1');
+    });
+
+    test(
+        'after the first page, a room_joined still drops a newest message '
+        'removed meanwhile', () async {
+      controller();
+      socket.emit(
+        'room_joined',
+        _roomJoined([_at(1), _at(2), _at(3)], hasMore: true, nextCursor: 'c1'),
+      );
+
+      // After a reconnect: m003 was removed while the socket was away.
+      socket.emit(
+        'room_joined',
+        _roomJoined([_at(1), _at(2)], hasMore: true, nextCursor: 'c1'),
+      );
+
+      expect(_ids(messages()), ['m001', 'm002']);
+    });
+
     test('a room_joined for this room that cannot be read shows the error',
         () async {
       controller();

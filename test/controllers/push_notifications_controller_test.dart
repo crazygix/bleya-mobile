@@ -557,15 +557,38 @@ void main() {
   });
 
   group('deleting the FCM token after a sign-out', () {
-    test('a pending deletion is retried at launch and on return, signed out',
-        () async {
+    test(
+        'a pending deletion is retried at launch, once the stored token is '
+        'read, and on return, signed out', () async {
+      // The app starts the controller before it has read the stored token.
       authToken = null;
-
       controller.start();
+      await controller.handleAuthTokenChanged(authToken);
+      verifyNever(() => mockPushMessagingService.retryPendingTokenDeletion());
+
+      // None was stored. The provider retries once that's known.
+      controller.handleConnectionRestored();
       controller.didChangeAppLifecycleState(AppLifecycleState.resumed);
 
       verify(() => mockPushMessagingService.retryPendingTokenDeletion())
           .called(2);
+    });
+
+    test('a signed-in launch keeps the token, even with a deletion left over',
+        () async {
+      // Until the stored token is read, the launch looks signed out.
+      authToken = null;
+      controller.start();
+      await controller.handleAuthTokenChanged(authToken);
+
+      // The stored token is read, then the provider's launch retry runs.
+      authToken = 'auth-token';
+      await controller.handleAuthTokenChanged(authToken);
+      controller.handleConnectionRestored();
+      await pumpEventQueue();
+
+      verifyNever(() => mockPushMessagingService.retryPendingTokenDeletion());
+      verifyRegistered('push-token');
     });
 
     test('and when the connection comes back', () async {

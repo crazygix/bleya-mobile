@@ -152,6 +152,17 @@ RoomMessagesPage mergeLatestPage(
   );
 }
 
+/// The [live] messages that [page] (oldest first) doesn't have and that are
+/// newer than its newest message: stored after the page was built.
+List<Message> _newerThanPage(List<Message> live, List<Message> page) {
+  final pageIds = {for (final message in page) message.id};
+  return live
+      .where((message) =>
+          !pageIds.contains(message.id) &&
+          (page.isEmpty || _compareMessageOrder(message, page.last) > 0))
+      .toList();
+}
+
 /// A thread's parent and replies, kept live from the socket. It listens
 /// before its first fetch, and fetches again whenever the socket joins the
 /// thread's room again, since replies sent while the socket was away never
@@ -475,9 +486,10 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
     if (joinedData.room.id != roomId) return;
 
     final messages = ref.read(roomMessagesProvider(roomId).notifier);
+    final loaded = messages.state;
     final merged = mergeLatestPage(
       RoomMessagesPage(
-        messages: messages.state,
+        messages: loaded,
         hasMore: state.hasMore,
         nextCursor: state.nextCursor,
       ),
@@ -487,7 +499,12 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
         nextCursor: joinedData.nextCursor,
       ),
     );
-    messages.state = merged.messages;
+    // Before its first page, the screen lists only messages that came live.
+    // When the socket was already in the room for another screen, the server
+    // sends those stored while it builds the page, which doesn't have them.
+    messages.state = state.isInitialLoading
+        ? [...merged.messages, ..._newerThanPage(loaded, joinedData.messages)]
+        : merged.messages;
 
     state = state.copyWith(
       isInitialLoading: false,
