@@ -1,7 +1,11 @@
 # Mobile ultrareview fix plan — 3. Backend changes
 
-**Status:** Plan. Nothing has changed yet.
-**Last updated:** October 1, 2026
+**Status:** **Deployed to production on October 2, 2026.**
+- Commits: `d58b535` (BE1, BE5), `f42dd6f` (BE3, BE4, BE9), `bd30ba5` (BE2) and `5d4fb59` (BE6, BE7), plus two performance follow-ups for the badge count, `4178545` and `7a4db50`.
+- BE7's Railway value is set.
+- Tests: `npm run test:isolated` passes 38/38 files (289 tests).
+
+**Last updated:** October 2, 2026
 
 This lists what the backend (`bleya/backend`, live at api.bleyachat.com, commit 63789b3) needs so it stays in step with the app fixes in [1-app-fixes.md](1-app-fixes.md). Your own steps (deploys, Railway, consoles) are in [2-your-checklist.md](2-your-checklist.md).
 

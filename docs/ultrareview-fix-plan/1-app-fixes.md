@@ -1,8 +1,13 @@
 # Mobile ultrareview fix plan — 1. App fixes
 
-**Status:** Plan. Decisions were made on October 1, 2026 ([your decisions](2-your-checklist.md#1-your-decisions-october-1-2026)). No code has changed yet; work starts after Ivan's go-ahead.
+**Status:** **Implemented on October 2, 2026**, following [your decisions](2-your-checklist.md#1-your-decisions-october-1-2026).
+- App: commits `40a6e6a`…`b7d2282`. `flutter analyze` is clean and 649 tests pass.
+- Build: 1.0.0 (12), commit `a66c2ac`, tag `build/12`, is on TestFlight and Play internal testing.
+- Website: H1 and H2 are committed and pushed but **not live yet**; see the checklist.
+- Still open: what's left is in [the checklist](2-your-checklist.md#status-october-2-2026).
+
 **Based on:** the ultrareview of the mobile app on September 30, 2026: 63 confirmed findings, which come down to 40 separate issues, 5 of them release blockers. Each fix lists the finding ids it closes.
-**Last updated:** October 1, 2026
+**Last updated:** October 2, 2026
 
 The plan has three parts:
 1. **This document:** what changes in the app (and on the website, where the app depends on it), in the order I'll make the changes.
@@ -633,3 +638,8 @@ Your choice: list Bleya under **Communication** in Play Console, like most chat 
 - **Character counter** in the message box: none, by your choice (F1).
 - **Activity items that quote a thread whose author you blocked:** a backend change after launch; see the optional items in [3-backend-changes.md](3-backend-changes.md).
 - TNS-8 (stating the minimum age in the app) was refuted in the review: it's covered by your passive-consent decision.
+
+**Small follow-ups found during implementation (after launch):**
+- **Missed message on reopen.** A chat screen that already shows messages can miss one live message in a rare case: another room is opened and closed before it finishes joining. A reply in that window can also leave its parent's reply count one too low. Reopening the chat fixes both.
+- **Badge counts.** The iOS badge is counted in chunks of 100 recipients. Recipients with very many DMs could still make one chunk time out, and then only that chunk's badges are missing.
+- **iOS launch screen.** It's still Flutter's placeholder: a polish item, not a store blocker.

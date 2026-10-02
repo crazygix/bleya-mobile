@@ -1,8 +1,29 @@
 # Mobile ultrareview fix plan — 2. Your checklist
 
-**Last updated:** October 1, 2026
+**Last updated:** October 2, 2026
 
 This is everything in the fix plan that only you can do: console and account work, approvals, and the device checks once the fixes are in. It goes with [1-app-fixes.md](1-app-fixes.md), which covers what I change in the app and on the website, and [3-backend-changes.md](3-backend-changes.md), which covers what changes on the server.
+
+## Status (October 2, 2026)
+
+**Done**
+- **Backend:** all changes are deployed (BE1–BE7, BE9).
+- **App:** all fixes are committed. Build **1.0.0 (12)** is on TestFlight and on Play internal testing.
+- **Signing key and passkey origins:** the Play app-signing key was read through the Play API, and `PASSKEY_EXPECTED_ORIGINS` is set in Railway.
+- **Baseline commits:** your four files (`build/11`) and this plan folder are committed.
+
+**Left for you, in this order**
+1. **Website.** Commit `238001c` (assetlinks.json and apple-app-site-association) is pushed but **not live**: pushing doesn't deploy the site, and Cloudflare is caching the old files.
+   - In Cloudflare, deploy the site the way you usually do (for example `npx wrangler deploy` from `bleya/website`).
+   - Then purge the cache: **Caching → Configuration → Purge Cache → Custom Purge**, with the two `.well-known` URLs.
+
+   Until then, passkeys fail on Play-installed Android builds.
+2. **Play Console.** Set the category to **Communication**, check that there's no Child safety standards declaration under App content, and confirm the account type is organization.
+3. **Device checks:** section 4 below, on build 12.
+4. **Store forms and go-live:** section 5 below.
+5. **Push the mobile repo** when you're happy (`git push origin master`, and `git push origin build/11 build/12` for the tags). It's 11 commits ahead and isn't pushed yet; nothing depends on it.
+
+Sections 2 and 3 below record what was done before and during the work.
 
 ## 1. Your decisions (October 1, 2026)
 
