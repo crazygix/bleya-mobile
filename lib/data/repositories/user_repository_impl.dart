@@ -46,10 +46,15 @@ class UserRepositoryImpl implements UserRepository {
   @override
   Future<UserProfile> uploadProfileImage(File imageFile) async {
     try {
+      // The picker re-encodes the photo (to JPEG, in most cases) but can keep
+      // the original file name, such as .heic on Android. The server reads
+      // the real format from the bytes, so the upload always goes out as a
+      // JPEG named profile.jpg.
       final formData = FormData.fromMap({
         'image': await MultipartFile.fromFile(
           imageFile.path,
-          filename: imageFile.path.split('/').last,
+          filename: 'profile.jpg',
+          contentType: DioMediaType('image', 'jpeg'),
         ),
       });
 

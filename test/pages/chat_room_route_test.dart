@@ -11,6 +11,7 @@ import 'package:bleya/providers/chat_room_providers.dart';
 import 'package:bleya/providers/repository_providers.dart';
 import 'package:bleya/services/socket_service.dart';
 import 'package:bleya/utils/navigation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -338,6 +339,38 @@ void main() {
     expect(find.text('Anyone at the market?'), findsNothing);
 
     await tester.pump(const Duration(seconds: 4));
+    await closeApp(tester);
+  });
+
+  testWidgets('with the keyboard up, a long message keeps send in view',
+      (tester) async {
+    // A 390 x 844 pt phone with a 336 pt keyboard.
+    tester.view
+      ..physicalSize = const Size(390 * 3, 844 * 3)
+      ..devicePixelRatio = 3
+      ..viewInsets = const FakeViewPadding(bottom: 336 * 3);
+    addTearDown(tester.view.reset);
+    await showApp(tester);
+    await push(tester, ChatRoomPage(room: _cityRoom));
+    socket.emit(
+      'room_joined',
+      _roomJoined(_cityRoom, [_message('m1', 'Anyone at the market?')]),
+    );
+    await tester.pump();
+
+    await tester.enterText(
+      find.byType(TextField),
+      List.generate(60, (i) => 'Line ${i + 1}').join('\n'),
+    );
+    // The input slides up with the keyboard.
+    await finishTransition(tester);
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getRect(find.byIcon(CupertinoIcons.arrow_up)).bottom,
+      lessThanOrEqualTo(844 - 336),
+    );
+
     await closeApp(tester);
   });
 }

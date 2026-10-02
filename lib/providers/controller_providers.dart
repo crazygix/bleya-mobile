@@ -10,8 +10,10 @@ import 'auth_providers.dart';
 import 'connectivity_provider.dart';
 import 'use_case_providers.dart';
 
+/// Lives as long as the username page, so each sign-up starts clean: no
+/// photo or state carries over to the next account.
 final usernameControllerProvider =
-    StateNotifierProvider<UsernameController, UsernameState>((ref) {
+    StateNotifierProvider.autoDispose<UsernameController, UsernameState>((ref) {
   final checkUsername = ref.watch(checkUsernameUseCaseProvider);
   final setUsername = ref.watch(setUsernameUseCaseProvider);
   final uploadImage = ref.watch(uploadProfileImageUseCaseProvider);

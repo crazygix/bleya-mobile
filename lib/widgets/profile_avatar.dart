@@ -2,6 +2,25 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
 
+/// Loads the photo at [url] for an avatar [size] points across, decoded at
+/// no more than twice the pixels it shows on screen instead of at full size.
+///
+/// Twice keeps the circle sharp for photos up to 2:1, which the avatar crops
+/// to cover. Smaller photos are never scaled up.
+ImageProvider avatarImageProvider(
+  String url, {
+  required double size,
+  required double devicePixelRatio,
+}) {
+  final pixels = (size * devicePixelRatio * 2).ceil();
+  return ResizeImage(
+    NetworkImage(url),
+    width: pixels,
+    height: pixels,
+    policy: ResizeImagePolicy.fit,
+  );
+}
+
 /// Profile Avatar Component
 ///
 /// A reusable avatar component with profile image, error handling, and fallback icon.
@@ -75,7 +94,11 @@ class _ProfileAvatarState extends State<ProfileAvatar> {
         radius: widget.size / 2,
         backgroundColor: widget.backgroundColor ?? BleyaTheme.primaryLight,
         backgroundImage: hasValidUrl && !_imageLoadFailed
-            ? NetworkImage(widget.imageUrl!)
+            ? avatarImageProvider(
+                widget.imageUrl!,
+                size: widget.size,
+                devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+              )
             : null,
         onBackgroundImageError: hasValidUrl && !_imageLoadFailed
             ? (exception, stackTrace) {

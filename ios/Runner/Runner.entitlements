@@ -10,7 +10,6 @@
 	</array>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
-		<string>applinks:bleyachat.com</string>
 		<string>webcredentials:bleyachat.com</string>
 	</array>
 </dict>

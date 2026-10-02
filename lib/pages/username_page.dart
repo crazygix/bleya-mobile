@@ -184,13 +184,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
         }
       },
       child: AnnotatedRegion<SystemUiOverlayStyle>(
-        value: SystemUiOverlayStyle(
-          statusBarColor: Colors.transparent,
-          statusBarIconBrightness: Brightness.dark,
-          statusBarBrightness: Brightness.light,
-          systemNavigationBarColor: BleyaTheme.background,
-          systemNavigationBarIconBrightness: Brightness.dark,
-        ),
+        value: BleyaTheme.systemOverlayStyle,
         child: Scaffold(
           backgroundColor: BleyaTheme.background,
           body: Stack(

@@ -1,4 +1,5 @@
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 import 'brand_tokens.dart';
 import 'ui_tokens.dart';
@@ -72,8 +73,21 @@ class BleyaTheme {
 
   static const LinearGradient skywashGradient = BrandTokens.skywashGradient;
 
+  /// Status and navigation bar style for the app's light screens: dark icons
+  /// over the background, in iOS Dark Mode too. AppShell applies it to every
+  /// screen; a page can still set its own with an AnnotatedRegion.
+  static const SystemUiOverlayStyle systemOverlayStyle = SystemUiOverlayStyle(
+    statusBarColor: Color(0x00000000),
+    statusBarIconBrightness: Brightness.dark,
+    statusBarBrightness: Brightness.light,
+    systemNavigationBarColor: background,
+    systemNavigationBarIconBrightness: Brightness.dark,
+  );
+
   static TextStyle get headingLarge => UiTokens.headingLarge(foreground);
   static TextStyle get headingMedium => UiTokens.headingMedium(foreground);
+  static TextStyle get heroTagline => UiTokens.heroTagline(foreground);
+  static TextStyle get featureTitle => UiTokens.featureTitle(foreground);
   static TextStyle get bodyLarge => UiTokens.bodyLarge(mutedForeground);
   static TextStyle get bodyMedium => UiTokens.bodyMedium(mutedForeground);
   static TextStyle get bodySmall => UiTokens.bodySmall(mutedForeground);

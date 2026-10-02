@@ -1,6 +1,6 @@
 # Store Privacy Answers — App Store "App Privacy" and Google Play "Data safety"
 
-**Last updated:** September 30, 2026. These answers follow the privacy policy at bleyachat.com/privacy and the
+**Last updated:** October 1, 2026. These answers follow the privacy policy at bleyachat.com/privacy and the
 current code. Update both together when data handling changes.
 
 Facts they rest on:
@@ -27,6 +27,10 @@ account (today: don't).
 | Identifiers | User ID | Account ID; Google/Apple account ID; username |
 | User Content | Photos or Videos | Profile photo |
 | User Content | Other User Content | Messages, bio, reports |
+
+The app's privacy manifest, `ios/Runner/PrivacyInfo.xcprivacy`, declares exactly this table (the same four types,
+linked, not tracking, App Functionality), so Xcode's privacy report for an archive matches it. Change both together;
+`test/config/platform_config_test.dart` checks the manifest.
 
 Don't declare:
 - **Location.** The coordinates are used for one real-time request and not stored. Apple doesn't count data

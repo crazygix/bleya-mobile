@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../constants/theme.dart';
 import '../constants/urls.dart';
 import '../platform/app_browser.dart';
@@ -117,12 +116,7 @@ class _IntroPageState extends ConsumerState<IntroPage> {
                 // Hero tagline
                 RichText(
                   text: TextSpan(
-                    style: GoogleFonts.outfit(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      height: 1.3,
-                      color: BleyaTheme.foreground,
-                    ),
+                    style: BleyaTheme.heroTagline,
                     children: [
                       TextSpan(text: 'Your next solo adventure starts with a '),
                       TextSpan(
@@ -289,11 +283,7 @@ class _FeatureItem extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: GoogleFonts.outfit(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: BleyaTheme.foreground,
-                  ),
+                  style: BleyaTheme.featureTitle,
                 ),
                 const SizedBox(height: BleyaTheme.spacingXS),
                 Text(

@@ -100,13 +100,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
     final showPasskey = passkeyAvailability.valueOrNull ?? false;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: const SystemUiOverlayStyle(
-        statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.dark,
-        statusBarBrightness: Brightness.light,
-        systemNavigationBarColor: BleyaTheme.background,
-        systemNavigationBarIconBrightness: Brightness.dark,
-      ),
+      value: BleyaTheme.systemOverlayStyle,
       child: Scaffold(
         backgroundColor: BleyaTheme.background,
         body: Stack(

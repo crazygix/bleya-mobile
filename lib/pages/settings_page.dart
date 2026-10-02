@@ -9,7 +9,6 @@ import '../constants/theme.dart';
 import '../constants/urls.dart';
 import '../providers/use_case_providers.dart';
 import '../widgets/app_skeleton.dart';
-import '../widgets/liquid_glass_background.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/settings_menu_item.dart';
 import '../providers/auth_providers.dart';
@@ -181,200 +180,189 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     });
 
     return Scaffold(
-      backgroundColor: BleyaTheme.background,
-      body: Stack(
-        children: [
-          const LiquidGlassBackground(),
-          SafeArea(
-            child: Column(
-              children: [
-                // Header
-                Padding(
-                  padding: EdgeInsets.only(
-                    left: BleyaTheme.contentPadding,
-                    right: BleyaTheme.contentPadding,
-                    top: BleyaTheme.spacingMD,
-                    bottom: BleyaTheme.spacingLG,
+      backgroundColor: Colors.transparent, // Handled by dashboard background
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Header
+            Padding(
+              padding: EdgeInsets.only(
+                left: BleyaTheme.contentPadding,
+                right: BleyaTheme.contentPadding,
+                top: BleyaTheme.spacingMD,
+                bottom: BleyaTheme.spacingLG,
+              ),
+              child: Row(
+                children: [
+                  Text(
+                    'Settings',
+                    style: BleyaTheme.headingMedium.copyWith(fontSize: 34),
                   ),
-                  child: Row(
-                    children: [
-                      Text(
-                        'Settings',
-                        style: BleyaTheme.headingMedium.copyWith(fontSize: 34),
-                      ),
-                    ],
-                  ),
-                ),
-                // Content
-                Expanded(
-                  child: SingleChildScrollView(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: BleyaTheme.contentPadding,
-                    ),
-                    child: Column(
-                      children: [
-                        // Profile Section
-                        GestureDetector(
-                          onTap: _navigateToEditProfile,
-                          child: Container(
-                            padding: const EdgeInsets.all(BleyaTheme.spacingLG),
-                            decoration: BoxDecoration(
-                              color: BleyaTheme.glassSurface
-                                  .withValues(alpha: BleyaTheme.glassOpacity),
-                              borderRadius: BorderRadius.circular(
-                                  BleyaTheme.radiusMedium),
-                              border: Border.all(
-                                color: BleyaTheme.border,
-                                width: 1,
-                              ),
-                              boxShadow: BleyaTheme.glassShadow,
-                            ),
-                            child: Row(
-                              children: [
-                                // Avatar
-                                isLoadingProfile
-                                    ? const AppSkeleton.circle(size: 64)
-                                    : ProfileAvatar(
-                                        imageUrl: profileImageUrl,
-                                        size: 64,
-                                        backgroundColor:
-                                            BleyaTheme.primaryLight,
-                                        fallbackIcon: CupertinoIcons.person,
-                                        fallbackIconColor:
-                                            BleyaTheme.primaryDark,
-                                      ),
-                                const SizedBox(width: BleyaTheme.spacingLG),
-                                // Username and bio
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    mainAxisAlignment: hasBio
-                                        ? MainAxisAlignment.start
-                                        : MainAxisAlignment.center,
-                                    children: [
-                                      if (isLoadingProfile) ...[
-                                        const AppSkeleton(
-                                          width: 140,
-                                          height: 20,
-                                        ),
-                                        const SizedBox(
-                                          height: BleyaTheme.spacingXS,
-                                        ),
-                                        const AppSkeleton(
-                                          width: 180,
-                                          height: 14,
-                                        ),
-                                      ] else ...[
-                                        Text(
-                                          username ?? 'Username',
-                                          style:
-                                              BleyaTheme.headingMedium.copyWith(
-                                            fontSize: 20,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        if (hasBio) ...[
-                                          const SizedBox(
-                                            height: BleyaTheme.spacingXS,
-                                          ),
-                                          Text(
-                                            bio,
-                                            style:
-                                                BleyaTheme.bodyMedium.copyWith(
-                                              fontSize: 14,
-                                              color: BleyaTheme.mutedForeground,
-                                            ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                          ),
-                                        ],
-                                      ],
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: BleyaTheme.spacingSM),
-                                // Chevron
-                                Icon(
-                                  CupertinoIcons.chevron_right,
-                                  size: 20,
-                                  color: BleyaTheme.mutedForeground,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: BleyaTheme.spacing3XL),
-                        _sectionLabel('Privacy & safety'),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.lock_shield,
-                          iconColor: BleyaTheme.primary,
-                          label: 'Passkeys',
-                          onTap: _navigateToPasskeys,
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.person_crop_circle_badge_xmark,
-                          iconColor: BleyaTheme.error,
-                          label: 'Blocked users',
-                          onTap: _navigateToBlockedUsers,
-                        ),
-                        const SizedBox(height: BleyaTheme.spacing2XL),
-                        _sectionLabel('About'),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.shield,
-                          iconColor: Color(0xFF3B82F6), // Blue
-                          label: 'Privacy Policy',
-                          onTap: () => _openUrl(LegalUrls.privacy),
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.doc_text,
-                          iconColor: Color(0xFF6366F1), // Indigo
-                          label: 'Terms of Service',
-                          onTap: () => _openUrl(LegalUrls.terms),
-                        ),
-                        const SizedBox(height: BleyaTheme.spacing2XL),
-                        _sectionLabel('Account'),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.arrow_down_doc,
-                          iconColor: BleyaTheme.primary,
-                          label: 'Export my data',
-                          onTap: _handleExportData,
-                        ),
-                        const SizedBox(height: 4.0),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.trash,
-                          iconColor: BleyaTheme.error,
-                          iconBackgroundColor:
-                              BleyaTheme.error.withValues(alpha: 0.1),
-                          label: 'Delete account',
-                          labelColor: BleyaTheme.error,
-                          onTap: _handleDeleteAccount,
-                          showChevron: false,
-                        ),
-                        // Log Out — kept apart as the very last row.
-                        const SizedBox(height: BleyaTheme.spacing3XL),
-                        SettingsMenuItem(
-                          icon: CupertinoIcons.arrow_right_square,
-                          iconColor: BleyaTheme.error,
-                          iconBackgroundColor:
-                              BleyaTheme.error.withValues(alpha: 0.1),
-                          label: 'Log Out',
-                          labelColor: BleyaTheme.error,
-                          onTap: _handleLogout,
-                          showChevron: false,
-                        ),
-                        SizedBox(
-                            height: padding.bottom + BleyaTheme.spacing2XL),
-                      ],
-                    ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+            // Content
+            Expanded(
+              child: SingleChildScrollView(
+                padding: EdgeInsets.symmetric(
+                  horizontal: BleyaTheme.contentPadding,
+                ),
+                child: Column(
+                  children: [
+                    // Profile Section
+                    GestureDetector(
+                      onTap: _navigateToEditProfile,
+                      child: Container(
+                        padding: const EdgeInsets.all(BleyaTheme.spacingLG),
+                        decoration: BoxDecoration(
+                          color: BleyaTheme.glassSurface
+                              .withValues(alpha: BleyaTheme.glassOpacity),
+                          borderRadius:
+                              BorderRadius.circular(BleyaTheme.radiusMedium),
+                          border: Border.all(
+                            color: BleyaTheme.border,
+                            width: 1,
+                          ),
+                          boxShadow: BleyaTheme.glassShadow,
+                        ),
+                        child: Row(
+                          children: [
+                            // Avatar
+                            isLoadingProfile
+                                ? const AppSkeleton.circle(size: 64)
+                                : ProfileAvatar(
+                                    imageUrl: profileImageUrl,
+                                    size: 64,
+                                    backgroundColor: BleyaTheme.primaryLight,
+                                    fallbackIcon: CupertinoIcons.person,
+                                    fallbackIconColor: BleyaTheme.primaryDark,
+                                  ),
+                            const SizedBox(width: BleyaTheme.spacingLG),
+                            // Username and bio
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisAlignment: hasBio
+                                    ? MainAxisAlignment.start
+                                    : MainAxisAlignment.center,
+                                children: [
+                                  if (isLoadingProfile) ...[
+                                    const AppSkeleton(
+                                      width: 140,
+                                      height: 20,
+                                    ),
+                                    const SizedBox(
+                                      height: BleyaTheme.spacingXS,
+                                    ),
+                                    const AppSkeleton(
+                                      width: 180,
+                                      height: 14,
+                                    ),
+                                  ] else ...[
+                                    Text(
+                                      username ?? 'Username',
+                                      style: BleyaTheme.headingMedium.copyWith(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    if (hasBio) ...[
+                                      const SizedBox(
+                                        height: BleyaTheme.spacingXS,
+                                      ),
+                                      Text(
+                                        bio,
+                                        style: BleyaTheme.bodyMedium.copyWith(
+                                          fontSize: 14,
+                                          color: BleyaTheme.mutedForeground,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ],
+                                  ],
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: BleyaTheme.spacingSM),
+                            // Chevron
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 20,
+                              color: BleyaTheme.mutedForeground,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: BleyaTheme.spacing3XL),
+                    _sectionLabel('Privacy & safety'),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.lock_shield,
+                      iconColor: BleyaTheme.primary,
+                      label: 'Passkeys',
+                      onTap: _navigateToPasskeys,
+                    ),
+                    const SizedBox(height: 4.0),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.person_crop_circle_badge_xmark,
+                      iconColor: BleyaTheme.error,
+                      label: 'Blocked users',
+                      onTap: _navigateToBlockedUsers,
+                    ),
+                    const SizedBox(height: BleyaTheme.spacing2XL),
+                    _sectionLabel('About'),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.shield,
+                      iconColor: Color(0xFF3B82F6), // Blue
+                      label: 'Privacy Policy',
+                      onTap: () => _openUrl(LegalUrls.privacy),
+                    ),
+                    const SizedBox(height: 4.0),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.doc_text,
+                      iconColor: Color(0xFF6366F1), // Indigo
+                      label: 'Terms of Service',
+                      onTap: () => _openUrl(LegalUrls.terms),
+                    ),
+                    const SizedBox(height: BleyaTheme.spacing2XL),
+                    _sectionLabel('Account'),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.arrow_down_doc,
+                      iconColor: BleyaTheme.primary,
+                      label: 'Export my data',
+                      onTap: _handleExportData,
+                    ),
+                    const SizedBox(height: 4.0),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.trash,
+                      iconColor: BleyaTheme.error,
+                      iconBackgroundColor:
+                          BleyaTheme.error.withValues(alpha: 0.1),
+                      label: 'Delete account',
+                      labelColor: BleyaTheme.error,
+                      onTap: _handleDeleteAccount,
+                      showChevron: false,
+                    ),
+                    // Log Out — kept apart as the very last row.
+                    const SizedBox(height: BleyaTheme.spacing3XL),
+                    SettingsMenuItem(
+                      icon: CupertinoIcons.arrow_right_square,
+                      iconColor: BleyaTheme.error,
+                      iconBackgroundColor:
+                          BleyaTheme.error.withValues(alpha: 0.1),
+                      label: 'Log Out',
+                      labelColor: BleyaTheme.error,
+                      onTap: _handleLogout,
+                      showChevron: false,
+                    ),
+                    SizedBox(height: padding.bottom + BleyaTheme.spacing2XL),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

@@ -15,6 +15,7 @@ import 'package:bleya/services/socket_service.dart';
 import 'package:bleya/use_cases/message/get_thread_use_case.dart';
 import 'package:bleya/utils/app_errors.dart';
 import 'package:bleya/utils/navigation.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -108,6 +109,43 @@ void main() {
     expect(socket.claims, isEmpty);
     expect(socket.openChat.value, OpenChat.none);
     expect(socket.listenerCount('new_message'), 0);
+  });
+
+  testWidgets('with the keyboard up, a long reply keeps send in view',
+      (tester) async {
+    // A 390 x 844 pt phone with a 336 pt keyboard.
+    tester.view
+      ..physicalSize = const Size(390 * 3, 844 * 3)
+      ..devicePixelRatio = 3
+      ..viewInsets = const FakeViewPadding(bottom: 336 * 3);
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tokenProvider.overrideWith((ref) => 'test-token'),
+          socketServiceProvider.overrideWithValue(socket),
+          getThreadUseCaseProvider.overrideWithValue(mockGetThreadUseCase),
+        ],
+        child: MaterialApp(
+          home: ThreadViewPage(parentMessage: parentMessage, room: room),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.enterText(
+      find.byType(TextField),
+      List.generate(60, (i) => 'Line ${i + 1}').join('\n'),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      tester.getRect(find.byIcon(CupertinoIcons.arrow_up)).bottom,
+      lessThanOrEqualTo(844 - 336),
+    );
+
+    await tester.pumpWidget(const SizedBox.shrink());
   });
 
   group('message actions', () {

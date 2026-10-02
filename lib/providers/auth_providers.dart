@@ -103,7 +103,10 @@ final dioProvider = Provider<Dio>((ref) {
   // Add logging interceptor (only in debug mode, sanitized)
   if (kDebugMode) {
     dio.interceptors.add(LogInterceptor(
-      requestBody: true,
+      // Request bodies carry sign-in data (ID tokens, nonces, codes, passkey
+      // responses, push tokens), so they aren't logged. Addresses, statuses
+      // and the redacted responses are enough for debugging.
+      requestBody: false,
       responseBody: true,
       requestHeader: false, // Don't log headers (may contain tokens)
       responseHeader: false,

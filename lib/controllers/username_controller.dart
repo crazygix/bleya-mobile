@@ -38,6 +38,7 @@ class UsernameState {
     UserProfile? completedProfile,
     UsernameCompletionRequest? completionRequest,
     bool clearCompletion = false,
+    bool clearSelectedImage = false,
   }) {
     return UsernameState(
       isValid: isValid ?? this.isValid,
@@ -45,13 +46,13 @@ class UsernameState {
       hasCheckedAvailability:
           hasCheckedAvailability ?? this.hasCheckedAvailability,
       errorMessage: errorMessage,
-      selectedImage: selectedImage ?? this.selectedImage,
+      selectedImage:
+          clearSelectedImage ? null : selectedImage ?? this.selectedImage,
       isLoading: isLoading ?? this.isLoading,
       completedProfile:
           clearCompletion ? null : completedProfile ?? this.completedProfile,
-      completionRequest: clearCompletion
-          ? null
-          : completionRequest ?? this.completionRequest,
+      completionRequest:
+          clearCompletion ? null : completionRequest ?? this.completionRequest,
     );
   }
 }
@@ -100,6 +101,7 @@ class UsernameController extends StateNotifier<UsernameState> {
       errorMessage: null,
       isLoading: false,
       clearCompletion: true,
+      clearSelectedImage: true,
     );
   }
 
@@ -142,12 +144,14 @@ class UsernameController extends StateNotifier<UsernameState> {
       try {
         final isAvailable =
             await _checkUsernameUseCase(username: currentUsername);
+        if (!mounted) return;
         state = state.copyWith(
           isValid: isAvailable,
           isChecking: false,
           hasCheckedAvailability: true,
         );
       } catch (e) {
+        if (!mounted) return;
         state = state.copyWith(
           isValid: false,
           isChecking: false,
@@ -157,8 +161,11 @@ class UsernameController extends StateNotifier<UsernameState> {
     });
   }
 
+  /// Picks [image] as the profile photo, or clears the photo when null.
   void setSelectedImage(File? image) {
-    state = state.copyWith(selectedImage: image);
+    state = image == null
+        ? state.copyWith(clearSelectedImage: true)
+        : state.copyWith(selectedImage: image);
   }
 
   void clearError() {
@@ -202,14 +209,17 @@ class UsernameController extends StateNotifier<UsernameState> {
     );
 
     try {
-      if (state.selectedImage != null) {
-        await _uploadProfileImageUseCase(state.selectedImage!);
+      final image = state.selectedImage;
+      if (image != null) {
+        await _uploadProfileImage(image);
       }
 
       final profile = await _setUsernameUseCase(username: trimmed);
       final canOfferPasskey = showPasskeyPromptAfterCompletion
           ? await _loadPasskeyAvailability().catchError((_) => false)
           : false;
+      // The page closed meanwhile, for example by signing out.
+      if (!mounted) return profile;
 
       state = state.copyWith(
         completedProfile: profile,
@@ -221,18 +231,36 @@ class UsernameController extends StateNotifier<UsernameState> {
       );
       return profile;
     } catch (e) {
-      final errorMessage = e is AppError
-          ? e.getUserMessage()
-          : "Something went wrong. Let's try that again.";
-      state = state.copyWith(
-        errorMessage: errorMessage,
-        isLoading: false,
-      );
+      if (mounted) {
+        final errorMessage = e is AppError
+            ? e.getUserMessage()
+            : "Something went wrong. Let's try that again.";
+        state = state.copyWith(
+          errorMessage: errorMessage,
+          isLoading: false,
+        );
+      }
       rethrow;
     } finally {
-      if (state.isLoading) {
+      if (mounted && state.isLoading) {
         state = state.copyWith(isLoading: false);
       }
+    }
+  }
+
+  /// Uploads the chosen photo. A photo the server refuses (400) is dropped,
+  /// so the next try goes ahead without one; after a network or server
+  /// error it stays for a retry.
+  Future<void> _uploadProfileImage(File image) async {
+    try {
+      await _uploadProfileImageUseCase(image);
+    } on AppError catch (e) {
+      if (e.code == AppErrorCode.badRequest &&
+          mounted &&
+          identical(state.selectedImage, image)) {
+        state = state.copyWith(clearSelectedImage: true);
+      }
+      rethrow;
     }
   }
 

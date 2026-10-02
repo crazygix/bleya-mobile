@@ -3,6 +3,7 @@ import '../../constants/theme.dart';
 import '../../domain/entities/notification.dart' as entity;
 import '../../utils/time_formatter.dart';
 import 'app_skeleton.dart';
+import 'profile_avatar.dart';
 
 class NotificationTile extends StatelessWidget {
   final entity.Notification notification;
@@ -153,6 +154,8 @@ class _SenderAvatar extends StatefulWidget {
 }
 
 class _SenderAvatarState extends State<_SenderAvatar> {
+  static const double _size = 48;
+
   bool _imageLoadFailed = false;
 
   bool get _hasValidUrl {
@@ -175,9 +178,15 @@ class _SenderAvatarState extends State<_SenderAvatar> {
     final showImage = _hasValidUrl && !_imageLoadFailed;
 
     return CircleAvatar(
-      radius: 24,
+      radius: _size / 2,
       backgroundColor: BleyaTheme.background,
-      backgroundImage: showImage ? NetworkImage(widget.imageUrl!) : null,
+      backgroundImage: showImage
+          ? avatarImageProvider(
+              widget.imageUrl!,
+              size: _size,
+              devicePixelRatio: MediaQuery.devicePixelRatioOf(context),
+            )
+          : null,
       onBackgroundImageError: showImage
           ? (exception, stackTrace) {
               if (mounted) {

@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:path_provider/path_provider.dart';
 import 'pages/initial_page.dart';
 import 'pages/dashboard_page.dart';
@@ -13,7 +15,6 @@ import 'config/environment.dart';
 import 'controllers/push_notifications_controller.dart';
 import 'providers/auth_providers.dart';
 import 'providers/controller_providers.dart';
-import 'providers/connectivity_provider.dart';
 import 'services/secure_cookie_storage.dart';
 import 'services/socket_service.dart';
 import 'utils/navigation.dart';
@@ -21,9 +22,25 @@ import 'constants/theme.dart';
 import 'platform/app_route.dart';
 import 'pages/chat_room_page.dart';
 import 'pages/thread_view_page.dart';
+import 'widgets/app_shell.dart';
+
+/// Outfit's licence, bundled with its font files.
+const outfitLicenseAsset = 'assets/google_fonts/OFL.txt';
+
+/// Outfit comes only from the files bundled in assets/google_fonts/: it is
+/// never downloaded, so headings look right from the first frame, offline
+/// too. Its licence is listed with the others.
+void useBundledFonts() {
+  GoogleFonts.config.allowRuntimeFetching = false;
+  LicenseRegistry.addLicense(() async* {
+    final license = await rootBundle.loadString(outfitLicenseAsset);
+    yield LicenseEntryWithLineBreaks(const ['Outfit'], license);
+  });
+}
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  useBundledFonts();
   await Firebase.initializeApp();
 
   // Set environment based on build configuration or environment variable
@@ -139,11 +156,7 @@ class MyApp extends ConsumerWidget {
       ),
       debugShowCheckedModeBanner: false, // Disable default banner
       builder: (context, child) {
-        return GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () => FocusManager.instance.primaryFocus?.unfocus(),
-          child: ConnectivityBanner(child: child ?? const SizedBox.shrink()),
-        );
+        return AppShell(child: child ?? const SizedBox.shrink());
       },
       routes: {
         '/': (context) => InitialPage(),
@@ -183,43 +196,5 @@ class MyApp extends ConsumerWidget {
     }
 
     return materialApp;
-  }
-}
-
-/// Widget that shows a banner when there's no internet connection
-class ConnectivityBanner extends ConsumerWidget {
-  final Widget child;
-
-  const ConnectivityBanner({required this.child});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isOnline = ref.watch(isOnlineProvider);
-
-    return Stack(
-      children: [
-        child,
-        if (!isOnline)
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              color: Colors.red,
-              width: double.infinity,
-              padding: EdgeInsets.symmetric(vertical: 8),
-              child: Text(
-                'No internet connection',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ),
-      ],
-    );
   }
 }

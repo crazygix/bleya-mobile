@@ -273,6 +273,11 @@ Their content is preserved below as code for reference.
 ///   - Weightless transitions: orbs persist, content animates
 ```
 
+## Backgrounds and blur
+
+- `LiquidGlassBackground` draws the orbs as radial gradients shaped like blurred discs. It is painted once and costs nothing per frame. Use one per screen, as the first child of the page's `Stack`; a tab inside the dashboard (Activity, Settings) uses a transparent `Scaffold` and shows the dashboard's background.
+- Never use an unclipped `BackdropFilter`. Without a clip, a backdrop blur covers the whole screen on every frame, including the page underneath during a transition. Glass surfaces (headers, input bars, cards, toasts) wrap their blur in a `ClipRRect` or `ClipRect` the size of the surface.
+
 ## 6. UI COMPONENT STANDARDS
 
 We maintain strict standards for common UI patterns to ensure consistency.

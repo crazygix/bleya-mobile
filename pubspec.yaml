@@ -41,9 +41,14 @@ dev_dependencies:
   mocktail: ^1.0.4
   fake_async: ^1.3.3
   flutter_launcher_icons: ^0.14.1
+  xml: ^6.5.0
 
 flutter:
   uses-material-design: true
+  assets:
+    # Outfit in the weights UiTokens uses, plus its licence (OFL.txt).
+    # google_fonts finds the files by name, so keep them as they are.
+    - assets/google_fonts/
 
 flutter_launcher_icons:
   android: "ic_launcher"

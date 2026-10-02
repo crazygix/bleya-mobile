@@ -153,8 +153,20 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       final updateProfileUseCase = ref.read(updateProfileUseCaseProvider);
 
       // Upload image first if selected
-      if (_selectedImage != null) {
-        await uploadImageUseCase(_selectedImage!);
+      final image = _selectedImage;
+      if (image != null) {
+        try {
+          await uploadImageUseCase(image);
+        } on AppError catch (e) {
+          // The server refused this photo (400): drop it, so the bio can
+          // still be saved. Other errors keep it for a retry.
+          if (e.code == AppErrorCode.badRequest &&
+              mounted &&
+              identical(_selectedImage, image)) {
+            setState(() => _selectedImage = null);
+          }
+          rethrow;
+        }
       }
 
       // Update profile (username is read-only, only update bio)
