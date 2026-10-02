@@ -49,13 +49,25 @@ class UserProfileDto {
     if (value is int) {
       return DateTime.fromMillisecondsSinceEpoch(value);
     }
-    if (value is String) {
-      final parsed = int.tryParse(value);
-      if (parsed != null) {
-        return DateTime.fromMillisecondsSinceEpoch(parsed);
-      }
-    }
     return null;
   }
 }
 ```
+
+## Fixtures: the backend's shapes in the tests
+
+`test/fixtures/api_fixtures.dart` holds one fixture per backend response the app reads, plus the socket events and
+push data it parses. Each fixture copies a backend serializer and names it in its doc comment (for example
+`formatMessage` in `utils/message.ts`, or `getJoinedRoomsForUser` in `services/roomService.ts`).
+
+- **Copy, don't tidy.** Keep nulls, empty strings and missing keys exactly as the backend sends them: `|| null`
+  becomes `null`, `|| ''` becomes `''`, and an `undefined` value is left out, as JSON drops it.
+- **Change both together.** When a backend response changes, change its fixture, and the DTO and repository tests
+  that use it, in the same change. A fixture that no longer matches its serializer hides exactly the bugs these
+  tests exist to catch.
+- **One repository test per endpoint.** Each HTTP call a repository makes has a test in
+  `test/data/repositories/<name>_repository_impl_test.dart`. It checks the request (method, path, query, body) and
+  the result parsed from the fixture, against `FakeHttpAdapter` (`test/fakes/fake_http_adapter.dart`). Each
+  repository also has at least one test that the backend's `{error: {code, message}}` response reaches the caller as
+  the right `AppError`, with the backend's message.
+- **One DTO test file per DTO** in `test/data/dtos/`, parsing its fixtures, including the fallbacks the DTO applies.

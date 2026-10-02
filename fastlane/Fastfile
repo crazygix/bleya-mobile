@@ -6,6 +6,8 @@ rescue LoadError
   # fastlane bundles dotenv. If it is unavailable, environment variables still work.
 end
 
+require "time"
+
 default_platform(:ios)
 
 PROJECT_ROOT = File.expand_path("..", __dir__)
@@ -14,6 +16,7 @@ ANDROID_PACKAGE_NAME = ENV.fetch("ANDROID_PACKAGE_NAME", "com.bleyachat")
 PROD_DART_DEFINES = ENV.fetch("PROD_DART_DEFINES", "config/env/prod.local.json")
 FLUTTER_BIN = ENV.fetch("FLUTTER_BIN", "flutter")
 DART_BIN = ENV.fetch("DART_BIN", "$HOME/flutter/bin/dart")
+PLAY_INTERNAL_TRACK = ENV.fetch("PLAY_INTERNAL_TRACK", "internal")
 
 def require_env!(name)
   value = ENV[name].to_s.strip
@@ -78,10 +81,6 @@ def release_build_number(options)
   pubspec_version[:build_number].to_s
 end
 
-def release_build_number_overridden?(options)
-  options[:build_number] || !ENV["RELEASE_BUILD_NUMBER"].to_s.strip.empty?
-end
-
 def next_release_build_number(options)
   return release_build_number(options) if options[:build_number]
   return release_build_number(options) unless ENV["RELEASE_BUILD_NUMBER"].to_s.strip.empty?
@@ -89,10 +88,20 @@ def next_release_build_number(options)
   (pubspec_version[:build_number] + 1).to_s
 end
 
-def persist_release_build_number!(build_name, build_number, options)
-  return if release_build_number_overridden?(options) && options[:persist_build_number] != true
+# Moves pubspec.yaml up to the build just uploaded, so the next release starts
+# from the number after it. It never moves pubspec.yaml back: an override below
+# the current number leaves it as it is, and one above it carries on from there.
+# The lane never commits; it prints the command instead.
+def persist_release_build_number!(build_name, build_number)
+  current = pubspec_version[:build_number]
+  if build_number.to_i <= current
+    UI.message("pubspec.yaml is already at build #{current}, so it stays as it is.")
+    return
+  end
 
   write_pubspec_version!(build_name, build_number)
+  UI.important("Commit the version bump before the next release build:")
+  UI.important("  git commit -m \"chore: Build #{build_name}+#{build_number}\" pubspec.yaml")
 end
 
 def run_quality_checks
@@ -103,6 +112,51 @@ def run_quality_checks
     sh("#{DART_BIN} analyze")
     sh("#{FLUTTER_BIN} test")
   end
+end
+
+def git_output(*args)
+  Actions.sh("git", *args, log: false).strip
+end
+
+# Every release build comes from a commit, so each build number can be traced
+# back to its code. Untracked files count too.
+def ensure_release_tree_clean!
+  ensure_git_status_clean(show_uncommitted_changes: true)
+rescue FastlaneCore::Interface::FastlaneError => error
+  UI.user_error!("Release builds are made only from committed code. Commit your changes first; after a release, that includes the pubspec.yaml version bump the lane printed. #{error.message}")
+end
+
+# The checks every build lane starts with: a clean tree (also with SKIP_CHECKS),
+# then, after any quicker checks passed as a block, analyze and the tests.
+# Remembers the commit being built, for the build/N tag.
+def release_preflight!
+  ensure_release_tree_clean!
+  @release_commit = git_output("rev-parse", "HEAD")
+  yield if block_given?
+  run_quality_checks
+end
+
+# When the commit being built was made.
+def release_commit_time
+  Time.at(git_output("log", "-1", "--format=%ct", @release_commit || "HEAD").to_i)
+end
+
+# Tags the commit a build came from as build/N. The tag stays local; the lane
+# never pushes.
+def tag_release_build!(build_name, build_number)
+  tag = "build/#{build_number}"
+  if git_tag_exists(tag: tag)
+    tagged_commit = git_output("rev-list", "-n", "1", tag)
+    if tagged_commit == @release_commit
+      UI.message("Tag #{tag} is already on this commit.")
+    else
+      UI.important("Tag #{tag} already exists on #{tagged_commit[0, 7]}, not on this build's commit #{@release_commit.to_s[0, 7]}. It stays where it is.")
+    end
+    return
+  end
+
+  add_git_tag(tag: tag, message: "Bleya #{build_name} (#{build_number})", commit: @release_commit)
+  UI.message("Tagged #{tag} on the commit it was built from. The tag is local; to share it: git push origin #{tag}")
 end
 
 def ensure_prod_config!
@@ -132,6 +186,26 @@ end
 
 def google_play_json_key
   require_file!(require_env!("GOOGLE_PLAY_JSON_KEY"), "Google Play service account JSON")
+end
+
+# The version codes on a Play track's current releases.
+def play_version_codes(track)
+  google_play_track_version_codes(
+    package_name: ANDROID_PACKAGE_NAME,
+    json_key: google_play_json_key,
+    track: track
+  )
+end
+
+# Runs before a long build: fails when Play access is broken, or when Play would
+# refuse the number because the internal track already has it or a higher one.
+def ensure_play_accepts!(build_name, build_number)
+  highest = play_version_codes(PLAY_INTERNAL_TRACK).max
+  if highest && build_number.to_i <= highest
+    UI.user_error!("Play's #{PLAY_INTERNAL_TRACK} track already has version code #{highest}, so it won't accept #{build_number}. Set `version: #{build_name}+#{highest}` in pubspec.yaml, commit it and run the lane again.")
+  end
+
+  UI.message("Play accepts version code #{build_number} (newest on the #{PLAY_INTERNAL_TRACK} track: #{highest || 'none'}).")
 end
 
 def app_store_connect_app
@@ -193,6 +267,21 @@ def existing_testflight_build(build_name:, build_number:)
   builds.find { |build| build.platform.to_s.casecmp("ios").zero? }
 end
 
+# A build already on TestFlight can stand in for this run only when nothing was
+# committed after its upload. Otherwise iOS and Android would ship different
+# code under one build number.
+def ensure_ios_build_reusable!(build, build_name:, build_number:)
+  uploaded_at = begin
+    build.uploaded_date.to_s.empty? ? nil : Time.parse(build.uploaded_date.to_s)
+  rescue ArgumentError
+    nil
+  end
+  return if uploaded_at && release_commit_time <= uploaded_at
+
+  reason = uploaded_at ? "it was uploaded before your latest commit" : "App Store Connect doesn't say when it was uploaded"
+  UI.user_error!("Build #{build_name} (#{build_number}) is already on TestFlight, but #{reason}, so its code may be different. Set `version: #{build_name}+#{build_number}` in pubspec.yaml, commit it and run the lane again: both platforms then get build #{build_number.to_i + 1}.")
+end
+
 def testflight_upload_options(groups:)
   {
     app_identifier: APP_IDENTIFIER,
@@ -221,7 +310,7 @@ def upload_android_release!(aab_path:, track:, release_status:)
 end
 
 def upload_android_internal_release!(aab_path:)
-  track = ENV.fetch("PLAY_INTERNAL_TRACK", "internal")
+  track = PLAY_INTERNAL_TRACK
   release_status = ENV.fetch("PLAY_INTERNAL_RELEASE_STATUS", "completed")
 
   upload_android_release!(aab_path: aab_path, track: track, release_status: release_status)
@@ -289,17 +378,13 @@ def flutter_build_aab(build_name, build_number)
   newest_file("build/app/outputs/bundle/prodRelease/*.aab")
 end
 
-desc "Build prod iOS and upload it to TestFlight"
-lane :ios_testflight do |options|
-  build_name = release_build_name(options)
-  groups = testflight_group_names
-
-  ensure_prod_config!
-  validate_app_store_connect!
-  build_number = next_release_build_number(options)
+# Builds and uploads iOS, or hands the build already on TestFlight to testers
+# when an earlier run uploaded this number from the same commit.
+def upload_ios_build!(build_name:, build_number:, groups:)
   existing_build = existing_testflight_build(build_name: build_name, build_number: build_number)
 
   if existing_build
+    ensure_ios_build_reusable!(existing_build, build_name: build_name, build_number: build_number)
     UI.important("Build #{build_name} (#{build_number}) already exists in App Store Connect with state #{existing_build.processing_state}. Reusing it for TestFlight distribution.")
     upload_to_testflight(
       distribute_only: true,
@@ -315,59 +400,108 @@ lane :ios_testflight do |options|
       **testflight_upload_options(groups: groups)
     )
   end
+end
 
-  persist_release_build_number!(build_name, build_number, options)
+def upload_android_internal_build!(build_name:, build_number:)
+  aab_path = flutter_build_aab(build_name, build_number)
+  upload_android_internal_release!(aab_path: aab_path)
+end
+
+desc "Build prod iOS and upload it to TestFlight"
+lane :ios_testflight do |options|
+  # First, so App Store Connect problems (such as an agreement to accept) show
+  # with their hint before anything else runs.
+  validate_app_store_connect!
+  ensure_prod_config!
+  release_preflight!
+
+  build_name = release_build_name(options)
+  build_number = next_release_build_number(options)
+  groups = testflight_group_names
+
+  upload_ios_build!(build_name: build_name, build_number: build_number, groups: groups)
+
+  persist_release_build_number!(build_name, build_number)
+  tag_release_build!(build_name, build_number)
 end
 
 desc "Build prod Android and upload it to Play Console internal testing"
 lane :android_internal do |options|
-  build_name = release_build_name(options)
-
   ensure_prod_config!
   ensure_android_signing!
-  google_play_json_key
+
+  build_name = release_build_name(options)
   build_number = next_release_build_number(options)
-  aab_path = flutter_build_aab(build_name, build_number)
+  release_preflight! { ensure_play_accepts!(build_name, build_number) }
 
-  upload_android_internal_release!(aab_path: aab_path)
+  upload_android_internal_build!(build_name: build_name, build_number: build_number)
 
-  persist_release_build_number!(build_name, build_number, options)
+  persist_release_build_number!(build_name, build_number)
+  tag_release_build!(build_name, build_number)
 end
 
-desc "Build prod Android and create a draft production release"
-lane :android_production_draft do |options|
-  build_name = release_build_name(options)
+desc "Promote a tested Play internal-testing build to a draft production release (version_code:N)"
+lane :android_promote_production do |options|
+  version_code = (options[:version_code] || ENV["PLAY_PROMOTE_VERSION_CODE"]).to_s.strip
+  internal_codes = play_version_codes(PLAY_INTERNAL_TRACK)
+  listed = internal_codes.empty? ? "none" : internal_codes.sort.reverse.join(", ")
 
-  ensure_prod_config!
-  ensure_android_signing!
-  google_play_json_key
-  build_number = next_release_build_number(options)
-  aab_path = flutter_build_aab(build_name, build_number)
+  if version_code.empty?
+    UI.user_error!("Pass the version code that passed the device checks, e.g. bundle exec fastlane android_promote_production version_code:#{internal_codes.max || 'N'}. On the #{PLAY_INTERNAL_TRACK} track now: #{listed}.")
+  end
+  unless version_code.match?(/\A[0-9]+\z/) && internal_codes.include?(version_code.to_i)
+    UI.user_error!("Version code #{version_code} is not on the #{PLAY_INTERNAL_TRACK} track (it has: #{listed}). Only the build in internal testing can be promoted to production.")
+  end
 
-  upload_android_release!(
-    aab_path: aab_path,
-    track: "production",
-    release_status: ENV.fetch("PLAY_PRODUCTION_RELEASE_STATUS", "draft")
+  validate_only = options[:validate_only] == true
+  release_status = ENV.fetch("PLAY_PRODUCTION_RELEASE_STATUS", "draft")
+
+  # Promotes the exact bundle testers had. Nothing is built or uploaded.
+  upload_to_play_store(
+    package_name: ANDROID_PACKAGE_NAME,
+    json_key: google_play_json_key,
+    track: PLAY_INTERNAL_TRACK,
+    track_promote_to: "production",
+    version_code: version_code.to_i,
+    track_promote_release_status: release_status,
+    validate_only: validate_only,
+    skip_upload_apk: true,
+    skip_upload_aab: true,
+    skip_upload_metadata: true,
+    skip_upload_changelogs: true,
+    skip_upload_images: true,
+    skip_upload_screenshots: true
   )
 
-  persist_release_build_number!(build_name, build_number, options)
+  if validate_only
+    UI.success("Play accepts promoting version code #{version_code} to production. Nothing was changed.")
+  else
+    UI.success("Version code #{version_code} is now a #{release_status} production release. Review it and roll it out in Play Console.")
+  end
 end
 
 desc "Run checks, build prod iOS/Android, upload to TestFlight and Play internal testing"
 lane :testing do |options|
-  build_name = release_build_name(options)
-
   ensure_prod_config!
   ensure_android_signing!
   validate_app_store_connect!
-  google_play_json_key
-  run_quality_checks
+
+  build_name = release_build_name(options)
   build_number = next_release_build_number(options)
+  # The tree is checked once, here: the iOS build can rewrite tracked files
+  # (such as ios/Podfile.lock) before the Android half runs.
+  release_preflight! { ensure_play_accepts!(build_name, build_number) }
+  groups = testflight_group_names
 
   UI.message("Preparing Bleya #{build_name} (#{build_number}) for testing.")
 
-  ios_testflight(build_name: build_name, build_number: build_number, persist_build_number: true)
-  android_internal(build_name: build_name, build_number: build_number)
+  upload_ios_build!(build_name: build_name, build_number: build_number, groups: groups)
+  upload_android_internal_build!(build_name: build_name, build_number: build_number)
+
+  # Only after both uploads, so a rerun after a failure above uses the same
+  # number.
+  persist_release_build_number!(build_name, build_number)
+  tag_release_build!(build_name, build_number)
 end
 
 desc "Build prod iOS IPA and Android AAB without uploading"
@@ -378,7 +512,7 @@ lane :build_prod do |options|
   UI.message("Building Bleya #{build_name} (#{build_number}) without uploading.")
   ensure_prod_config!
   ensure_android_signing!
-  run_quality_checks
+  release_preflight!
 
   ipa_path = flutter_build_ipa(build_name, build_number)
   aab_path = flutter_build_aab(build_name, build_number)

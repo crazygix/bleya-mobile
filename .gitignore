@@ -57,6 +57,10 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# CocoaPods: the lockfile is tracked, so a release built from a clean tree
+# uses the pinned pod versions (even where a global gitignore leaves it out).
+!ios/Podfile.lock
+
 # Node.js dependencies
 node_modules/
 vendor/bundle/

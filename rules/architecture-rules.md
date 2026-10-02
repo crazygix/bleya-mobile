@@ -282,15 +282,26 @@ Their content is preserved below as code for reference.
 // ========================================
 //
 // RULE: Every new use case and controller MUST have corresponding unit tests.
+// RULE: Every DTO and every endpoint a repository calls MUST have tests that use
+//       the backend's real response shapes (test/fixtures/api_fixtures.dart).
 //
 // MANDATORY TEST COVERAGE:
 // - Every use case: test delegation to repository, test error propagation
 // - Every controller: test validation logic, state transitions, error handling
 // - Use cases with orchestration logic (e.g., Future.wait, conditional branching):
 //   test all code paths
+// - Every DTO: parse its backend fixtures, including the nulls, empty strings
+//   and missing fields the backend sends, and the fallbacks the DTO applies
+// - Every repository endpoint: one test per HTTP call that checks the request
+//   (method, path, query, body) and the parsed result from the fixture
+// - Every repository: at least one test that an `{error: {code, message}}`
+//   response reaches the caller as the right AppError
 //
 // WHEN TO WRITE TESTS:
 // - New use case or controller → write tests in the same PR
+// - New endpoint or DTO → repository and DTO tests in the same PR
+// - Backend response shape changes → update its fixture and tests in the same PR
+//   (see rules/api-contract-rules.md)
 // - Bug fix in existing use case/controller → add a regression test
 // - Refactor that changes behavior → update existing tests
 //
@@ -298,19 +309,26 @@ Their content is preserved below as code for reference.
 // - Use mocktail for mocking (no code generation needed)
 // - Mock repository interfaces for use case tests (not implementations)
 // - Mock use cases for controller tests (not repositories)
+// - Test repository implementations against FakeHttpAdapter + fakeDio
+//   (test/fakes/fake_http_adapter.dart), never a real server
 // - Shared mocks live in test/mocks.dart
 // - Use fakeAsync for debounce/timer-based logic
 // - Use addListener((_) {}) for controllers that check `mounted`
 //
 // TEST FILE ORGANIZATION:
 // - test/mocks.dart — shared mock classes
+// - test/fakes/ — shared fakes (FakeHttpAdapter, fake sockets, secure storage)
+// - test/fixtures/api_fixtures.dart — backend responses and socket events
+// - test/data/dtos/<name>_dto_test.dart — one per DTO
+// - test/data/repositories/<name>_repository_impl_test.dart — one per repository
 // - test/use_cases/<domain>_use_cases_test.dart — grouped by domain area
 // - test/controllers/<name>_controller_test.dart — one per controller
 //
 // WHAT NOT TO TEST (for now):
 // - Widget/UI tests (low ROI until UI stabilizes)
 // - Integration tests
-// - DTOs and JSON parsing (covered by repository impl tests later)
+// - Repositories without HTTP (e.g., LocationRepositoryImpl, which only
+//   forwards to Geolocator; its use cases are tested with a mocked repository)
 //
 // RUNNING TESTS:
 // - Run `flutter test` before pushing
@@ -346,7 +364,8 @@ Their content is preserved below as code for reference.
 // 5. ✅ Create use case(s)
 // 6. ✅ Wire in providers
 // 7. ✅ Create controller (if UI state needed)
-// 8. ✅ Write unit tests for new use cases and controllers
+// 8. ✅ Write unit tests for new use cases and controllers, plus DTO and
+//       repository tests (with fixtures) for new endpoints
 // 9. ✅ Create page/widget
 //
 // ========================================
@@ -366,6 +385,8 @@ Their content is preserved below as code for reference.
 // - [ ] No direct spinner widget usage outside app_spinner.dart
 // - [ ] New use cases have unit tests
 // - [ ] New controllers have unit tests
+// - [ ] New endpoints have a repository test, new DTOs a DTO test
+// - [ ] Fixtures changed together with any backend response they copy
 // - [ ] All tests pass (`flutter test`)
 //
 // ========================================

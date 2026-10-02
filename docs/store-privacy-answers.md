@@ -1,6 +1,6 @@
-# Store Privacy Answers — App Store "App Privacy" and Google Play "Data safety"
+# Store Privacy Answers — App Store "App Privacy", Google Play "Data safety" and app category
 
-**Last updated:** October 1, 2026. These answers follow the privacy policy at bleyachat.com/privacy and the
+**Last updated:** October 2, 2026. These answers follow the privacy policy at bleyachat.com/privacy and the
 current code. Update both together when data handling changes.
 
 Facts they rest on:
@@ -73,7 +73,23 @@ Data collected. Every row is **Collected: Yes, Shared: No**.
 Location is declared here, unlike on the App Store, because Play's form has an explicit "processed ephemerally" answer
 for it. Declaring it that way is the conservative choice.
 
+## Google Play Console → App category and child safety
+
+**Category: Communication** (Store presence → Store settings), decided on October 1, 2026, as for most chat apps
+(WhatsApp, Telegram, Discord).
+
+- Google's Child Safety Standards policy covers apps in the Social and Dating categories, and anonymous or random
+  chat apps. Bleya shows usernames and profiles and doesn't match strangers at random, so under Communication the
+  policy most likely doesn't apply. For now there is no published standards page, no declaration and no reporting
+  procedure.
+- Google decides the scope. If Play Console still asks for the Child safety standards declaration (Policy and
+  programs → App content), publish the short Terms section from the fix plan
+  (`docs/ultrareview-fix-plan/2-your-checklist.md`, "If Play asks: minimal child-safety section"), then fill in the
+  declaration with that URL and a contact.
+
 ## When this changes
 
 - **Any analytics or crash reporting added:** both forms change (App Store: Diagnostics/Usage Data; Play: App
   info and performance / App activity).
+- **Random or anonymous matching added, or a move to the Social or Dating category:** the Child Safety Standards
+  policy applies, and Play needs published standards and the declaration before the next release.

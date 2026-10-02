@@ -11,6 +11,8 @@ This app connects to the Bleya backend in `../backend` and currently covers:
 - Thread replies and realtime socket updates
 - Activity/notification inbox
 - Profile editing and blocked-users management
+- Reporting and blocking from chats, threads, profiles and room details
+- Data export and account deletion
 
 ## Requirements
 
@@ -59,7 +61,7 @@ flutter run --flavor dev --dart-define-from-file=config/env/dev.local.json
 
 ## Run from Cursor (Multi-root Workspace)
 
-1) Open [bleya.code-workspace](/Users/ivan.kokanovic/Development/bleya/mobile/bleya.code-workspace) in Cursor.
+1) Open [bleya.code-workspace](../bleya.code-workspace), in the folder above this repo, in Cursor.
 2) Run task `Backend: Start Dev Server`.
 3) Start your Android emulator or iOS simulator/device.
 4) Run command `Flutter: Select Device` and pick Android or iOS.
@@ -163,10 +165,15 @@ App behavior:
 - Notification taps route into the correct screen:
   - `message` -> open the room
   - `reply` -> open the exact thread
+- A tap on a notification for the chat already on screen opens nothing new.
 - The notification that launched the app opens once per app run, so it isn't
   replayed after signing out and back in.
 - Foreground realtime still comes from sockets. V1 does not show local
   in-app banners while the user is already active in the app.
+- In the background the app disconnects its socket, so the server counts the
+  user as away and pushes arrive even for the chat that was open. Back in the
+  foreground it reconnects, reopens the chat on screen with its thread, and
+  the chat list and Activity catch up on what they missed.
 - Thread presence is mirrored to the backend with socket events
   `open_thread` and `close_thread`.
 
@@ -271,6 +278,11 @@ flutter test
 ./scripts/check_adaptive_ui.sh
 ```
 
+Every DTO and every endpoint the repositories call has a test against the
+backend's real response shapes in `test/fixtures/api_fixtures.dart`. When a
+backend response changes, update its fixture and tests in the same change (see
+`rules/api-contract-rules.md`).
+
 ## Building for Production
 
 **⚠️ IMPORTANT: Always pass the production dart-defines for release builds**
@@ -282,6 +294,11 @@ The equivalent command is:
 ```bash
 bundle exec fastlane testing
 ```
+
+The release lanes build only from a clean, committed tree. At the end they
+write the new build number to `pubspec.yaml` (commit it with the command they
+print) and tag the built commit locally as `build/N`. Android goes live by
+promoting the tested internal build with `android_promote_production`.
 
 ### Manual Build Commands
 
@@ -309,12 +326,14 @@ Without production dart-defines:
 
 ## CI/CD
 
-**Note:** Ensure your Railway CI/CD (or other CI/CD) passes the production dart-defines, either through `--dart-define-from-file` or explicit `--dart-define` flags.
+Releases are built locally with Fastlane ([docs/release.md](docs/release.md)).
+There is no CI build for the app, and Xcode Cloud isn't used.
 
 ## Project Rules
 
 Key local references:
 
+- `rules/architecture-rules.md`
 - `rules/loading-ui-rules.md`
 - `rules/theme-and-brand-rules.md`
 - `rules/api-contract-rules.md`

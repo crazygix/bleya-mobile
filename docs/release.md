@@ -4,8 +4,12 @@ This project uses local Fastlane automation for the easiest release path:
 
 - iOS testing: App Store Connect TestFlight
 - Android testing: Google Play Console internal testing
-- Android live: draft production release created by Fastlane, then manually reviewed
+- Android live: the internal-testing build that passed the device checks is promoted to a draft production
+  release, then reviewed and rolled out manually
 - iOS live: use the uploaded TestFlight/App Store Connect build and submit manually
+
+Releases are built locally with Fastlane on a Mac. There is no CI build: Bleya doesn't use Xcode Cloud (its
+script was removed), so App Store Connect should have no Xcode Cloud workflow for the app.
 
 The main one-click command is:
 
@@ -23,18 +27,31 @@ Mobile release
 
 `Mobile release` runs `bundle exec fastlane testing`, which does this in order:
 
-1. Runs `flutter pub get`.
-2. Runs Dart static analysis through the Flutter SDK Dart binary.
-3. Runs `flutter test`.
-4. Builds a prod iOS IPA with `config/env/prod.local.json`.
-5. Waits for the build to become available for internal testing in App Store Connect.
-6. Uploads the IPA to TestFlight and assigns it to internal TestFlight groups without submitting it for external beta review.
-7. Builds a prod Android AAB with `config/env/prod.local.json`.
-8. Uploads the AAB to the Play Console internal testing track.
+1. Checks the local configuration: `config/env/prod.local.json`, `android/key.properties` and App Store
+   Connect access.
+2. Requires a clean git tree: every change, including new untracked files, must be committed. A build
+   number then always points to the code it came from.
+3. Checks that Google Play accepts the new build number, before anything is built.
+4. Runs `flutter pub get`, Dart static analysis through the Flutter SDK Dart binary, and `flutter test`.
+5. Builds a prod iOS IPA with `config/env/prod.local.json`.
+6. Waits for the build to become available for internal testing in App Store Connect.
+7. Uploads the IPA to TestFlight and assigns it to internal TestFlight groups without submitting it for external beta review.
+8. Builds a prod Android AAB with `config/env/prod.local.json`.
+9. Uploads the AAB to the Play Console internal testing track.
+10. Writes the new build number to `pubspec.yaml` and prints the `git commit` command for it. The lane never
+    commits.
+11. Tags the commit the build came from as `build/N`, locally.
 
 If the iOS upload succeeds but the lane fails later, rerunning the same release
 reuses the existing App Store Connect build instead of trying to upload the
-same build number again.
+same build number again. That only happens when nothing was committed since
+that upload. If you committed a fix in between, the lane stops before building:
+set `pubspec.yaml` to the number already on TestFlight, commit it and run the
+lane again, and both platforms get the next number.
+
+After a successful run, `git status` shows only the `pubspec.yaml` version bump. Commit it with the
+printed command before the next release build. If the iOS build updated `ios/Podfile.lock` (it does when the
+native plugins change), commit that too. The next build lane refuses to run until the tree is clean.
 
 The app IDs used by the release lane are:
 
@@ -189,18 +206,25 @@ by one for the build it is creating, and uses the same new build number for both
 iOS and Android.
 
 ```text
-version: 0.0.1+1
+version: 1.0.0+11
 ```
 
 becomes:
 
 ```text
-version: 0.0.1+2
+version: 1.0.0+12
 ```
 
-Fastlane writes the new number back to `pubspec.yaml` only after TestFlight
-accepts and distributes the build. If the release fails before that point, the
-next retry uses the same next build number instead of skipping one.
+Fastlane writes the new number back to `pubspec.yaml` only after the last
+upload of the lane: after both uploads in `testing`, after its one upload in
+`ios_testflight` or `android_internal`. If the release fails before that point,
+the next retry uses the same build number instead of skipping one. The write
+is never committed for you: the lane prints the `git commit` command, and the
+next build lane refuses to run until it is committed.
+
+The single-platform lanes write the number back too, so the other platform's
+next build uses the number after it. That's fine: each store only needs its own
+build numbers to go up.
 
 The version before `+` is the user-visible app version. The number after `+` is
 the iOS build number and Android version code.
@@ -208,10 +232,25 @@ the iOS build number and Android version code.
 Override manually when needed:
 
 ```sh
-RELEASE_BUILD_NAME=0.1.0 RELEASE_BUILD_NUMBER=2 bundle exec fastlane testing
+RELEASE_BUILD_NAME=1.0.1 RELEASE_BUILD_NUMBER=20 bundle exec fastlane testing
 ```
 
-Manual overrides do not edit `pubspec.yaml`.
+An override is used as given. Afterwards, `pubspec.yaml` moves up to it if it's
+higher than the number there, and it never moves down.
+
+Before anything is built, `testing` and `android_internal` check that the
+number is higher than the newest version code on the Play internal track, so a
+taken number fails in seconds instead of after the build.
+
+## Build Tags
+
+`testing`, `ios_testflight` and `android_internal` tag the commit each build
+came from as `build/N` (an annotated tag, for example `build/12`, "Bleya 1.0.0 (12)").
+The tags stay local; push them when convenient:
+
+```sh
+git push origin build/12
+```
 
 ## Commands
 
@@ -239,19 +278,31 @@ Upload both testing builds:
 bundle exec fastlane testing
 ```
 
-Create an Android draft production release:
+Promote the Android build that passed the device checks to a draft production
+release, without rebuilding (see Going Live):
 
 ```sh
-bundle exec fastlane android_production_draft
+bundle exec fastlane android_promote_production version_code:12
 ```
 
-Skip checks if you already ran them:
+Check the promotion with Google Play without changing anything:
+
+```sh
+bundle exec fastlane android_promote_production version_code:12 validate_only:true
+```
+
+Skip analysis and tests if you already ran them:
 
 ```sh
 SKIP_CHECKS=1 bundle exec fastlane testing
 ```
 
+`SKIP_CHECKS` doesn't skip the clean-tree check: every build lane still
+requires committed code.
+
 ## After Uploading
+
+Commit the version bump with the command the lane printed.
 
 TestFlight:
 
@@ -271,15 +322,24 @@ Play Console internal testing:
 
 Android:
 
-1. Run `bundle exec fastlane android_production_draft`.
-2. Open Play Console.
-3. Review the draft production release.
-4. Complete any required Data safety, content rating, policy, or store listing items.
-5. Submit/roll out manually.
+1. Note the version code that passed the device checks. It must still be the
+   release on the internal testing track: uploading a newer internal build
+   replaces it there.
+2. Optionally check the promotion first:
+   `bundle exec fastlane android_promote_production version_code:N validate_only:true`.
+3. Run `bundle exec fastlane android_promote_production version_code:N`. It
+   promotes that exact build to a draft production release. Nothing is rebuilt
+   or uploaded, so production gets the binary that was tested. Without
+   `version_code`, the lane lists the internal track's version codes and stops.
+   A promotion replaces any production draft already there.
+4. Complete any required Play Console items: Data safety, content rating, the
+   app category (Communication) and the store listing. See
+   `docs/store-privacy-answers.md`.
+5. Review the draft production release and roll it out manually.
 
 iOS:
 
-1. Use the same uploaded build in App Store Connect.
+1. Use the same uploaded build that passed the device checks in App Store Connect.
 2. Complete app metadata, screenshots, privacy, age rating, and review notes.
 3. Submit for App Review manually.
 
@@ -294,6 +354,10 @@ If `bundle exec fastlane ...` says Fastlane is missing:
 bundle install
 ```
 
+If a lane stops with "Release builds are made only from committed code", it
+lists the uncommitted and untracked files. Commit them (after a release, that's
+usually the `pubspec.yaml` version bump), then run the lane again.
+
 If `flutter analyze` crashes on this machine, the lane uses:
 
 ```sh
@@ -306,10 +370,16 @@ Override it if your Flutter SDK is elsewhere:
 DART_BIN=/path/to/flutter/bin/dart bundle exec fastlane testing
 ```
 
+If a lane stops because the build is already on TestFlight but was uploaded
+before your latest commit, set `version:` in `pubspec.yaml` to that build
+number, commit it and run the lane again. Both platforms then get the next one.
+
 If Play Console rejects a build:
 
 - Confirm the AAB package is `com.bleyachat`.
-- Confirm the build number is higher than every previous upload.
+- Confirm the build number is higher than every previous upload. The lane
+  checks the internal track before building; if it stops there, set
+  `pubspec.yaml` to the number it names, commit it and run it again.
 - Confirm `android/key.properties` points to the upload key registered with Play.
 - If Google Play App Signing is enabled, make sure Firebase has the Play signing
   SHA-1 for Google Sign-In.
