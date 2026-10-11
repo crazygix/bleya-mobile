@@ -20,6 +20,7 @@ import 'providers/controller_providers.dart';
 import 'services/app_client_info.dart';
 import 'services/secure_cookie_storage.dart';
 import 'services/socket_service.dart';
+import 'utils/jwt_utils.dart';
 import 'utils/navigation.dart';
 import 'constants/theme.dart';
 import 'platform/app_route.dart';
@@ -42,8 +43,8 @@ void useBundledFonts() {
 }
 
 /// Sends crashes and uncaught errors to Firebase Crashlytics, which emails new
-/// and returning crashes. Release builds only, and without the account: no
-/// user id is attached to the reports.
+/// and returning crashes. Release builds only; reports carry the signed-in
+/// account's id (see MyApp).
 Future<void> reportCrashesToCrashlytics() async {
   final crashlytics = FirebaseCrashlytics.instance;
   await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
@@ -152,6 +153,18 @@ class MyApp extends ConsumerWidget {
     // Initialize token from secure storage
     ref.watch(tokenInitializerProvider);
     ref.watch(appOpenedProvider);
+    // Crash reports carry the signed-in account's id, and none signed out.
+    // The token starts empty and is restored or set later, so every session
+    // reaches this listener.
+    ref.listen<String?>(
+      tokenProvider.select(
+        (token) =>
+            token == null || token.isEmpty ? null : JwtUtils.userIdOf(token),
+      ),
+      (_, userId) => unawaited(
+        FirebaseCrashlytics.instance.setUserIdentifier(userId ?? ''),
+      ),
+    );
     ref.watch(pushNotificationsControllerProvider);
     ref.listen<PushNavigationRequest?>(
       pushNotificationsControllerProvider.select(

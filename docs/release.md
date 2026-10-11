@@ -321,10 +321,11 @@ Play Console internal testing:
 
 ## Crash Reports
 
-Release builds send crashes and uncaught errors to Firebase Crashlytics (debug builds don't), without the
-account: no user id is attached. Crashlytics emails new, returning and fast-growing crashes; choose who gets
-them in the Firebase console (project `bleya-ed88a` → Crashlytics, and each person's alert settings under the
-bell icon). Android uploads what it needs during the Gradle build; iOS dSYMs are uploaded by the build lanes.
+Release builds send crashes and uncaught errors to Firebase Crashlytics (debug builds don't), with the
+signed-in account's id, so a user's crashes can be found by their account id. Crashlytics emails new,
+returning and fast-growing crashes; choose who gets them in the Firebase console (project `bleya-ed88a` →
+Crashlytics, and each person's alert settings under the bell icon). Android uploads what it needs during the
+Gradle build; iOS dSYMs are uploaded by the build lanes.
 
 ## Going Live Later
 
