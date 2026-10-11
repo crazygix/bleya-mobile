@@ -52,8 +52,9 @@ class AppClientInfo {
 }
 
 /// This install's id: a random UUID created on first launch and kept in a
-/// file in the app's own storage, so uninstalling the app removes it. It is
-/// not tied to the device, the account or anything else.
+/// file in the app's own storage, so uninstalling the app removes it (on iOS
+/// a restored device backup brings it back). It isn't derived from the device;
+/// the backend stores it next to the account ID while the user is signed in.
 class InstallIdStore {
   final String directory;
 
