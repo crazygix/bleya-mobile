@@ -37,20 +37,40 @@ void main() {
   group('iOS privacy manifest', () {
     final manifest = readPlist('ios/Runner/PrivacyInfo.xcprivacy');
 
-    test('declares exactly the data types in the App Store answers', () {
+    test(
+        'declares exactly the data types and purposes in the App Store answers',
+        () {
       // docs/store-privacy-answers.md, "App Store Connect → App Privacy".
+      const appFunctionality =
+          'NSPrivacyCollectedDataTypePurposeAppFunctionality';
+      const analytics = 'NSPrivacyCollectedDataTypePurposeAnalytics';
       final types = (manifest['NSPrivacyCollectedDataTypes'] as List)
           .cast<Map<String, Object?>>();
 
       expect(
-        types.map((type) => type['NSPrivacyCollectedDataType']),
-        unorderedEquals([
-          'NSPrivacyCollectedDataTypeEmailAddress',
-          'NSPrivacyCollectedDataTypeUserID',
-          'NSPrivacyCollectedDataTypePhotosorVideos',
-          'NSPrivacyCollectedDataTypeOtherUserContent',
-        ]),
+        {
+          for (final type in types)
+            type['NSPrivacyCollectedDataType']:
+                (type['NSPrivacyCollectedDataTypePurposes'] as List).toSet(),
+        },
+        {
+          'NSPrivacyCollectedDataTypeEmailAddress': {appFunctionality},
+          'NSPrivacyCollectedDataTypeUserID': {appFunctionality, analytics},
+          'NSPrivacyCollectedDataTypePhotosorVideos': {appFunctionality},
+          'NSPrivacyCollectedDataTypeOtherUserContent': {appFunctionality},
+          'NSPrivacyCollectedDataTypeProductInteraction': {
+            analytics,
+            appFunctionality,
+          },
+          'NSPrivacyCollectedDataTypeDeviceID': {appFunctionality, analytics},
+          'NSPrivacyCollectedDataTypeCrashData': {appFunctionality},
+          'NSPrivacyCollectedDataTypeOtherDiagnosticData': {
+            appFunctionality,
+            analytics,
+          },
+        },
       );
+      expect(types, hasLength(8), reason: 'each type is declared once');
       for (final type in types) {
         final name = type['NSPrivacyCollectedDataType'];
         expect(type['NSPrivacyCollectedDataTypeLinked'], isTrue,
@@ -58,11 +78,6 @@ void main() {
         expect(
           type['NSPrivacyCollectedDataTypeTracking'],
           isFalse,
-          reason: '$name',
-        );
-        expect(
-          type['NSPrivacyCollectedDataTypePurposes'],
-          ['NSPrivacyCollectedDataTypePurposeAppFunctionality'],
           reason: '$name',
         );
       }
