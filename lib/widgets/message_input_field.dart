@@ -106,7 +106,7 @@ class _MessageInputFieldState extends State<MessageInputField> {
         left: BleyaTheme.footerPadding,
         right: BleyaTheme.footerPadding,
         top: BleyaTheme.spacingMD,
-        bottom: MediaQuery.of(context).padding.bottom +
+        bottom: MediaQuery.paddingOf(context).bottom +
             BleyaTheme.footerBottomPadding,
       ),
       decoration: BoxDecoration(

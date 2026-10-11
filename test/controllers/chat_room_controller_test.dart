@@ -200,6 +200,73 @@ void main() {
       expect(toasts, ['Too many join requests. Please slow down.']);
     });
 
+    group('a message on its way', () {
+      List<String> pendingTexts() =>
+          chatState().pendingMessages.map((message) => message.text).toList();
+
+      test('shows at once, and the stored message takes its place', () async {
+        await openRoom();
+        final ack = socket.pendingSend = Completer<SendMessageResult>();
+
+        final sending = controller().sendMessage('hello');
+        expect(pendingTexts(), ['hello']);
+        expect(messages(), isEmpty);
+
+        final stored = _message('m1', userId: 'me');
+        ack.complete(SendMessageResult.sent(stored));
+        await sending;
+
+        expect(pendingTexts(), isEmpty);
+        expect(_ids(messages()), ['m1']);
+
+        // Its new_message comes after the acknowledgement.
+        socket.emit('new_message', _payload(stored));
+        expect(_ids(messages()), ['m1']);
+      });
+
+      test('goes when the server refuses it', () async {
+        await openRoom();
+        final ack = socket.pendingSend = Completer<SendMessageResult>();
+
+        final sending = controller().sendMessage('bad words');
+        expect(pendingTexts(), ['bad words']);
+
+        ack.complete(
+            _failed('BAD_REQUEST', 'Message contains blocked content.'));
+        final result = await sending;
+
+        expect(result.isSent, isFalse);
+        expect(pendingTexts(), isEmpty);
+        expect(messages(), isEmpty);
+      });
+
+      test('a reply shows in its thread, not in the room', () async {
+        await openRoom();
+        keepAlive(pendingRepliesProvider('parent-1'));
+        final ack = socket.pendingSend = Completer<SendMessageResult>();
+
+        final sending =
+            controller().sendMessage('me too', parentMessageId: 'parent-1');
+        expect(pendingTexts(), isEmpty);
+        expect(
+          container
+              .read(pendingRepliesProvider('parent-1'))
+              .map((reply) => reply.text),
+          ['me too'],
+        );
+
+        ack.complete(
+          SendMessageResult.sent(
+            _message('r1', userId: 'me', parentMessageId: 'parent-1'),
+          ),
+        );
+        await sending;
+
+        expect(container.read(pendingRepliesProvider('parent-1')), isEmpty);
+        expect(messages(), isEmpty);
+      });
+    });
+
     test('a NOT_IN_ROOM error event shows nothing and asks for no join',
         () async {
       await openRoom();
@@ -648,6 +715,28 @@ void main() {
       });
 
       expect(container.read(threadParentRemovedProvider('parent-1')), isTrue);
+    });
+
+    test("the user's reply joins the thread once the server stores it",
+        () async {
+      showThread();
+      keepAlive(pendingRepliesProvider('parent-1'));
+      keepAlive(chatRoomControllerProvider(room));
+      await pumpEventQueue();
+      socket.claimRoom(room, threadId: 'parent-1');
+      await pumpEventQueue();
+      final ack = socket.pendingSend = Completer<SendMessageResult>();
+
+      final sending = container
+          .read(chatRoomControllerProvider(room).notifier)
+          .sendMessage('me too', parentMessageId: 'parent-1');
+      ack.complete(SendMessageResult.sent(reply('reply-3')));
+      await sending;
+
+      // Without waiting for its new_message, which then adds nothing.
+      expect(replyIds(), ['reply-1', 'reply-2', 'reply-3']);
+      socket.emit('new_message', _payload(reply('reply-3')));
+      expect(replyIds(), ['reply-1', 'reply-2', 'reply-3']);
     });
 
     test('drops a removed reply', () async {

@@ -31,13 +31,25 @@ class _ChatListItem {
   final DateTime? date;
   final Message? message;
 
+  /// Whether [message] is the user's own, still on its way to the server.
+  final bool isPending;
+
   const _ChatListItem.date(this.date)
       : type = _ChatItemType.dateSeparator,
-        message = null;
+        message = null,
+        isPending = false;
 
-  const _ChatListItem.message(this.message)
+  const _ChatListItem.message(this.message, {this.isPending = false})
       : type = _ChatItemType.message,
         date = null;
+}
+
+/// The chat's rows, newest first, and where each message's row is.
+class _ChatItems {
+  _ChatItems(this.items, this.indexByMessageId);
+
+  final List<_ChatListItem> items;
+  final Map<String, int> indexByMessageId;
 }
 
 class ChatRoomPage extends ConsumerStatefulWidget {
@@ -62,7 +74,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
   // the newest chat screen.
   late final RoomClaim _claim;
   StreamSubscription<String>? _errorSubscription;
-  final Map<String, GlobalKey> _messageKeys = {};
   bool _isLoadingMoreTriggered = false;
 
   @override
@@ -183,10 +194,6 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
     }
   }
 
-  GlobalKey _messageKey(String messageId) {
-    return _messageKeys.putIfAbsent(messageId, () => GlobalKey());
-  }
-
   void _scrollToBottom({bool animated = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!_scrollController.hasClients) return;
@@ -214,16 +221,22 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
     return parts.first;
   }
 
-  List<_ChatListItem> _buildChatItems(List<Message> messages) {
-    if (messages.isEmpty) return const [];
+  /// The rows for [messages] (oldest first), the last [pendingCount] of
+  /// them still on their way.
+  _ChatItems _buildChatItems(List<Message> messages, {int pendingCount = 0}) {
     final items = <_ChatListItem>[];
+    final indexByMessageId = <String, int>{};
 
     // Source messages are Oldest -> Newest.
     // We want the ListView(reverse: true) to have Index 0 = Bottom = Newest.
     // So we iterate backwards.
     for (int i = messages.length - 1; i >= 0; i--) {
       final message = messages[i];
-      items.add(_ChatListItem.message(message));
+      indexByMessageId[message.id] = items.length;
+      items.add(_ChatListItem.message(
+        message,
+        isPending: i >= messages.length - pendingCount,
+      ));
 
       final isFirstMessage = i == 0;
       final createdAt = message.createdAt;
@@ -247,7 +260,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
       }
     }
 
-    return items;
+    return _ChatItems(items, indexByMessageId);
   }
 
   Widget _buildChatLoadingSkeleton() {
@@ -336,10 +349,15 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
   @override
   Widget build(BuildContext context) {
     final chatState = ref.watch(chatRoomControllerProvider(widget.room));
-    final messages = withoutBlockedAuthors(
+    final storedMessages = withoutBlockedAuthors(
       ref.watch(roomMessagesProvider(widget.room.id)),
       ref.watch(sessionBlockedUserIdsProvider),
     );
+    // The user's own messages on their way show at once, after the rest.
+    final pendingMessages = chatState.pendingMessages;
+    final messages = pendingMessages.isEmpty
+        ? storedMessages
+        : [...storedMessages, ...pendingMessages];
     final currentUser = ref.watch(currentUserProvider);
     final currentUserId = currentUser?['id'] as String?;
     final directChatStatusAsync =
@@ -351,8 +369,10 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
         widget.room.isPrivate && (directChatStatus?.isBlocked ?? false);
     final blockedByMe = directChatStatus?.isBlockedByMe ?? false;
     final roomDisplayTitle = _displayRoomTitle(widget.room.name);
-    final chatItems = _buildChatItems(messages);
-    final keyboardInset = MediaQuery.of(context).viewInsets.bottom;
+    final chatItems = _buildChatItems(
+      messages,
+      pendingCount: pendingMessages.length,
+    );
     return Scaffold(
       backgroundColor: BleyaTheme.background,
       resizeToAvoidBottomInset: false,
@@ -417,9 +437,15 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
                               top: BleyaTheme.spacingLG,
                               bottom: BleyaTheme.spacingLG,
                             ),
-                            itemCount: chatItems.length,
+                            itemCount: chatItems.items.length,
+                            // Rows keep their state when new messages move
+                            // them up the list.
+                            findChildIndexCallback: (key) =>
+                                key is ValueKey<String>
+                                    ? chatItems.indexByMessageId[key.value]
+                                    : null,
                             itemBuilder: (context, index) {
-                              final item = chatItems[index];
+                              final item = chatItems.items[index];
 
                               if (item.type == _ChatItemType.dateSeparator) {
                                 final locale = Localizations.localeOf(context)
@@ -434,11 +460,19 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
                               }
 
                               final message = item.message!;
+                              if (item.isPending) {
+                                return KeyedSubtree(
+                                  key: ValueKey<String>(message.id),
+                                  child: PendingMessageBubble(
+                                    message: message,
+                                  ),
+                                );
+                              }
                               final isCurrentUser = currentUserId != null &&
                                   message.userId == currentUserId;
 
                               return KeyedSubtree(
-                                key: _messageKey(message.id),
+                                key: ValueKey<String>(message.id),
                                 child: SwipeableMessageBubble(
                                   message: message,
                                   isCurrentUser: isCurrentUser,
@@ -483,10 +517,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
               if (isDirectMessagingBlocked)
                 _BlockedDirectChatNotice(blockedByMe: blockedByMe),
               if (!isDirectMessagingBlocked)
-                AnimatedPadding(
-                  duration: const Duration(milliseconds: 200),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.only(bottom: keyboardInset),
+                _AboveKeyboard(
                   child: MessageInputField(
                     controller: _messageController,
                     onSend: _sendMessage,
@@ -496,6 +527,23 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// Keeps [child] right above the keyboard as it moves. The system animates
+/// the keyboard's height frame by frame, so following it directly keeps the
+/// input in step with the keyboard; only this part of the screen rebuilds.
+class _AboveKeyboard extends StatelessWidget {
+  const _AboveKeyboard({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.viewInsetsOf(context).bottom),
+      child: child,
     );
   }
 }
@@ -549,7 +597,7 @@ class _BlockedDirectChatNotice extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bottomSafeArea = MediaQuery.of(context).padding.bottom;
+    final bottomSafeArea = MediaQuery.paddingOf(context).bottom;
 
     return Container(
       width: double.infinity,

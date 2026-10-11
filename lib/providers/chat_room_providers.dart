@@ -22,6 +22,12 @@ final roomMessagesProvider =
 final threadParentRemovedProvider =
     StateProvider.autoDispose.family<bool, String>((ref, messageId) => false);
 
+/// The current user's replies on their way in the thread of [messageId]
+/// (`ChatRoomController.sendMessage`): shown at once, oldest first, until the
+/// server stores or refuses them.
+final pendingRepliesProvider = StateProvider.autoDispose
+    .family<List<Message>, String>((ref, messageId) => const []);
+
 /// Users blocked during this session (recordBlockChange). Their messages
 /// already on screen are hidden straight away; the server stops sending new
 /// ones.
@@ -67,6 +73,11 @@ class ChatRoomState {
   /// problem), until it opens.
   final String? joinError;
 
+  /// The current user's messages on their way: shown at once, oldest first,
+  /// until the server stores them (they join the room's messages) or refuses
+  /// them.
+  final List<Message> pendingMessages;
+
   // Sentinel used in copyWith so we can distinguish
   // "parameter not provided" from "explicitly set to null".
   static const Object _notProvided = Object();
@@ -78,6 +89,7 @@ class ChatRoomState {
     required this.nextCursor,
     required this.lastReadAt,
     this.joinError,
+    this.pendingMessages = const [],
   });
 
   const ChatRoomState.initial()
@@ -86,7 +98,8 @@ class ChatRoomState {
         hasMore = false,
         nextCursor = null,
         lastReadAt = null,
-        joinError = null;
+        joinError = null,
+        pendingMessages = const [];
 
   ChatRoomState copyWith({
     bool? isInitialLoading,
@@ -95,6 +108,7 @@ class ChatRoomState {
     Object? nextCursor = _notProvided,
     Object? lastReadAt = _notProvided,
     Object? joinError = _notProvided,
+    List<Message>? pendingMessages,
   }) {
     return ChatRoomState(
       isInitialLoading: isInitialLoading ?? this.isInitialLoading,
@@ -109,6 +123,7 @@ class ChatRoomState {
       joinError: identical(joinError, _notProvided)
           ? this.joinError
           : joinError as String?,
+      pendingMessages: pendingMessages ?? this.pendingMessages,
     );
   }
 }
@@ -249,7 +264,13 @@ class ThreadController extends StateNotifier<AsyncValue<ThreadData>> {
 
   void _onNewMessage(Map<String, dynamic> data) {
     final message = socketService.parseMessagePayload(data);
-    if (message == null || message.parentMessageId != messageId) {
+    if (message != null) showReply(message);
+  }
+
+  /// Lists [message] if it's a reply in this thread and isn't listed yet:
+  /// one that arrived live, or the user's own as the server stored it.
+  void showReply(Message message) {
+    if (message.parentMessageId != messageId) {
       return;
     }
     if (_isFetching) {
@@ -371,6 +392,9 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   int _pendingSends = 0;
   final List<SocketErrorData> _heldErrors = [];
 
+  // Numbers the messages on their way, for their temporary ids.
+  int _nextPendingId = 0;
+
   ChatRoomController(this.ref, this.room, this.socketService)
       : super(const ChatRoomState.initial()) {
     _setupSocketListeners();
@@ -405,15 +429,7 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
 
         ref.read(roomMessagesProvider(roomId).notifier).state = updatedMessages;
       } else {
-        // Already listed, e.g. in the page room_joined brought just before.
-        if (currentMessages.any((existing) => existing.id == message.id)) {
-          return;
-        }
-        // Regular top-level message - add it to the list
-        ref.read(roomMessagesProvider(roomId).notifier).state = [
-          ...currentMessages,
-          message,
-        ];
+        _showTopLevelMessage(message);
       }
     });
 
@@ -464,6 +480,20 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
 
     _joinFailureSubscription =
         socketService.joinFailures.listen(_onJoinFailure);
+  }
+
+  /// Lists a top-level [message] of this room at the end, unless it's
+  /// listed already.
+  void _showTopLevelMessage(Message message) {
+    if (message.roomId != roomId || message.parentMessageId != null) return;
+    final messages = ref.read(roomMessagesProvider(roomId).notifier);
+    final currentMessages = messages.state;
+    // Already listed, e.g. in the page room_joined brought just before, or
+    // from the acknowledgement of the user's own message.
+    if (currentMessages.any((existing) => existing.id == message.id)) {
+      return;
+    }
+    messages.state = [...currentMessages, message];
   }
 
   void _onRoomJoined(Map<String, dynamic> data) {
@@ -565,13 +595,46 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   /// Sends [text] and reports whether the server stored it, so the page can
   /// keep the draft (and show why) when it didn't. SocketService retries
   /// once when the room has to be joined again first.
+  ///
+  /// The message shows at once while it's on its way: in
+  /// [ChatRoomState.pendingMessages], or in [pendingRepliesProvider] for a
+  /// reply. Once the server stores it, the stored message takes its place
+  /// straight away, without waiting for its new_message.
   Future<SendMessageResult> sendMessage(
     String text, {
     String? parentMessageId,
   }) async {
+    final pending = Message(
+      id: 'pending-${_nextPendingId++}',
+      roomId: roomId,
+      userId: ref.read(currentUserProvider)?['id']?.toString() ?? '',
+      username: '',
+      text: text,
+      createdAt: DateTime.now(),
+      parentMessageId: parentMessageId,
+    );
+    // Read now: a thread opened without its room's screen may outlive this
+    // controller, and the replies on their way belong to the thread.
+    final pendingReplies = parentMessageId == null
+        ? null
+        : ref.read(pendingRepliesProvider(parentMessageId).notifier);
+    // The thread on screen, which lists the reply once it's stored.
+    final thread = parentMessageId == null ||
+            !ref.exists(threadMessagesProvider(parentMessageId))
+        ? null
+        : ref.read(threadMessagesProvider(parentMessageId).notifier);
+    if (pendingReplies == null) {
+      state = state.copyWith(
+        pendingMessages: [...state.pendingMessages, pending],
+      );
+    } else {
+      pendingReplies.state = [...pendingReplies.state, pending];
+    }
+
     _pendingSends++;
+    SendMessageResult? result;
     try {
-      final result = await socketService.sendMessage(
+      result = await socketService.sendMessage(
         text,
         room: room,
         parentMessageId: parentMessageId,
@@ -579,6 +642,26 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
       _dropHeldError(result.error);
       return result;
     } finally {
+      final sent = result?.message;
+      if (pendingReplies == null) {
+        if (!_disposed) {
+          if (sent != null) _showTopLevelMessage(sent);
+          state = state.copyWith(
+            pendingMessages: [
+              for (final message in state.pendingMessages)
+                if (!identical(message, pending)) message,
+            ],
+          );
+        }
+      } else if (pendingReplies.mounted) {
+        if (sent != null && thread != null && thread.mounted) {
+          thread.showReply(sent);
+        }
+        pendingReplies.state = [
+          for (final message in pendingReplies.state)
+            if (!identical(message, pending)) message,
+        ];
+      }
       _pendingSends--;
       if (_pendingSends == 0 && _heldErrors.isNotEmpty) {
         // Errors that weren't about the send after all.

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bleya/domain/entities/direct_chat_status.dart';
 import 'package:bleya/domain/entities/message.dart';
 import 'package:bleya/domain/entities/room.dart';
@@ -11,6 +13,7 @@ import 'package:bleya/providers/chat_room_providers.dart';
 import 'package:bleya/providers/repository_providers.dart';
 import 'package:bleya/services/socket_service.dart';
 import 'package:bleya/utils/navigation.dart';
+import 'package:bleya/widgets/swipeable_message_bubble.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -370,6 +373,63 @@ void main() {
       tester.getRect(find.byIcon(CupertinoIcons.arrow_up)).bottom,
       lessThanOrEqualTo(844 - 336),
     );
+
+    await closeApp(tester);
+  });
+
+  testWidgets('the input moves with the keyboard, frame by frame',
+      (tester) async {
+    tester.view
+      ..physicalSize = const Size(390 * 3, 844 * 3)
+      ..devicePixelRatio = 3;
+    addTearDown(tester.view.reset);
+    await showApp(tester);
+    await push(tester, ChatRoomPage(room: _cityRoom));
+    socket.emit(
+      'room_joined',
+      _roomJoined(_cityRoom, [_message('m1', 'Anyone at the market?')]),
+    );
+    await tester.pump();
+
+    // One frame of the keyboard's own animation: the input is already above
+    // it, not catching up later.
+    tester.view.viewInsets = const FakeViewPadding(bottom: 120 * 3);
+    await tester.pump();
+
+    expect(
+      tester.getRect(find.byIcon(CupertinoIcons.arrow_up)).bottom,
+      lessThanOrEqualTo(844 - 120),
+    );
+
+    await closeApp(tester);
+  });
+
+  testWidgets('a sent message shows at once, faded, until the server has it',
+      (tester) async {
+    await showApp(tester);
+    await push(tester, ChatRoomPage(room: _cityRoom));
+    socket.emit(
+      'room_joined',
+      _roomJoined(_cityRoom, [_message('m1', 'Anyone at the market?')]),
+    );
+    await tester.pump();
+    final ack = socket.pendingSend = Completer<SendMessageResult>();
+
+    await tester.enterText(find.byType(TextField), 'See you at noon');
+    await tester.pump();
+    await tester.tap(find.byIcon(CupertinoIcons.arrow_up));
+    await tester.pump();
+
+    expect(find.byType(PendingMessageBubble), findsOneWidget);
+    expect(find.text('See you at noon'), findsOneWidget);
+
+    ack.complete(
+      SendMessageResult.sent(_message('m2', 'See you at noon', minute: 1)),
+    );
+    await tester.pump();
+
+    expect(find.byType(PendingMessageBubble), findsNothing);
+    expect(find.text('See you at noon'), findsOneWidget);
 
     await closeApp(tester);
   });

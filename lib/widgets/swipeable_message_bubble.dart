@@ -30,6 +30,16 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
     with SingleTickerProviderStateMixin {
   static const double _maxDragDistance = 72.0;
 
+  /// One time format per locale and clock style, shared by every bubble.
+  static final Map<String, DateFormat> _timeFormats = {};
+
+  static DateFormat _timeFormat(String locale, {required bool use24Hour}) {
+    return _timeFormats.putIfAbsent(
+      '$locale/$use24Hour',
+      () => use24Hour ? DateFormat.Hm(locale) : DateFormat.jm(locale),
+    );
+  }
+
   late final AnimationController _controller;
   Animation<double>? _animation;
   double _dragOffsetX = 0;
@@ -93,12 +103,6 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
 
   @override
   Widget build(BuildContext context) {
-    final locale = Localizations.localeOf(context).toLanguageTag();
-    final use24Hour = MediaQuery.of(context).alwaysUse24HourFormat;
-
-    final dateFormat =
-        use24Hour ? DateFormat.Hm(locale) : DateFormat.jm(locale);
-    final timeLabel = dateFormat.format(widget.message.createdAt);
     final revealProgress =
         (_dragOffsetX.abs() / _maxDragDistance).clamp(0.0, 1.0);
 
@@ -106,34 +110,8 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
       alignment:
           widget.isCurrentUser ? Alignment.centerRight : Alignment.centerLeft,
       children: [
-        Padding(
-          padding: const EdgeInsets.only(
-            bottom: BleyaTheme.spacingSM,
-          ),
-          child: Align(
-            alignment: widget.isCurrentUser
-                ? Alignment.centerRight
-                : Alignment.centerLeft,
-            child: Padding(
-              padding: EdgeInsets.only(
-                left: widget.isCurrentUser ? 0 : BleyaTheme.spacingLG,
-                right: widget.isCurrentUser ? BleyaTheme.spacingLG : 0,
-              ),
-              child: Opacity(
-                opacity: revealProgress,
-                child: Text(
-                  timeLabel,
-                  style: BleyaTheme.bodySmall.copyWith(
-                    fontSize: 12,
-                    color: BleyaTheme.mutedForeground.withValues(
-                      alpha: BleyaTheme.glassBorderOpacity + 0.7,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
+        // The time shows only while the bubble is swiped aside.
+        if (revealProgress > 0) _buildTimeLabel(context, revealProgress),
         GestureDetector(
           onLongPress: widget.onLongPress,
           onHorizontalDragUpdate: _handleDragUpdate,
@@ -151,6 +129,66 @@ class _SwipeableMessageBubbleState extends State<SwipeableMessageBubble>
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildTimeLabel(BuildContext context, double revealProgress) {
+    final timeLabel = _timeFormat(
+      Localizations.localeOf(context).toLanguageTag(),
+      use24Hour: MediaQuery.alwaysUse24HourFormatOf(context),
+    ).format(widget.message.createdAt);
+
+    return Positioned.fill(
+      child: Padding(
+        padding: const EdgeInsets.only(
+          bottom: BleyaTheme.spacingSM,
+        ),
+        child: Align(
+          alignment: widget.isCurrentUser
+              ? Alignment.centerRight
+              : Alignment.centerLeft,
+          child: Padding(
+            padding: EdgeInsets.only(
+              left: widget.isCurrentUser ? 0 : BleyaTheme.spacingLG,
+              right: widget.isCurrentUser ? BleyaTheme.spacingLG : 0,
+            ),
+            child: Opacity(
+              opacity: revealProgress,
+              child: Text(
+                timeLabel,
+                style: BleyaTheme.bodySmall.copyWith(
+                  fontSize: 12,
+                  color: BleyaTheme.mutedForeground.withValues(
+                    alpha: BleyaTheme.glassBorderOpacity + 0.7,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The user's own [message] while it's on its way to the server: shown
+/// faded at once, in the place the stored message then takes.
+class PendingMessageBubble extends StatelessWidget {
+  final Message message;
+
+  const PendingMessageBubble({super.key, required this.message});
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      label: 'Sending',
+      child: Opacity(
+        opacity: 0.6,
+        child: MessageBubble(
+          messageText: message.text,
+          isCurrentUser: true,
+        ),
+      ),
     );
   }
 }
