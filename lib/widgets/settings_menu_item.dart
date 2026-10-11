@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
+import 'pressable.dart';
 
 /// Settings Menu Item Component
 ///
@@ -34,7 +35,7 @@ class SettingsMenuItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(

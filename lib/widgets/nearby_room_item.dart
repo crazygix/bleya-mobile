@@ -3,6 +3,7 @@ import '../constants/theme.dart';
 import '../domain/entities/room.dart';
 import 'app_spinner.dart';
 import 'profile_avatar.dart';
+import 'pressable.dart';
 
 class NearbyRoomItem extends StatelessWidget {
   final Room room;
@@ -24,7 +25,7 @@ class NearbyRoomItem extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(bottom: BleyaTheme.spacingSM),
-      child: GestureDetector(
+      child: Pressable(
         onTap: onJoin,
         child: Container(
           padding: EdgeInsets.all(BleyaTheme.radiusSmall),

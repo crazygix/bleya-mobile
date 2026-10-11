@@ -4,6 +4,7 @@ import '../../domain/entities/notification.dart' as entity;
 import '../../utils/time_formatter.dart';
 import 'app_skeleton.dart';
 import 'profile_avatar.dart';
+import 'pressable.dart';
 
 class NotificationTile extends StatelessWidget {
   final entity.Notification notification;
@@ -17,9 +18,11 @@ class NotificationTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
+    return Pressable(
       onTap: onTap,
-      behavior: HitTestBehavior.opaque,
+      // A full-width row: it dims instead of shrinking.
+      pressedScale: 1,
+      pressedOpacity: 0.6,
       child: Container(
         padding: const EdgeInsets.symmetric(
           horizontal: BleyaTheme.contentPadding,

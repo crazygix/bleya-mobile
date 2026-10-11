@@ -3,6 +3,7 @@ import '../constants/theme.dart';
 import '../domain/entities/city.dart';
 import 'app_spinner.dart';
 import 'profile_avatar.dart';
+import 'pressable.dart';
 
 class NearbyCityItem extends StatelessWidget {
   final City city;
@@ -20,7 +21,7 @@ class NearbyCityItem extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: EdgeInsets.only(bottom: BleyaTheme.spacingSM),
-      child: GestureDetector(
+      child: Pressable(
         onTap: onJoin,
         child: Container(
           padding: EdgeInsets.all(BleyaTheme.radiusSmall),

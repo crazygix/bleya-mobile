@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:bleya/services/image_disk_cache.dart';
 import 'package:bleya/constants/urls.dart';
 import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/services/auth_manager.dart';
@@ -71,6 +73,8 @@ void main() {
   late FakeHttpHandler apiHandler;
   late FakeAppBadgeService badge;
   late DataExportFile exportFile;
+  late Directory photoDir;
+  late ImageDiskCache photos;
 
   setUp(() async {
     cookieDir = await Directory.systemTemp.createTemp('bleya-cookie-test');
@@ -80,6 +84,11 @@ void main() {
     push = MockPushMessagingService();
     badge = FakeAppBadgeService();
     exportFile = DataExportFile(temporaryDirectory: () async => exportDir);
+    photoDir = await Directory.systemTemp.createTemp('bleya-photo-test');
+    photos = ImageDiskCache(
+      folder: ImageDiskCache.folderIn(photoDir),
+      download: (uri) async => Uint8List.fromList([1, 2, 3]),
+    );
     cleanupHandler = (_) async => jsonResponse(200, {'success': true});
     cleanup = FakeHttpAdapter((options) => cleanupHandler(options));
     apiHandler = (_) async => jsonResponse(200, {'ok': true});
@@ -101,6 +110,7 @@ void main() {
   tearDown(() async {
     await cookieDir.delete(recursive: true);
     await exportDir.delete(recursive: true);
+    await photoDir.delete(recursive: true);
   });
 
   ProviderContainer signedIn({DataExportFile? dataExportFile}) {
@@ -114,6 +124,7 @@ void main() {
         sessionCleanupDioProvider.overrideWithValue(fakeDio(cleanup)),
         dataExportFileProvider.overrideWithValue(dataExportFile ?? exportFile),
         appBadgeServiceProvider.overrideWithValue(badge),
+        imageDiskCacheProvider.overrideWithValue(photos),
       ],
     );
     addTearDown(container.dispose);
@@ -265,6 +276,17 @@ void main() {
 
       expect(await export.exists(), isFalse);
       expect(await shareCopy.exists(), isFalse);
+    });
+
+    test('deletes the photos kept on the device', () async {
+      await photos.load('https://cdn.test/profiles/profile-1.webp');
+      await pumpEventQueue();
+      expect(ImageDiskCache.folderIn(photoDir).listSync(), isNotEmpty);
+      final container = signedIn();
+
+      await authManager(container).logout();
+
+      expect(await ImageDiskCache.folderIn(photoDir).exists(), isFalse);
     });
 
     test('keeps the passkey, so a returning user can sign in with it',

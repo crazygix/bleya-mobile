@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
+import 'pressable.dart';
 
 /// Reusable circular glass icon button for compact actions.
 ///
@@ -27,10 +28,11 @@ class GlassCircleIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      button: true,
       label: semanticLabel,
-      child: GestureDetector(
+      child: Pressable(
         onTap: onPressed,
+        // The brand's button squish.
+        pressedScale: 0.95,
         child: Container(
           width: size,
           height: size,

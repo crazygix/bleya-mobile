@@ -8,6 +8,7 @@ import '../services/app_badge_service.dart';
 import '../services/app_client_info.dart';
 import '../services/auth_manager.dart';
 import '../services/data_export_file.dart';
+import '../services/image_disk_cache.dart';
 import '../services/passkey_auth_service.dart';
 import '../services/provider_auth_service.dart';
 import '../services/push_messaging_service.dart';
@@ -82,6 +83,11 @@ final passkeyAuthServiceProvider = Provider<PasskeyAuthService>((ref) {
 
 final pushMessagingServiceProvider = Provider<PushMessagingService>((ref) {
   return PushMessagingService(storage: ref.watch(secureStorageProvider));
+});
+
+/// The photos kept on the device between launches; signing out deletes them.
+final imageDiskCacheProvider = Provider<ImageDiskCache>((ref) {
+  return ImageDiskCache.instance;
 });
 
 final dataExportFileProvider = Provider<DataExportFile>((ref) {

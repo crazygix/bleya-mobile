@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
+import '../services/image_disk_cache.dart';
 
 class RoomHeroCard extends StatelessWidget {
   final String roomTitle;
@@ -120,8 +121,16 @@ class _RoomCoverImage extends StatelessWidget {
       return _buildFallback();
     }
 
-    return Image.network(
-      imageUrl!,
+    // Kept on the device after the first download, and decoded at the
+    // screen's width rather than at full size.
+    final width = MediaQuery.sizeOf(context).width *
+        MediaQuery.devicePixelRatioOf(context);
+    return Image(
+      image: ResizeImage.resizeIfNeeded(
+        width.ceil(),
+        null,
+        DiskCachedNetworkImage(imageUrl!),
+      ),
       fit: BoxFit.cover,
       loadingBuilder: (context, child, progress) {
         if (progress == null) return child;

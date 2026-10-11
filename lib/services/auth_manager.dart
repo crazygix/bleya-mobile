@@ -308,6 +308,11 @@ class AuthManager {
         'delete the data export',
         () => _ref.read(dataExportFileProvider).deleteAll(),
       );
+      // They show who this account chatted with.
+      await _step(
+        'delete the kept photos',
+        () => _ref.read(imageDiskCacheProvider).clear(),
+      );
       if (accountDeleted) {
         await _forgetRegisteredPasskey();
       }

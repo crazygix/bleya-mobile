@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import '../constants/theme.dart';
 import '../domain/entities/room.dart';
 import 'profile_avatar.dart';
+import 'pressable.dart';
 
 /// Room Card Component
 ///
@@ -49,7 +50,7 @@ class RoomCard extends StatelessWidget {
 
     return Padding(
       padding: EdgeInsets.only(bottom: BleyaTheme.spacingSM),
-      child: GestureDetector(
+      child: Pressable(
         onTap: onTap,
         child: Container(
           padding: EdgeInsets.all(BleyaTheme.radiusSmall),

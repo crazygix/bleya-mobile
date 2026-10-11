@@ -94,7 +94,8 @@ Their content is preserved below as code for reference.
 ///   - Bottom-left orb: 400x400, accent color (Apricot/Soft Sand), alpha 0.05, blur 100px
 ///
 /// GLASSMORPHISM:
-///   - UI cards use backdrop-blur (20px+)
+///   - Backdrop blur (20px+) only on surfaces that content moves under
+///     (e.g. toasts over a list); see "Backgrounds and blur"
 ///   - Semi-transparent white fill: bg-white/70 (glassOpacity: 0.82)
 ///   - Creates depth without heaviness
 ///
@@ -262,7 +263,7 @@ Their content is preserved below as code for reference.
 ///   - Use BleyaTheme constants for spacing, padding, colors
 ///
 /// GLASSMORPHISM:
-///   - Backdrop blur: 20px+
+///   - Backdrop blur: 20px+, only where content moves under the surface
 ///   - Semi-transparent white: glassSurface.withValues(alpha: glassOpacity)
 ///   - Inner glow: 1px white border (top/left)
 ///   - Shadow: glassShadow
@@ -276,7 +277,8 @@ Their content is preserved below as code for reference.
 ## Backgrounds and blur
 
 - `LiquidGlassBackground` draws the orbs as radial gradients shaped like blurred discs. It is painted once and costs nothing per frame. Use one per screen, as the first child of the page's `Stack`; a tab inside the dashboard (Activity, Settings) uses a transparent `Scaffold` and shows the dashboard's background.
-- Never use an unclipped `BackdropFilter`. Without a clip, a backdrop blur covers the whole screen on every frame, including the page underneath during a transition. Glass surfaces (headers, input bars, cards, toasts) wrap their blur in a `ClipRRect` or `ClipRect` the size of the surface.
+- Blur only what moves. A `BackdropFilter` costs an extra render pass on every frame, and over the page's static background it changes nothing you can see (the orbs are already soft). So a surface that only ever sits over the background, like `GlassHeader` above the content or `MessageInputField` below the messages, gets the glass tint and border without a blur. Use a blur only where content scrolls or slides underneath the surface, such as a toast over a list.
+- Never use an unclipped `BackdropFilter`. Without a clip, a backdrop blur covers the whole screen on every frame, including the page underneath during a transition. A glass surface that does blur wraps it in a `ClipRRect` or `ClipRect` the size of the surface.
 
 ## 6. UI COMPONENT STANDARDS
 
