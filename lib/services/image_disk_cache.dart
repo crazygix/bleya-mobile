@@ -54,6 +54,7 @@ class ImageDiskCache {
   // Whether [folder] exists, as far as this cache knows.
   bool _folderCreated = false;
   int _writes = 0;
+  final Set<Future<void>> _pendingWrites = {};
   // Loads of the same photo at the same time share one download.
   final Map<String, Future<Uint8List>> _loading = {};
 
@@ -86,10 +87,18 @@ class ImageDiskCache {
 
     final bytes = await _download(Uri.base.resolve(url));
     if (file != null) {
-      unawaited(_keep(file, bytes));
+      final write = _keep(file, bytes);
+      _pendingWrites.add(write);
+      unawaited(write.whenComplete(() {
+        _pendingWrites.remove(write);
+      }));
     }
     return bytes;
   }
+
+  /// Completes once the photos being written in the background are kept.
+  @visibleForTesting
+  Future<void> writesDone() => Future.wait(_pendingWrites.toList());
 
   /// Forgets the photo at [url], e.g. because what was kept isn't a picture.
   /// Never throws.
@@ -167,7 +176,11 @@ class ImageDiskCache {
   /// Writes [bytes] next to [file] and then moves it into place, so a photo
   /// being read is never half written.
   Future<void> _keep(File file, Uint8List bytes) async {
-    final partial = File('${file.path}.${_writes++}$_writeSuffix');
+    // Unique, so two writes of the same photo never share a partial file.
+    final partial = File(
+      '${file.path}.${identityHashCode(this)}-'
+      '${DateTime.now().microsecondsSinceEpoch}-${_writes++}$_writeSuffix',
+    );
     try {
       await partial.writeAsBytes(bytes, flush: true);
       await partial.rename(file.path);

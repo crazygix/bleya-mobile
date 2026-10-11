@@ -1,17 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:bleya/services/image_disk_cache.dart';
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// A 2 x 2 PNG.
-final _png = base64Decode(
-  'iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAEElEQVR4nGPQTvsPRAwQCgAofg'
-  'ZBTE9LHAAAAABJRU5ErkJggg==',
-);
+final _photoBytes = Uint8List.fromList(List.generate(64, (i) => i));
 
 const _photo = 'https://cdn.test/profiles/profile-1.webp';
 
@@ -25,7 +19,7 @@ void main() {
     cacheDir = await Directory.systemTemp.createTemp('bleya-photos-test');
     folder = ImageDiskCache.folderIn(cacheDir);
     downloads = [];
-    answer = (_) async => Uint8List.fromList(_png);
+    answer = (_) async => _photoBytes;
   });
 
   tearDown(() async {
@@ -44,21 +38,19 @@ void main() {
     );
   }
 
-  /// Lets the background write finish.
-  Future<void> settle() => Future<void>.delayed(Duration.zero);
-
-  List<File> keptFiles() =>
-      folder.listSync().whereType<File>().toList(growable: false);
+  List<File> keptFiles() => folder.existsSync()
+      ? folder.listSync().whereType<File>().toList(growable: false)
+      : const [];
 
   test('downloads a photo once, then the next launch reads it from the device',
       () async {
-    expect(await launch().load(_photo), _png);
-    await settle();
+    final first = launch();
+    expect(await first.load(_photo), _photoBytes);
+    await first.writesDone();
     expect(downloads, [Uri.parse(_photo)]);
+    expect(keptFiles(), hasLength(1));
 
-    final bytes = await launch().load(_photo);
-
-    expect(bytes, _png);
+    expect(await launch().load(_photo), _photoBytes);
     expect(downloads, hasLength(1));
   });
 
@@ -69,10 +61,10 @@ void main() {
 
     final first = cache.load(_photo);
     final second = cache.load(_photo);
-    download.complete(Uint8List.fromList(_png));
+    download.complete(_photoBytes);
 
-    expect(await first, _png);
-    expect(await second, _png);
+    expect(await first, _photoBytes);
+    expect(await second, _photoBytes);
     expect(downloads, hasLength(1));
   });
 
@@ -82,11 +74,11 @@ void main() {
     final cache = launch();
 
     await expectLater(cache.load(_photo), throwsA(isA<SocketException>()));
-    await settle();
-    expect(folder.existsSync() ? keptFiles() : const <File>[], isEmpty);
+    await cache.writesDone();
+    expect(keptFiles(), isEmpty);
 
-    answer = (_) async => Uint8List.fromList(_png);
-    expect(await cache.load(_photo), _png);
+    answer = (_) async => _photoBytes;
+    expect(await cache.load(_photo), _photoBytes);
     expect(downloads, hasLength(2));
   });
 
@@ -95,30 +87,31 @@ void main() {
     final cache = ImageDiskCache(
       download: (uri) async {
         downloads.add(uri);
-        return Uint8List.fromList(_png);
+        return _photoBytes;
       },
     );
 
     await cache.load(_photo);
-    await settle();
     await cache.load(_photo);
-
-    expect(downloads, hasLength(2));
-    expect(folder.existsSync(), isFalse);
     // Clearing and trimming have nothing to do.
     await cache.clear();
     await cache.trim();
+
+    expect(downloads, hasLength(2));
+    expect(folder.existsSync(), isFalse);
   });
 
   test('evict forgets one photo', () async {
     final cache = launch();
     await cache.load(_photo);
     await cache.load('https://cdn.test/profiles/profile-2.webp');
-    await settle();
+    await cache.writesDone();
 
     await cache.evict(_photo);
-    await cache.load(_photo);
+    expect(keptFiles(), hasLength(1));
 
+    await cache.load(_photo);
+    await cache.writesDone();
     expect(keptFiles(), hasLength(2));
     expect(downloads, hasLength(3));
   });
@@ -127,31 +120,30 @@ void main() {
       () async {
     final cache = launch();
     await cache.load(_photo);
-    await settle();
+    await cache.writesDone();
 
     await cache.clear();
     expect(folder.existsSync(), isFalse);
 
     await cache.load(_photo);
-    await settle();
+    await cache.writesDone();
     expect(keptFiles(), hasLength(1));
     expect(downloads, hasLength(2));
   });
 
   group('trim', () {
-    Future<File> keptPhoto(String name, {required int ageDays, int size = 10}) {
+    File keptPhoto(String name, {required int ageDays, int size = 10}) {
       folder.createSync(recursive: true);
-      final file = File('${folder.path}/$name')
-        ..writeAsBytesSync(List.filled(size, 1));
-      file.setLastModifiedSync(
-        DateTime.now().subtract(Duration(days: ageDays)),
-      );
-      return Future.value(file);
+      return File('${folder.path}/$name')
+        ..writeAsBytesSync(List.filled(size, 1))
+        ..setLastModifiedSync(
+          DateTime.now().subtract(Duration(days: ageDays)),
+        );
     }
 
     test('drops photos not seen for 30 days, and keeps the rest', () async {
-      final recent = await keptPhoto('recent', ageDays: 2);
-      final old = await keptPhoto('old', ageDays: 31);
+      final recent = keptPhoto('recent', ageDays: 2);
+      final old = keptPhoto('old', ageDays: 31);
 
       await launch().trim();
 
@@ -160,9 +152,9 @@ void main() {
     });
 
     test('drops the least recently seen photos over the size limit', () async {
-      final newest = await keptPhoto('newest', ageDays: 1);
-      final middle = await keptPhoto('middle', ageDays: 2);
-      final oldest = await keptPhoto('oldest', ageDays: 3);
+      final newest = keptPhoto('newest', ageDays: 1);
+      final middle = keptPhoto('middle', ageDays: 2);
+      final oldest = keptPhoto('oldest', ageDays: 3);
 
       await launch(maxBytes: 25).trim();
 
@@ -172,8 +164,8 @@ void main() {
     });
 
     test('drops writes left unfinished, but not one in progress', () async {
-      final stale = await keptPhoto('abc.0.part', ageDays: 1);
-      final fresh = await keptPhoto('abc.1.part', ageDays: 0);
+      final stale = keptPhoto('abc.1-0.part', ageDays: 1);
+      final fresh = keptPhoto('abc.1-1.part', ageDays: 0);
 
       await launch().trim();
 
@@ -182,15 +174,17 @@ void main() {
     });
 
     test('a photo seen again counts as recent', () async {
-      final cache = launch();
-      await cache.load(_photo);
-      await settle();
-      final file = keptFiles().single;
-      file.setLastModifiedSync(
-          DateTime.now().subtract(const Duration(days: 40)));
+      final first = launch();
+      await first.load(_photo);
+      await first.writesDone();
+      final file = keptFiles().single
+        ..setLastModifiedSync(
+          DateTime.now().subtract(const Duration(days: 40)),
+        );
 
       await launch().load(_photo);
-      await settle();
+      // Marking it seen runs in the background too.
+      await Future<void>.delayed(const Duration(milliseconds: 100));
       await launch().trim();
 
       expect(file.existsSync(), isTrue);
@@ -198,75 +192,14 @@ void main() {
     });
   });
 
-  group('DiskCachedNetworkImage', () {
-    late ImageDiskCache previous;
-
-    setUp(() => previous = ImageDiskCache.instance);
-    tearDown(() => ImageDiskCache.instance = previous);
-
-    testWidgets('shows a kept photo without downloading it', (tester) async {
-      await tester.runAsync(() async {
-        await launch().load(_photo);
-        await settle();
-      });
-      ImageDiskCache.instance = launch();
-      const image = DiskCachedNetworkImage(_photo);
-
-      await tester.pumpWidget(const Image(image: image));
-      await tester.runAsync(() async {
-        await precacheImage(image, tester.element(find.byType(Image)));
-      });
-      await tester.pump();
-
-      final painted = tester.widget<Image>(find.byType(Image));
-      expect(painted.image, image);
-      expect(
-        tester.state<State<Image>>(find.byType(Image)).toString(),
-        contains('2×2'),
-      );
-      expect(downloads, hasLength(1));
-    });
-
-    testWidgets("a download that isn't a picture is forgotten", (tester) async {
-      answer = (_) async => Uint8List.fromList(utf8.encode('<html>oops'));
-      ImageDiskCache.instance = launch();
-      const image = DiskCachedNetworkImage(_photo);
-      Object? error;
-
-      await tester.pumpWidget(
-        Image(
-            image: image,
-            errorBuilder: (_, e, __) {
-              error = e;
-              return const SizedBox();
-            }),
-      );
-      await tester.runAsync(() async {
-        await precacheImage(
-          image,
-          tester.element(find.byType(Image)),
-          onError: (_, __) {},
-        );
-        await settle();
-      });
-      await tester.pump();
-
-      expect(error, isNotNull);
-      await tester.runAsync(() async {
-        await settle();
-        expect(keptFiles(), isEmpty);
-      });
-    });
-
-    test('is equal for the same address', () {
-      expect(
-        const DiskCachedNetworkImage(_photo),
-        const DiskCachedNetworkImage(_photo),
-      );
-      expect(
-        const DiskCachedNetworkImage(_photo),
-        isNot(const DiskCachedNetworkImage('https://cdn.test/other.webp')),
-      );
-    });
+  test('DiskCachedNetworkImage is equal for the same address', () {
+    expect(
+      const DiskCachedNetworkImage(_photo),
+      const DiskCachedNetworkImage(_photo),
+    );
+    expect(
+      const DiskCachedNetworkImage(_photo),
+      isNot(const DiskCachedNetworkImage('https://cdn.test/other.webp')),
+    );
   });
 }

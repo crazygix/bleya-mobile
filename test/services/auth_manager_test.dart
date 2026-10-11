@@ -27,7 +27,8 @@ class MockPushMessagingService extends Mock implements PushMessagingService {}
 
 class MockSocketService extends Mock implements SocketService {}
 
-/// An export that touches no files, for tests in fake time.
+/// An export that touches no files, for tests in fake time, where file
+/// operations never finish.
 class _NoDataExportFile extends DataExportFile {
   @override
   Future<void> deleteAll() async {}
@@ -113,7 +114,10 @@ void main() {
     await photoDir.delete(recursive: true);
   });
 
-  ProviderContainer signedIn({DataExportFile? dataExportFile}) {
+  ProviderContainer signedIn({
+    DataExportFile? dataExportFile,
+    ImageDiskCache? imageDiskCache,
+  }) {
     final container = ProviderContainer(
       overrides: [
         tokenProvider.overrideWith((ref) => aliceToken),
@@ -124,7 +128,7 @@ void main() {
         sessionCleanupDioProvider.overrideWithValue(fakeDio(cleanup)),
         dataExportFileProvider.overrideWithValue(dataExportFile ?? exportFile),
         appBadgeServiceProvider.overrideWithValue(badge),
-        imageDiskCacheProvider.overrideWithValue(photos),
+        imageDiskCacheProvider.overrideWithValue(imageDiskCache ?? photos),
       ],
     );
     addTearDown(container.dispose);
@@ -280,7 +284,7 @@ void main() {
 
     test('deletes the photos kept on the device', () async {
       await photos.load('https://cdn.test/profiles/profile-1.webp');
-      await pumpEventQueue();
+      await photos.writesDone();
       expect(ImageDiskCache.folderIn(photoDir).listSync(), isNotEmpty);
       final container = signedIn();
 
@@ -325,7 +329,11 @@ void main() {
       cleanupHandler = (_) => Completer<ResponseBody>().future;
       when(() => push.deleteTokenAfterSignOut())
           .thenAnswer((_) => Completer<void>().future);
-      final container = signedIn(dataExportFile: _NoDataExportFile());
+      final container = signedIn(
+        dataExportFile: _NoDataExportFile(),
+        // Without a folder: it touches no files either.
+        imageDiskCache: ImageDiskCache(),
+      );
       await tester.pumpWidget(MaterialApp(
         navigatorKey: navigatorKey,
         routes: {
