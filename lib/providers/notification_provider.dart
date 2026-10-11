@@ -57,14 +57,19 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
 
   bool get _isRefreshing => _changesDuringRefresh != null;
 
+  // The next page being loaded. Scrolling asks on every frame near the end,
+  // and those calls share this one request.
+  Future<void>? _loadingMore;
+
   @override
   FutureOr<NotificationState> build() async {
     // Runs as soon as sessionVersionProvider changes, even when the rebuild
     // itself waits for the next frame.
     ref.onDispose(() {
       _sessionGeneration++;
-      // The next session's refreshes don't wait for this one's.
+      // The next session's refreshes and pages don't wait for this one's.
       _lastRefresh = null;
+      _loadingMore = null;
       _changesDuringRefresh = null;
     });
     ref.watch(sessionVersionProvider);
@@ -100,7 +105,8 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     );
   }
 
-  Future<void> loadMore() async {
+  /// Loads the next page, once at a time.
+  Future<void> loadMore() {
     final current = state.valueOrNull;
     // A refresh is about to replace the list; scrolling again after it loads
     // more.
@@ -108,14 +114,19 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
         !current.hasMore ||
         state.isLoading ||
         _isRefreshing) {
-      return;
+      return Future.value();
     }
+    final running = _loadingMore;
+    if (running != null) return running;
 
-    // Prevent concurrent loads
-    // state = const AsyncLoading(); // Ideally we want to keep showing list while loading more
-    // Riverpod's AsyncValue doesn't easily support "loading more" state without clearing data unless we handle it manually.
-    // For simplicity, let's just append.
+    final loading = _loadNextPage(current);
+    _loadingMore = loading;
+    return loading.whenComplete(() {
+      if (identical(_loadingMore, loading)) _loadingMore = null;
+    });
+  }
 
+  Future<void> _loadNextPage(NotificationState current) async {
     final session = _sessionGeneration;
     final list = _listGeneration;
     try {
@@ -133,12 +144,23 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       final hasMoreNotifications =
           page.nextCursor != null && page.notifications.length >= limit;
 
-      state = AsyncData(current.copyWith(
-        notifications: [...current.notifications, ...page.notifications],
+      // Added to the list as it is now: notifications that arrived and
+      // items dismissed or read while the page loaded stay as they are.
+      final latest = state.valueOrNull ?? current;
+      // Cleared with "Clean all" meanwhile: nothing older is left to show.
+      if (!latest.hasMore) return;
+      final listedIds = {for (final n in latest.notifications) n.id};
+      state = AsyncData(latest.copyWith(
+        notifications: [
+          ...latest.notifications,
+          ...page.notifications.where((n) => listedIds.add(n.id)),
+        ],
         nextCursor: page.nextCursor,
         hasMore: hasMoreNotifications,
-        // Update unread count as well from server
-        unreadCount: page.unreadCount,
+        // The server's count, unless the list changed meanwhile and already
+        // counts that change.
+        unreadCount:
+            identical(latest, current) ? page.unreadCount : latest.unreadCount,
       ));
     } catch (e) {
       if (kDebugMode) {
@@ -189,6 +211,9 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
 
     if (result case AsyncData(:final value)) {
       _listGeneration++;
+      // A page still loading follows the old list and is dropped; the next
+      // scroll loads one for this list.
+      _loadingMore = null;
       state = AsyncData(changes.fold(value, (page, change) => change(page)));
     } else if (!silent || !state.hasValue) {
       state = result;

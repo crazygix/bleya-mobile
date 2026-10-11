@@ -285,6 +285,66 @@ void main() {
     expect(ids(), ['new-1']);
   });
 
+  group('loading the next page', () {
+    Future<void> showFullFirstPage() async {
+      answerFetches(
+        () async => _page(
+          [for (var i = 0; i < 20; i++) 'old-$i'],
+          nextCursor: 'cursor-1',
+        ),
+      );
+      await showActivity();
+    }
+
+    test('scrolling asks once while a page loads', () async {
+      await showFullFirstPage();
+      clearInteractions(repository);
+
+      final nextPage = Completer<NotificationPage>();
+      answerFetches(() => nextPage.future);
+      // The page asks on every scroll frame near the end of the list.
+      final loads = [for (var i = 0; i < 5; i++) notifier().loadMore()];
+      nextPage.complete(_page(['old-20']));
+      await Future.wait(loads);
+
+      verifyFetches(1);
+      expect(ids().last, 'old-20');
+      expect(ids().where((id) => id == 'old-20'), hasLength(1));
+    });
+
+    test('a page that loads after the list changed keeps the change', () async {
+      await showFullFirstPage();
+
+      final nextPage = Completer<NotificationPage>();
+      answerFetches(() => nextPage.future);
+      final loadingMore = notifier().loadMore();
+
+      socket.emit('new_notification', _notificationEvent('n-new'));
+      await notifier().dismissNotification('old-3');
+      nextPage.complete(_page(['old-20']));
+      await loadingMore;
+
+      expect(ids().first, 'n-new');
+      expect(ids(), isNot(contains('old-3')));
+      expect(ids().last, 'old-20');
+    });
+
+    test('a page that loads after Clean all adds nothing', () async {
+      await showFullFirstPage();
+      when(() => repository.dismissAll()).thenAnswer((_) async {});
+
+      final nextPage = Completer<NotificationPage>();
+      answerFetches(() => nextPage.future);
+      final loadingMore = notifier().loadMore();
+
+      await notifier().dismissAll();
+      nextPage.complete(_page(['old-20']));
+      await loadingMore;
+
+      expect(ids(), isEmpty);
+    });
+  });
+
   group('moderator removals', () {
     test("a removed reply's item goes, with its unread count", () async {
       answerFetches(
