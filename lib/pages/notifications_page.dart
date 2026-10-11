@@ -24,47 +24,29 @@ class NotificationsPage extends ConsumerStatefulWidget {
 }
 
 class _NotificationsPageState extends ConsumerState<NotificationsPage> {
-  late ProviderContainer _container;
-  final ScrollController _scrollController = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _scrollController.addListener(_onScroll);
-  }
+  ScrollController? _scrollController;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _container = ProviderScope.containerOf(context);
+    final controller = PrimaryScrollController.maybeOf(context);
+    if (!identical(controller, _scrollController)) {
+      _scrollController?.removeListener(_onScroll);
+      _scrollController = controller?..addListener(_onScroll);
+    }
   }
 
   @override
   void dispose() {
-    // Leaving the Activity tab marks everything read, which clears the badge
-    // but keeps the items listed (only opening one dismisses it). Provider
-    // state can't change while a widget is disposed, so this runs right
-    // after.
-    final container = _container;
-    Future.microtask(() {
-      try {
-        final state = container.read(notificationStateProvider);
-        final unreadCount = state.valueOrNull?.unreadCount ?? 0;
-        if (unreadCount > 0) {
-          container.read(notificationStateProvider.notifier).markAllAsRead();
-        }
-      } on StateError {
-        // The app is shutting down with its providers; nothing to mark.
-      }
-    });
-
-    _scrollController.dispose();
+    _scrollController?.removeListener(_onScroll);
     super.dispose();
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >=
-        _scrollController.position.maxScrollExtent - 200) {
+    final controller = _scrollController;
+    if (controller == null || controller.positions.length != 1) return;
+    if (controller.position.pixels >=
+        controller.position.maxScrollExtent - 200) {
       ref.read(notificationStateProvider.notifier).loadMore();
     }
   }
@@ -131,6 +113,8 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Rebuilds when the tab shows again, so relative times are current.
+    Visibility.of(context);
     final state = ref.watch(notificationStateProvider);
     final unreadCount = state.valueOrNull?.unreadCount ?? 0;
 
@@ -176,6 +160,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                     return RefreshIndicator(
                       onRefresh: _handleRefresh,
                       child: SingleChildScrollView(
+                        primary: false,
                         physics: const AlwaysScrollableScrollPhysics(),
                         child: SizedBox(
                           height: MediaQuery.of(context).size.height * 0.6,
@@ -213,6 +198,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
                   );
                 },
                 loading: () => ListView.builder(
+                  primary: false,
                   padding: const EdgeInsets.only(top: BleyaTheme.spacingMD),
                   itemCount: 6,
                   itemBuilder: (_, __) => const NotificationTileSkeleton(),

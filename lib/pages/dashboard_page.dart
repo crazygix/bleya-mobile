@@ -38,6 +38,14 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
   int _selectedIndex = 0;
   static const Duration _tabSwitchDuration = Duration(milliseconds: 260);
 
+  // Tabs are built on first visit and then kept, hidden, so they keep their
+  // scroll position and state.
+  final Set<int> _builtTabs = {0};
+  // One per tab, so a hidden tab never shares the route's primary controller
+  // with the visible one.
+  final List<ScrollController> _tabScrollControllers =
+      List.generate(3, (_) => ScrollController());
+
   @override
   void initState() {
     super.initState();
@@ -54,12 +62,51 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     });
   }
 
+  @override
+  void dispose() {
+    for (final c in _tabScrollControllers) {
+      c.dispose();
+    }
+    super.dispose();
+  }
+
   void _onTabChanged(int index) {
-    if (index == _selectedIndex) return;
+    if (index == _selectedIndex) {
+      final c = _tabScrollControllers[index];
+      if (c.hasClients) {
+        c.animateTo(0,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOutCubic);
+      }
+      return;
+    }
+    final previous = _selectedIndex;
 
     setState(() {
       _selectedIndex = index;
+      _builtTabs.add(index);
     });
+
+    if (previous == 1) {
+      // Leaving the Activity tab marks everything read, which clears the
+      // badge but keeps the items listed.
+      final unread =
+          ref.read(notificationStateProvider).valueOrNull?.unreadCount ?? 0;
+      if (unread > 0) {
+        unawaited(ref.read(notificationStateProvider.notifier).markAllAsRead());
+      }
+    }
+  }
+
+  Widget _tab(int index, Widget Function() build) {
+    if (!_builtTabs.contains(index)) return const SizedBox.shrink();
+    return TickerMode(
+      enabled: index == _selectedIndex,
+      child: PrimaryScrollController(
+        controller: _tabScrollControllers[index],
+        child: build(),
+      ),
+    );
   }
 
   void _showJoinRoomDialog() {
@@ -85,143 +132,155 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     // Keeps the iOS app-icon badge equal to the unread counts shown here.
     ref.watch(appBadgeProvider);
 
-    return Scaffold(
-      backgroundColor: BleyaTheme.background,
-      body: Stack(
-        children: [
-          const LiquidGlassBackground(),
-          SafeArea(
-            bottom: false,
-            child: Column(
-              children: [
-                // Header (only shown on Chat tab)
-                if (_selectedIndex == 0)
-                  Padding(
+    return PrimaryScrollController(
+      controller: _tabScrollControllers[_selectedIndex],
+      child: Scaffold(
+        backgroundColor: BleyaTheme.background,
+        body: Stack(
+          children: [
+            const LiquidGlassBackground(),
+            SafeArea(
+              bottom: false,
+              child: Column(
+                children: [
+                  // Notifications-disabled prompt (self-hides when enabled or
+                  // dismissed); shown across tabs so it isn't easily missed.
+                  const NotificationPermissionBanner(),
+                  // Main Content
+                  Expanded(
+                    child: IndexedStack(
+                      index: _selectedIndex,
+                      sizing: StackFit.expand,
+                      children: [
+                        _tab(0, _buildChatTabWithHeader),
+                        _tab(1, () => const NotificationsPage()),
+                        _tab(2, () => SettingsPage()),
+                      ],
+                    ),
+                  ),
+                  // Bottom Navigation
+                  Container(
                     padding: EdgeInsets.only(
                       left: BleyaTheme.contentPadding,
                       right: BleyaTheme.contentPadding,
                       top: BleyaTheme.spacingMD,
-                      bottom: BleyaTheme.spacingLG,
+                      bottom: padding.bottom + BleyaTheme.spacingMD,
                     ),
-                    child: Row(
-                      children: [
-                        Text(
-                          'Chats',
-                          style: BleyaTheme.headingMedium,
+                    child: Container(
+                      height: 64,
+                      decoration: BoxDecoration(
+                        color: BleyaTheme.glassSurface
+                            .withValues(alpha: BleyaTheme.glassOpacity),
+                        borderRadius: BorderRadius.circular(32),
+                        border: Border.all(
+                          color: BleyaTheme.border,
+                          width: 1,
                         ),
-                        Spacer(),
-                        GlassCircleIconButton(
-                          icon: CupertinoIcons.add,
-                          onPressed: _showJoinRoomDialog,
-                          semanticLabel: 'Open city rooms',
-                        ),
-                      ],
-                    ),
-                  ),
-                // Notifications-disabled prompt (self-hides when enabled or
-                // dismissed); shown across tabs so it isn't easily missed.
-                const NotificationPermissionBanner(),
-                // Main Content
-                Expanded(
-                  child: _selectedIndex == 0
-                      ? _buildChatTab()
-                      : _selectedIndex == 1
-                          ? const NotificationsPage()
-                          : SettingsPage(),
-                ),
-                // Bottom Navigation
-                Container(
-                  padding: EdgeInsets.only(
-                    left: BleyaTheme.contentPadding,
-                    right: BleyaTheme.contentPadding,
-                    top: BleyaTheme.spacingMD,
-                    bottom: padding.bottom + BleyaTheme.spacingMD,
-                  ),
-                  child: Container(
-                    height: 64,
-                    decoration: BoxDecoration(
-                      color: BleyaTheme.glassSurface
-                          .withValues(alpha: BleyaTheme.glassOpacity),
-                      borderRadius: BorderRadius.circular(32),
-                      border: Border.all(
-                        color: BleyaTheme.border,
-                        width: 1,
+                        boxShadow: BleyaTheme.glassShadow,
                       ),
-                      boxShadow: BleyaTheme.glassShadow,
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(32),
-                      child: Padding(
-                        padding: const EdgeInsets.all(4),
-                        child: Stack(
-                          children: [
-                            AnimatedAlign(
-                              duration: _tabSwitchDuration,
-                              curve: Curves.easeInOutCubic,
-                              alignment: _selectedIndex == 0
-                                  ? Alignment.centerLeft
-                                  : _selectedIndex == 1
-                                      ? Alignment.center
-                                      : Alignment.centerRight,
-                              child: FractionallySizedBox(
-                                widthFactor: 0.333,
-                                heightFactor: 1,
-                                child: Container(
-                                  decoration: BoxDecoration(
-                                    color: CupertinoColors.white,
-                                    borderRadius: BorderRadius.circular(28),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.black
-                                            .withValues(alpha: 0.04),
-                                        blurRadius: 8,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(32),
+                        child: Padding(
+                          padding: const EdgeInsets.all(4),
+                          child: Stack(
+                            children: [
+                              AnimatedAlign(
+                                duration: _tabSwitchDuration,
+                                curve: Curves.easeInOutCubic,
+                                alignment: _selectedIndex == 0
+                                    ? Alignment.centerLeft
+                                    : _selectedIndex == 1
+                                        ? Alignment.center
+                                        : Alignment.centerRight,
+                                child: FractionallySizedBox(
+                                  widthFactor: 0.333,
+                                  heightFactor: 1,
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: CupertinoColors.white,
+                                      borderRadius: BorderRadius.circular(28),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withValues(alpha: 0.04),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Row(
-                              children: [
-                                _buildBottomNavItem(
-                                  index: 0,
-                                  icon: CupertinoIcons.chat_bubble_2,
-                                  selectedIcon:
-                                      CupertinoIcons.chat_bubble_2_fill,
-                                  label: 'Chats',
-                                ),
-                                _buildBottomNavItem(
-                                  index: 1,
-                                  icon: CupertinoIcons.bell,
-                                  selectedIcon: CupertinoIcons.bell_fill,
-                                  label: 'Activity',
-                                  showBadge: true,
-                                ),
-                                _buildBottomNavItem(
-                                  index: 2,
-                                  icon: CupertinoIcons.gear,
-                                  selectedIcon: CupertinoIcons.gear_solid,
-                                  label: 'Settings',
-                                ),
-                              ],
-                            ),
-                          ],
+                              Row(
+                                children: [
+                                  _buildBottomNavItem(
+                                    index: 0,
+                                    icon: CupertinoIcons.chat_bubble_2,
+                                    selectedIcon:
+                                        CupertinoIcons.chat_bubble_2_fill,
+                                    label: 'Chats',
+                                  ),
+                                  _buildBottomNavItem(
+                                    index: 1,
+                                    icon: CupertinoIcons.bell,
+                                    selectedIcon: CupertinoIcons.bell_fill,
+                                    label: 'Activity',
+                                    showBadge: true,
+                                  ),
+                                  _buildBottomNavItem(
+                                    index: 2,
+                                    icon: CupertinoIcons.gear,
+                                    selectedIcon: CupertinoIcons.gear_solid,
+                                    label: 'Settings',
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
   Future<void> _handleRefresh() async {
     await ref.read(roomsListProvider.notifier).refresh();
+  }
+
+  /// The Chats title lives inside the tab, like Activity's and Settings',
+  /// so every tab gets the same height and a hidden list never re-lays out.
+  Widget _buildChatTabWithHeader() {
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.only(
+            left: BleyaTheme.contentPadding,
+            right: BleyaTheme.contentPadding,
+            top: BleyaTheme.spacingMD,
+            bottom: BleyaTheme.spacingLG,
+          ),
+          child: Row(
+            children: [
+              Text('Chats', style: BleyaTheme.headingMedium),
+              Spacer(),
+              GlassCircleIconButton(
+                icon: CupertinoIcons.add,
+                onPressed: _showJoinRoomDialog,
+                semanticLabel: 'Open city rooms',
+              ),
+            ],
+          ),
+        ),
+        Expanded(child: _buildChatTab()),
+      ],
+    );
   }
 
   Widget _buildChatTab() {

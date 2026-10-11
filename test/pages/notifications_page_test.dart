@@ -289,27 +289,25 @@ void main() {
     await finish(tester);
   });
 
-  testWidgets('leaving Activity marks everything read after the page closes',
-      (tester) async {
+  testWidgets(
+      'closing Activity marks nothing read: the dashboard does that when '
+      'you switch tabs', (tester) async {
     await showActivity(tester, [_reply('n1', 'See you there')]);
-    expect(
-        container.read(notificationStateProvider).requireValue.unreadCount, 1);
 
-    // The dashboard switches to another tab.
+    // The dashboard goes away, e.g. on signing out.
     await tester.pumpWidget(
       UncontrolledProviderScope(
         container: container,
         child: MaterialApp(
           navigatorKey: navigatorKey,
-          home: const Scaffold(body: Text('Chats')),
+          home: const Scaffold(body: Text('Signed out')),
         ),
       ),
     );
     await tester.pump();
 
     expect(
-        container.read(notificationStateProvider).requireValue.unreadCount, 0);
-    expect(listedIds(), ['n1']);
-    verify(() => notifications.markAllAsRead()).called(1);
+        container.read(notificationStateProvider).requireValue.unreadCount, 1);
+    verifyNever(() => notifications.markAllAsRead());
   });
 }

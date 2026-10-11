@@ -164,10 +164,12 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final profileImageUrl = profile?.profileImageUrl;
     final hasBio = bio != null && bio.trim().isNotEmpty;
 
+    // Hidden behind another tab: no toast for a tab the user isn't on.
+    final isVisible = Visibility.of(context);
     ref.listen(profileProvider, (previous, next) {
       final isNewError =
           next.hasError && (previous == null || !previous.hasError);
-      if (!isNewError || !mounted) {
+      if (!isNewError || !mounted || !isVisible) {
         return;
       }
 
