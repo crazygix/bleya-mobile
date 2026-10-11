@@ -8,9 +8,10 @@ Facts they rest on:
 - Analytics are first-party: they go only to our backend (bleya-backend `docs/analytics.md`). The app reports app
   opens and sign-in attempts that end before reaching the backend (started, cancelled, failed in the provider's
   sheet). The backend records sign-in outcomes, content-filter rejections (which field, never the content) and one
-  record per user per day they used the app, with platform and app version. All of it is linked to the account
-  when the user is signed in, deleted after 90 days and with the account, and included in the data export. Only
-  daily totals (counts, no personal data) are kept longer.
+  record per user per day they used the app, with platform and app version. All of it is deleted after 90 days.
+  Records with the account ID (everything while signed in) are also deleted with the account and included in the
+  data export; records from before sign-in carry only the install ID and expire after 90 days. Only daily totals
+  (counts, no personal data) are kept longer.
 - Install ID: a random UUID the app creates on first launch, kept in the app's own storage (gone on uninstall) and
   sent with every request. It is not the advertising ID or the IDFV, and it isn't shared.
 - Crashlytics (release builds) sends crash and error reports: stack traces, device model, OS and app version,
@@ -77,9 +78,10 @@ upload, export first and compare.
 **Can users ask to delete some of their data without deleting the account?** Yes:
 https://bleyachat.com/delete-account#delete-some-data
 
-**Data shared:** None. The hosting, storage, push, crash-reporting (Firebase Crashlytics), email and image-check
-providers are service providers acting for us, which Google doesn't count as sharing, and messages go to other users
-because the user sends them.
+**Data shared:** None. The hosting, storage, push, crash-reporting (Firebase Crashlytics), email, image-check and
+internal-alerting (Telegram: moderation alerts and server error reports, which can contain an account ID; the daily
+digest has counts only) providers are service providers acting for us, which Google doesn't count as sharing, and
+messages go to other users because the user sends them.
 
 Data collected. Every row is **Collected: Yes, Shared: No**, and not processed ephemerally unless it says so.
 Users can't turn off analytics or crash reporting, so those types are **Required**.
@@ -89,12 +91,12 @@ Users can't turn off analytics or crash reporting, so those types are **Required
 | Location | Precise location | Optional (location permission); **processed ephemerally: Yes** | App functionality |
 | Personal info | Name (the username; Google counts a nickname as a name) | Required | App functionality, Account management |
 | Personal info | Email address | Required | Account management |
-| Personal info | User IDs (also on analytics records and crash reports) | Required | App functionality, Analytics, Account management |
-| Photos and videos | Photos | Optional | App functionality |
-| Messages | Other in-app messages | Optional | App functionality |
+| Personal info | User IDs (also on analytics records and crash reports; a banned account's Google/Apple ID is kept as a keyed hash to stop re-registration) | Required | App functionality, Analytics, Fraud prevention, security, and compliance, Account management |
+| Photos and videos | Photos (profile photos get an automated safety check) | Optional | App functionality, Fraud prevention, security, and compliance |
+| Messages | Other in-app messages (a reported message is copied into the report) | Optional | App functionality, Fraud prevention, security, and compliance |
 | App activity | App interactions (app opens, sign-in attempts and outcomes, days the app was used) | Required | Analytics |
 | App activity | Other user-generated content (bio, reports) | Optional | App functionality, Fraud prevention, security, and compliance |
-| App activity | Other actions (rooms joined, blocks, read markers, content-filter rejections) | Optional | App functionality, Analytics |
+| App activity | Other actions (rooms joined, blocks, read markers, content-filter rejections; many blocks of one account alert moderators) | Optional | App functionality, Analytics, Fraud prevention, security, and compliance |
 | App info and performance | Crash logs (Crashlytics) | Required | Analytics |
 | App info and performance | Diagnostics (device state and app version with crash and error reports) | Required | Analytics |
 | Device or other IDs | Device or other IDs (push token, registered even without notification permission; the install ID; Crashlytics/Firebase installation IDs) | Required | App functionality, Analytics |
