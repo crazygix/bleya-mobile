@@ -433,4 +433,99 @@ void main() {
 
     await closeApp(tester);
   });
+
+  group('new messages', () {
+    // 40 messages, every 4th one long enough to wrap.
+    final history = [
+      for (var i = 0; i < 40; i++)
+        _message(
+          'h$i',
+          i % 4 == 0
+              ? 'Message $i, long enough to wrap onto a second line here'
+              : 'Message $i',
+          minute: i,
+        ),
+    ];
+
+    Map<String, dynamic> payload(String id, String text, int minute) => {
+          'id': id,
+          'roomId': _cityRoom.id,
+          'userId': 'user-3',
+          'username': 'ana',
+          'text': text,
+          'createdAt': DateTime(2026, 1, 1, 11, minute).millisecondsSinceEpoch,
+        };
+
+    Future<void> openWithHistory(WidgetTester tester) async {
+      tester.view
+        ..physicalSize = const Size(390 * 3, 844 * 3)
+        ..devicePixelRatio = 3;
+      addTearDown(tester.view.reset);
+      await showApp(tester);
+      await push(tester, ChatRoomPage(room: _cityRoom));
+      socket.emit('room_joined', _roomJoined(_cityRoom, history));
+      await tester.pump();
+    }
+
+    testWidgets(
+        'while reading older messages, new ones leave the text in place and '
+        'a button takes you to them', (tester) async {
+      await openWithHistory(tester);
+
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, 600));
+      await tester.pumpAndSettle();
+      final reading = find.text('Message 30');
+      expect(reading, findsOneWidget);
+      final before = tester.getTopLeft(reading).dy;
+
+      for (var i = 0; i < 3; i++) {
+        socket.emit(
+          'new_message',
+          payload('new-$i', i == 1 ? 'A\nlonger\nreply' : 'New $i', i),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 16));
+        expect(tester.getTopLeft(reading).dy, before, reason: 'after new-$i');
+      }
+
+      expect(find.text('New messages'), findsOneWidget);
+      await tester.tap(find.text('New messages'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('New 2'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(find.text('New 2')).dy,
+        lessThan(tester.getTopLeft(find.byType(TextField)).dy),
+      );
+      expect(find.text('New messages'), findsNothing);
+
+      // One list again: the next message pushes the list up from the
+      // bottom.
+      socket.emit('new_message', payload('new-3', 'New 3', 3));
+      await tester.pumpAndSettle();
+      expect(find.text('New 3'), findsOneWidget);
+      expect(find.text('New messages'), findsNothing);
+
+      await closeApp(tester);
+    });
+
+    testWidgets('at the newest message, a new one shows at the bottom',
+        (tester) async {
+      await openWithHistory(tester);
+      expect(find.text('Message 39'), findsOneWidget);
+
+      socket.emit('new_message', payload('new-0', 'Just arrived', 0));
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(find.text('Just arrived'), findsOneWidget);
+      expect(
+        tester.getBottomLeft(find.text('Just arrived')).dy,
+        lessThan(tester.getTopLeft(find.byType(TextField)).dy),
+      );
+      expect(find.text('New messages'), findsNothing);
+
+      await closeApp(tester);
+    });
+  });
 }
