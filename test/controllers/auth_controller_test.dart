@@ -1,7 +1,11 @@
 import 'package:bleya/controllers/auth_controller.dart';
+import 'package:bleya/domain/entities/analytics_event.dart';
 import 'package:bleya/domain/entities/auth_result.dart';
+import 'package:bleya/utils/app_errors.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:mocktail/mocktail.dart';
 import 'package:passkeys/exceptions.dart';
 import 'package:sign_in_with_apple/sign_in_with_apple.dart';
@@ -12,6 +16,7 @@ void main() {
   late MockSignInWithAppleUseCase mockSignInWithApple;
   late MockSignInWithPasskeyUseCase mockSignInWithPasskey;
   late MockRegisterPasskeyUseCase mockRegisterPasskey;
+  late MockRecordAnalyticsEventUseCase mockRecordAnalyticsEvent;
   late List<String> storedTokens;
   late bool canOfferPasskey;
   late AuthController controller;
@@ -25,11 +30,17 @@ void main() {
     hasPasskey: true,
   );
 
+  setUpAll(() {
+    registerFallbackValue(AppOpened());
+  });
+
   setUp(() {
     mockSignInWithGoogle = MockSignInWithGoogleUseCase();
     mockSignInWithApple = MockSignInWithAppleUseCase();
     mockSignInWithPasskey = MockSignInWithPasskeyUseCase();
     mockRegisterPasskey = MockRegisterPasskeyUseCase();
+    mockRecordAnalyticsEvent = MockRecordAnalyticsEventUseCase();
+    when(() => mockRecordAnalyticsEvent(any())).thenReturn(null);
     storedTokens = [];
     canOfferPasskey = false;
 
@@ -38,6 +49,7 @@ void main() {
       mockSignInWithApple,
       mockSignInWithPasskey,
       mockRegisterPasskey,
+      mockRecordAnalyticsEvent,
       storedTokens.add,
       () async => canOfferPasskey,
     );
@@ -244,6 +256,97 @@ void main() {
       controller.consumeNavigation();
 
       expect(controller.state.navigationRequest, isNull);
+    });
+  });
+
+  group('analytics', () {
+    /// What the controller reported, in order.
+    List<AnalyticsEvent> recorded() =>
+        verify(() => mockRecordAnalyticsEvent(captureAny()))
+            .captured
+            .cast<AnalyticsEvent>();
+
+    DioException dioError({int? status}) {
+      final options = RequestOptions(path: '/auth/provider-sign-in');
+      return DioException(
+        requestOptions: options,
+        response: status == null
+            ? null
+            : Response(requestOptions: options, statusCode: status),
+        type: status == null
+            ? DioExceptionType.connectionError
+            : DioExceptionType.badResponse,
+      );
+    }
+
+    test('a sign-in that works reports only that it started', () async {
+      when(() => mockSignInWithGoogle()).thenAnswer((_) async => session);
+
+      await controller.signInWithGoogle();
+
+      final events = recorded();
+      expect(events, hasLength(1));
+      expect(events.single, isA<SignInStarted>());
+      expect((events.single as SignInStarted).method, SignInMethod.google);
+    });
+
+    test('closing the sheet reports a cancel', () async {
+      when(() => mockSignInWithApple()).thenThrow(
+        const SignInWithAppleAuthorizationException(
+          code: AuthorizationErrorCode.canceled,
+          message: 'The user canceled.',
+        ),
+      );
+
+      await controller.signInWithApple();
+
+      final events = recorded();
+      expect(events.map((event) => event.runtimeType),
+          [SignInStarted, SignInCancelled]);
+      expect((events.last as SignInCancelled).method, SignInMethod.apple);
+    });
+
+    test("a provider failure reports the provider's code", () async {
+      when(() => mockSignInWithGoogle()).thenThrow(
+        const GoogleSignInException(
+          code: GoogleSignInExceptionCode.clientConfigurationError,
+        ),
+      );
+
+      await controller.signInWithGoogle();
+
+      final failure = recorded().last as SignInFailed;
+      expect(failure.method, SignInMethod.google);
+      expect(failure.reason, 'google:clientConfigurationError');
+    });
+
+    test('a failure the backend answered is left to the backend', () async {
+      when(() => mockSignInWithGoogle()).thenThrow(
+        UnauthorizedError(originalError: dioError(status: 401)),
+      );
+
+      await controller.signInWithGoogle();
+
+      expect(recorded().map((event) => event.runtimeType), [SignInStarted]);
+    });
+
+    test('a request that never got through reports why', () async {
+      when(() => mockSignInWithPasskey())
+          .thenThrow(NetworkError(originalError: dioError()));
+
+      await controller.signInWithPasskey();
+
+      final failure = recorded().last as SignInFailed;
+      expect(failure.method, SignInMethod.passkey);
+      expect(failure.reason, 'network:networkError');
+    });
+
+    test('adding a passkey is not a sign-in', () async {
+      when(() => mockRegisterPasskey()).thenAnswer((_) async => securityStatus);
+
+      await controller.registerPasskey();
+
+      verifyNever(() => mockRecordAnalyticsEvent(any()));
     });
   });
 }

@@ -359,7 +359,28 @@ def flutter_build_ipa(build_name, build_number)
     ].join(" "))
   end
 
+  upload_ios_dsyms!
   newest_file("build/ios/ipa/*.ipa")
+end
+
+# Crashlytics needs a build's dSYMs to show its iOS crashes as code lines
+# instead of addresses. A failed upload doesn't stop the release: the dSYMs
+# stay in build/ios/archive/Runner.xcarchive/dSYMs and can be uploaded later
+# with `upload_symbols_to_crashlytics`.
+def upload_ios_dsyms!
+  dsyms = Dir[project_path("build/ios/archive/Runner.xcarchive/dSYMs/*.dSYM")]
+  if dsyms.empty?
+    UI.important("No dSYMs in build/ios/archive, so this build's iOS crash reports will show addresses instead of code lines.")
+    return
+  end
+
+  upload_symbols_to_crashlytics(
+    dsym_paths: dsyms,
+    gsp_path: project_path("ios/Runner/Firebase/Prod/GoogleService-Info.plist"),
+    binary_path: project_path("ios/Pods/FirebaseCrashlytics/upload-symbols")
+  )
+rescue StandardError => error
+  UI.important("Couldn't upload the dSYMs to Crashlytics (#{error.message}). This build's iOS crash reports show addresses until they are uploaded.")
 end
 
 def flutter_build_aab(build_name, build_number)

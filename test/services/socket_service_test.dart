@@ -1374,4 +1374,38 @@ void main() {
       });
     });
   });
+
+  test('the handshake carries the app headers next to the token', () {
+    fakeAsync((async) {
+      final sockets = <FakeIoSocket>[];
+      final service = SocketService(
+        clientHeaders: const {
+          'X-App-Platform': 'ios',
+          'X-Install-Id': 'abc-12345'
+        },
+        socketFactory: (url, options) {
+          final socket = FakeIoSocket(options);
+          sockets.add(socket);
+          return socket;
+        },
+      );
+
+      service.setToken('token-1');
+      async.flushMicrotasks();
+
+      expect(sockets.single.io.options?['extraHeaders'], {
+        'X-App-Platform': 'ios',
+        'X-Install-Id': 'abc-12345',
+        'Authorization': 'Bearer token-1',
+      });
+
+      service.setToken('token-2');
+      async.flushMicrotasks();
+      expect(
+        sockets.single.io.options?['extraHeaders'],
+        containsPair('X-Install-Id', 'abc-12345'),
+      );
+      service.disconnect();
+    });
+  });
 }

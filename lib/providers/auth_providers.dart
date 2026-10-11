@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../domain/entities/auth_result.dart';
 import '../services/app_badge_service.dart';
+import '../services/app_client_info.dart';
 import '../services/auth_manager.dart';
 import '../services/data_export_file.dart';
 import '../services/passkey_auth_service.dart';
@@ -49,6 +50,13 @@ final sessionVersionProvider =
 /// Overridden in `main.dart` after we resolve the application support directory,
 /// to ensure the CookieManager is attached before the first network request.
 final cookieStoragePathProvider = Provider<String?>((ref) => null);
+
+/// The platform, app version and install id sent with every request and
+/// socket connection (see AppClientInfo). Overridden in `main.dart` once
+/// they are read; unknown (no headers) until then and in tests.
+final appClientInfoProvider = Provider<AppClientInfo>((ref) {
+  return AppClientInfo.unknown;
+});
 
 // Initialize token from secure storage on app startup
 final tokenInitializerProvider = FutureProvider<void>((ref) async {
@@ -97,6 +105,7 @@ final dioProvider = Provider<Dio>((ref) {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...ref.watch(appClientInfoProvider).headers,
     },
   ));
 
@@ -283,6 +292,7 @@ final sessionCleanupDioProvider = Provider<Dio>((ref) {
     headers: {
       'Content-Type': 'application/json',
       'Accept': 'application/json',
+      ...ref.watch(appClientInfoProvider).headers,
     },
   ));
 });
@@ -333,7 +343,9 @@ AppLifecycleListener followAppLifecycle(SocketService service) {
 }
 
 final socketServiceProvider = Provider<SocketService>((ref) {
-  final service = SocketService();
+  final service = SocketService(
+    clientHeaders: ref.watch(appClientInfoProvider).headers,
+  );
 
   // The socket leaves in the background, so the server sends this user's
   // pushes, and comes back in the foreground.

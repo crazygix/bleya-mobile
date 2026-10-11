@@ -5,6 +5,7 @@ import 'package:bleya/constants/urls.dart';
 import 'package:bleya/domain/repositories/auth_repository.dart';
 import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/providers/repository_providers.dart';
+import 'package:bleya/services/app_client_info.dart';
 import 'package:bleya/services/auth_manager.dart';
 import 'package:bleya/services/data_export_file.dart';
 import 'package:bleya/services/push_messaging_service.dart';
@@ -84,10 +85,12 @@ void main() {
   ({ProviderContainer container, Dio dio, FakeHttpAdapter adapter}) setUpDio({
     required String token,
     required FakeHttpHandler handler,
+    AppClientInfo clientInfo = AppClientInfo.unknown,
   }) {
     final container = ProviderContainer(
       overrides: [
         tokenProvider.overrideWith((ref) => token),
+        appClientInfoProvider.overrideWithValue(clientInfo),
         cookieStoragePathProvider.overrideWithValue(storageDir.path),
         secureStorageProvider.overrideWithValue(secureStorage),
         socketServiceProvider.overrideWithValue(socketService),
@@ -277,6 +280,53 @@ void main() {
       ]);
 
       expect(setup.adapter.callsTo('/auth/refresh'), 1);
+    });
+  });
+
+  group('app headers', () {
+    const clientInfo = AppClientInfo(
+      platform: 'android',
+      appVersion: '1.0.0+13',
+      installId: '0f6c2d1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f',
+    );
+
+    test('every request says which app sent it, the retry and refresh too',
+        () async {
+      final setup = setUpDio(
+        token: validToken,
+        clientInfo: clientInfo,
+        handler: expiredSession(
+            () async => jsonResponse(200, {'token': freshToken})),
+      );
+
+      await setup.dio.get('/rooms/joined');
+
+      expect(setup.adapter.requests, hasLength(3));
+      for (final request in setup.adapter.requests) {
+        expect(request.headers['X-App-Platform'], 'android',
+            reason: request.path);
+        expect(request.headers['X-App-Version'], '1.0.0+13',
+            reason: request.path);
+        expect(
+          request.headers['X-Install-Id'],
+          '0f6c2d1e-8a4b-4c3d-9e2f-1a2b3c4d5e6f',
+          reason: request.path,
+        );
+      }
+    });
+
+    test('none when the app info is unknown', () async {
+      final setup = setUpDio(
+        token: validToken,
+        handler: (_) async => jsonResponse(200, {'ok': true}),
+      );
+
+      await setup.dio.get('/rooms/joined');
+
+      expect(
+        setup.adapter.requests.single.headers.keys,
+        isNot(contains('X-Install-Id')),
+      );
     });
   });
 

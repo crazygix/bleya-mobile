@@ -33,7 +33,8 @@ Mobile release
    number then always points to the code it came from.
 3. Checks that Google Play accepts the new build number, before anything is built.
 4. Runs `flutter pub get`, Dart static analysis through the Flutter SDK Dart binary, and `flutter test`.
-5. Builds a prod iOS IPA with `config/env/prod.local.json`.
+5. Builds a prod iOS IPA with `config/env/prod.local.json` and uploads its dSYMs to Firebase Crashlytics, so
+   iOS crash reports show code lines. A failed dSYM upload only prints a warning.
 6. Waits for the build to become available for internal testing in App Store Connect.
 7. Uploads the IPA to TestFlight and assigns it to internal TestFlight groups without submitting it for external beta review.
 8. Builds a prod Android AAB with `config/env/prod.local.json`.
@@ -317,6 +318,13 @@ Play Console internal testing:
 2. Confirm the release is available to testers.
 3. Add tester emails or tester group if needed.
 4. Share the opt-in/internal testing link.
+
+## Crash Reports
+
+Release builds send crashes and uncaught errors to Firebase Crashlytics (debug builds don't), without the
+account: no user id is attached. Crashlytics emails new, returning and fast-growing crashes; choose who gets
+them in the Firebase console (project `bleya-ed88a` → Crashlytics, and each person's alert settings under the
+bell icon). Android uploads what it needs during the Gradle build; iOS dSYMs are uploaded by the build lanes.
 
 ## Going Live Later
 

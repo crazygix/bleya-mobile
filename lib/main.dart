@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -13,8 +14,10 @@ import 'pages/dashboard_page.dart';
 import 'pages/username_page.dart';
 import 'config/environment.dart';
 import 'controllers/push_notifications_controller.dart';
+import 'providers/analytics_providers.dart';
 import 'providers/auth_providers.dart';
 import 'providers/controller_providers.dart';
+import 'services/app_client_info.dart';
 import 'services/secure_cookie_storage.dart';
 import 'services/socket_service.dart';
 import 'utils/navigation.dart';
@@ -38,10 +41,24 @@ void useBundledFonts() {
   });
 }
 
+/// Sends crashes and uncaught errors to Firebase Crashlytics, which emails new
+/// and returning crashes. Release builds only, and without the account: no
+/// user id is attached to the reports.
+Future<void> reportCrashesToCrashlytics() async {
+  final crashlytics = FirebaseCrashlytics.instance;
+  await crashlytics.setCrashlyticsCollectionEnabled(!kDebugMode);
+  FlutterError.onError = crashlytics.recordFlutterFatalError;
+  PlatformDispatcher.instance.onError = (error, stack) {
+    crashlytics.recordError(error, stack, fatal: true);
+    return true;
+  };
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   useBundledFonts();
   await Firebase.initializeApp();
+  await reportCrashesToCrashlytics();
 
   // Set environment based on build configuration or environment variable
   // Check explicit environment first, then fall back to build mode defaults.
@@ -67,9 +84,14 @@ void main() async {
     secureStorage: const FlutterSecureStorage(),
   );
 
+  // Sent with every request (platform, app version, install id), so it is
+  // read before the first one.
+  final clientInfo = await AppClientInfo.load(directory: cookieStoragePath);
+
   runApp(ProviderScope(
     overrides: [
       cookieStoragePathProvider.overrideWithValue(cookieStoragePath),
+      appClientInfoProvider.overrideWithValue(clientInfo),
     ],
     child: MyApp(),
   ));
@@ -129,6 +151,7 @@ class MyApp extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     // Initialize token from secure storage
     ref.watch(tokenInitializerProvider);
+    ref.watch(appOpenedProvider);
     ref.watch(pushNotificationsControllerProvider);
     ref.listen<PushNavigationRequest?>(
       pushNotificationsControllerProvider.select(

@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../use_cases/analytics/record_analytics_event_use_case.dart';
 import '../use_cases/auth/check_username_use_case.dart';
 import '../use_cases/auth/delete_passkey_use_case.dart';
 import '../use_cases/auth/get_auth_security_status_use_case.dart';
@@ -238,4 +239,10 @@ final blockUserUseCaseProvider = Provider<BlockUserUseCase>((ref) {
 
 final unblockUserUseCaseProvider = Provider<UnblockUserUseCase>((ref) {
   return UnblockUserUseCase(ref.watch(userRepositoryProvider));
+});
+
+final recordAnalyticsEventUseCaseProvider =
+    Provider<RecordAnalyticsEventUseCase>((ref) {
+  final repository = ref.watch(analyticsRepositoryProvider);
+  return RecordAnalyticsEventUseCase(repository);
 });

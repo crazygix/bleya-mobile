@@ -652,6 +652,13 @@ Map<String, dynamic> usernameAvailabilityJson({required bool available}) {
 // Reports
 // ---------------------------------------------------------------------------
 
+/// `POST /analytics/events`, answered with 202: how many of the events the
+/// backend kept (routes/analytics.ts, `recordClientEvents` in
+/// services/analyticsService.ts). The app doesn't read it.
+Map<String, dynamic> analyticsEventsAcceptedJson({int accepted = 1}) {
+  return {'accepted': accepted};
+}
+
 /// `POST /reports`, answered with 201: `createReport`
 /// (services/reportService.ts).
 Map<String, dynamic> reportCreatedJson() {

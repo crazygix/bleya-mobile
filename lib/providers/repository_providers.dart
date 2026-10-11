@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../domain/repositories/analytics_repository.dart';
 import '../domain/repositories/auth_repository.dart';
 import '../domain/repositories/user_repository.dart';
 import '../domain/repositories/room_repository.dart';
@@ -6,6 +7,7 @@ import '../domain/repositories/message_repository.dart';
 import '../domain/repositories/city_repository.dart';
 import '../domain/repositories/notification_repository.dart';
 import '../domain/repositories/report_repository.dart';
+import '../data/repositories/analytics_repository_impl.dart';
 import '../data/repositories/auth_repository_impl.dart';
 import '../data/repositories/report_repository_impl.dart';
 import '../data/repositories/user_repository_impl.dart';
@@ -63,4 +65,9 @@ final notificationRepositoryProvider = Provider<NotificationRepository>((ref) {
 final reportRepositoryProvider = Provider<ReportRepository>((ref) {
   final dio = ref.watch(dioProvider);
   return ReportRepositoryImpl(dio);
+});
+
+final analyticsRepositoryProvider = Provider<AnalyticsRepository>((ref) {
+  final dio = ref.watch(dioProvider);
+  return AnalyticsRepositoryImpl(dio);
 });

@@ -1,11 +1,14 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../domain/entities/analytics_event.dart';
 import '../domain/entities/auth_result.dart';
+import '../use_cases/analytics/record_analytics_event_use_case.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
 import '../use_cases/auth/sign_in_with_google_use_case.dart';
 import '../use_cases/auth/sign_in_with_passkey_use_case.dart';
 import '../utils/auth_error_messages.dart';
+import '../utils/sign_in_analytics.dart';
 
 enum AuthAction {
   signInWithGoogle,
@@ -70,6 +73,7 @@ class AuthController extends StateNotifier<AuthState> {
   final SignInWithAppleUseCase _signInWithAppleUseCase;
   final SignInWithPasskeyUseCase _signInWithPasskeyUseCase;
   final RegisterPasskeyUseCase _registerPasskeyUseCase;
+  final RecordAnalyticsEventUseCase _recordAnalyticsEvent;
   final StoreAuthToken _storeAuthToken;
   final LoadPasskeyAvailability _loadPasskeyAvailability;
 
@@ -78,6 +82,7 @@ class AuthController extends StateNotifier<AuthState> {
     this._signInWithAppleUseCase,
     this._signInWithPasskeyUseCase,
     this._registerPasskeyUseCase,
+    this._recordAnalyticsEvent,
     this._storeAuthToken,
     this._loadPasskeyAvailability,
   ) : super(AuthState());
@@ -128,8 +133,12 @@ class AuthController extends StateNotifier<AuthState> {
     return authErrorMessage(error, fallback: fallback);
   }
 
+  /// Signs in with [method] through [callback]. Analytics hear about the
+  /// attempt, and about a failure the backend never saw (the backend records
+  /// the rest, and every success).
   Future<AuthSessionResult?> _runSessionAction(
     AuthAction action,
+    SignInMethod method,
     Future<AuthSessionResult> Function() callback,
   ) async {
     state = state.copyWith(
@@ -138,6 +147,7 @@ class AuthController extends StateNotifier<AuthState> {
       clearError: true,
       clearNavigation: true,
     );
+    _recordAnalyticsEvent(SignInStarted(method));
 
     try {
       final result = await callback();
@@ -151,6 +161,10 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
+      final failure = signInFailureEvent(method, e);
+      if (failure != null) {
+        _recordAnalyticsEvent(failure);
+      }
       final errorMessage = _errorMessageFor(action, e);
       state = state.copyWith(
         isLoading: false,
@@ -193,6 +207,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<AuthSessionResult?> signInWithGoogle() {
     return _runSessionAction(
       AuthAction.signInWithGoogle,
+      SignInMethod.google,
       () => _signInWithGoogleUseCase(),
     );
   }
@@ -200,6 +215,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<AuthSessionResult?> signInWithApple() {
     return _runSessionAction(
       AuthAction.signInWithApple,
+      SignInMethod.apple,
       () => _signInWithAppleUseCase(),
     );
   }
@@ -207,6 +223,7 @@ class AuthController extends StateNotifier<AuthState> {
   Future<AuthSessionResult?> signInWithPasskey() {
     return _runSessionAction(
       AuthAction.signInWithPasskey,
+      SignInMethod.passkey,
       () => _signInWithPasskeyUseCase(),
     );
   }

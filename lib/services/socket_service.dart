@@ -243,11 +243,17 @@ class SocketService {
     message: "You're not connected right now. Try again in a moment.",
   );
 
-  SocketService({SocketFactory? socketFactory})
-      : _socketFactory =
-            socketFactory ?? ((url, options) => io.io(url, options));
+  SocketService({
+    SocketFactory? socketFactory,
+    Map<String, String> clientHeaders = const {},
+  })  : _socketFactory =
+            socketFactory ?? ((url, options) => io.io(url, options)),
+        _clientHeaders = clientHeaders;
 
   final SocketFactory _socketFactory;
+  // The app's platform, version and install id (AppClientInfo), sent with
+  // every handshake.
+  final Map<String, String> _clientHeaders;
   io.Socket? _socket;
   String? _currentToken;
   bool _authRefreshInFlight = false;
@@ -540,8 +546,10 @@ class SocketService {
   }
 
   Map<String, dynamic> _authHeaders(String? token) {
-    if (token == null || token.isEmpty) return <String, dynamic>{};
-    return <String, dynamic>{'Authorization': 'Bearer $token'};
+    return <String, dynamic>{
+      ..._clientHeaders,
+      if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    };
   }
 
   /// Engines created from now on (reconnects) send this token in the header
