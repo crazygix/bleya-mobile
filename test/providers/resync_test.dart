@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:bleya/domain/entities/notification.dart';
 import 'package:bleya/domain/repositories/notification_repository.dart';
 import 'package:bleya/providers/auth_providers.dart';
@@ -128,7 +130,7 @@ void main() {
     await showDashboard();
     socket().acceptConnection();
     await pumpEventQueue();
-    verifyEachListFetched(1);
+    verifyEachListFetched(2);
 
     service.setForeground(false);
     service.setForeground(true);
@@ -139,10 +141,34 @@ void main() {
     verifyEachListFetched(1);
   });
 
-  test('a first connect after a good start fetches nothing more', () async {
+  test('the chat list shows before the socket connects', () async {
     await showDashboard();
+
+    expect(
+      container.read(roomsListProvider).requireValue.map((i) => i.room.id),
+      ['room-x'],
+    );
+  });
+
+  test(
+      'lists loaded before the first connect catch up once on it, for what '
+      'was sent meanwhile', () async {
+    await showDashboard();
+    verifyEachListFetched(1);
+
     socket().acceptConnection();
     await pumpEventQueue();
+
+    verifyEachListFetched(1);
+  });
+
+  test('a socket connected before the chat list loads fetches nothing more',
+      () async {
+    unawaited(service.ensureConnectedForUserChannel());
+    socket().acceptConnection();
+    await pumpEventQueue();
+
+    await showDashboard();
 
     verifyEachListFetched(1);
   });

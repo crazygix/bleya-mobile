@@ -5,6 +5,7 @@ import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/providers/chat_providers.dart';
 import 'package:bleya/providers/repository_providers.dart';
 import 'package:fake_async/fake_async.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
@@ -455,5 +456,36 @@ void main() {
         verify(() => rooms.getJoinedRooms()).called(1);
       });
     });
+  });
+
+  testWidgets('leaving a room keeps the chat list on screen while it loads',
+      (tester) async {
+    answerRooms(() async => [_room('room-a'), _room('room-b')]);
+    late WidgetRef widgetRef;
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: Consumer(
+          builder: (context, ref, _) {
+            widgetRef = ref;
+            ref.watch(roomsListProvider);
+            return const SizedBox();
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(items().map((item) => item.room.id), ['room-a', 'room-b']);
+
+    final states = <AsyncValue<List<RoomListItem>>>[];
+    container.listen(roomsListProvider, (_, next) => states.add(next));
+    when(() => rooms.leaveRoom('room-a')).thenAnswer((_) async {});
+    answerRooms(() async => [_room('room-b')]);
+
+    await leaveRoom(widgetRef, 'room-a');
+    await tester.pump();
+
+    expect(states.where((state) => state.isLoading), isEmpty);
+    expect(items().map((item) => item.room.id), ['room-b']);
   });
 }

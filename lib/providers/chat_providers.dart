@@ -252,11 +252,15 @@ class RoomsListController
   Future<void> _fetch() async {
     try {
       if (_roomSummaryHandler == null) {
-        // Per-user events like room_summary_updated need the socket.
-        await socketService.ensureConnectedForUserChannel();
-        // Disposed meanwhile (the session changed): register nothing.
-        if (!mounted) return;
+        // The list loads straight away instead of waiting for the socket,
+        // which connects meanwhile for per-user events like
+        // room_summary_updated. Those sent before it connects never arrive,
+        // so a list loaded before the connection catches up once it's there.
+        if (!socketService.isConnected) {
+          socketService.requestResyncOnConnect();
+        }
         _listen();
+        unawaited(socketService.ensureConnectedForUserChannel());
       }
 
       final getJoinedRoomsUseCase = ref.read(getJoinedRoomsUseCaseProvider);
@@ -669,7 +673,8 @@ Future<void> leaveRoom(WidgetRef ref, String roomId) async {
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);
-    ref.invalidate(roomsListProvider);
+    // Loads again with the list kept on screen, instead of a skeleton.
+    unawaited(ref.read(roomsListProvider.notifier).refresh());
   } catch (e) {
     if (kDebugMode) {
       print('Error leaving room: $e');
@@ -686,7 +691,8 @@ Future<Room> createDirectMessage(WidgetRef ref, String otherUserId) async {
 
     // Refresh joined rooms from backend
     ref.invalidate(joinedRoomsFutureProvider);
-    ref.invalidate(roomsListProvider);
+    // Loads again with the list kept on screen, instead of a skeleton.
+    unawaited(ref.read(roomsListProvider.notifier).refresh());
     ref.invalidate(directChatStatusProvider(otherUserId));
 
     return room;
@@ -707,7 +713,8 @@ Future<DirectChatActionResult> deleteDirectChat(
     final result = await useCase(otherUserId);
 
     ref.invalidate(joinedRoomsFutureProvider);
-    ref.invalidate(roomsListProvider);
+    // Loads again with the list kept on screen, instead of a skeleton.
+    unawaited(ref.read(roomsListProvider.notifier).refresh());
     ref.invalidate(directChatStatusProvider(otherUserId));
 
     return result;

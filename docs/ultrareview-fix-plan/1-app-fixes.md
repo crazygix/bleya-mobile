@@ -631,7 +631,7 @@ Your choice: list Bleya under **Communication** in Play Console, like most chat 
 
 ## Not in this plan
 
-- **REL-12** (a cold start waits for the socket before loading the chat list): after launch. Once A5 refreshes after reconnects and recovers a failed first load, the list can load without waiting for the socket.
+- **REL-12** (a cold start waits for the socket before loading the chat list): done on October 11, 2026. The list loads over HTTP straight away, and loads once more when the socket first connects.
 - **Avatar caching between launches** (the rest of REL-16): after launch, with small server-side thumbnails.
 - **Child-safety extras:** a "Child safety" report reason and an alert for such reports, after launch if you want them.
 - **Profile-photo checks** keep their current behaviour when the automatic check can't run (your choice).

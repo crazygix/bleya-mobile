@@ -33,9 +33,20 @@ class FakeSocketService extends SocketService {
   /// Runs while a send waits for its acknowledgement.
   void Function()? duringSend;
 
+  /// While set, a send waits for it instead of taking the next of
+  /// [sendResults], as a send whose acknowledgement hasn't arrived does.
+  Completer<SendMessageResult>? pendingSend;
+
   /// While set, [ensureConnectedForUserChannel] waits for it to complete, as
   /// a connect attempt in progress does.
   Completer<void>? pendingConnect;
+
+  /// What [isConnected] reports. Connected by default, so a list loads only
+  /// once.
+  bool connected = true;
+
+  @override
+  bool get isConnected => connected;
 
   /// How many handlers are registered for [event].
   int listenerCount(String event) => listeners[event]?.length ?? 0;
@@ -109,7 +120,9 @@ class FakeSocketService extends SocketService {
     sentTexts.add(text);
     sentRoomIds.add(room.id);
     duringSend?.call();
-    final result = sendResults.removeAt(0);
+    final waiting = pendingSend;
+    final result =
+        waiting != null ? await waiting.future : sendResults.removeAt(0);
     final error = result.error;
     if (error != null) {
       emit('error', {

@@ -404,7 +404,7 @@ void main() {
       expect(socket.listenerCount('message_removed'), 1);
     });
 
-    test('a sign-out while the list connects registers no listener', () async {
+    test('a sign-out while the socket connects leaves no listener', () async {
       final connecting = socket.pendingConnect = Completer<void>();
       container.listen(roomsListProvider, (_, __) {});
       await pumpEventQueue();
@@ -415,7 +415,7 @@ void main() {
 
       expect(roomIds(), isEmpty);
       expect(socket.listenerCount('room_summary_updated'), 0);
-      verifyNever(() => repository.getJoinedRooms());
+      expect(socket.listenerCount('message_removed'), 0);
     });
 
     test('a sign-out while the list loads leaves the signed-out list alone',
