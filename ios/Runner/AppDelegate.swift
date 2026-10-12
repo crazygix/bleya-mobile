@@ -3,16 +3,21 @@ import UIKit
 import UserNotifications
 
 @main
-@objc class AppDelegate: FlutterAppDelegate {
+@objc class AppDelegate: FlutterAppDelegate, FlutterImplicitEngineDelegate {
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
   ) -> Bool {
-    GeneratedPluginRegistrant.register(with: self)
-    if let registrar = registrar(forPlugin: "BleyaAppBadge") {
+    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
+  }
+
+  /// With the UIScene lifecycle the engine is created by the scene's
+  /// FlutterViewController, so plugins and channels register here.
+  func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
+    GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BleyaAppBadge") {
       AppBadgeChannel.register(with: registrar.messenger())
     }
-    return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
 }
 
