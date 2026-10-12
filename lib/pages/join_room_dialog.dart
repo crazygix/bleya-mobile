@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -66,7 +68,8 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
       await controller.joinCity(city);
 
       ref.invalidate(joinedRoomsFutureProvider);
-      ref.invalidate(roomsListProvider);
+      // Loads again with the list kept on screen, instead of a skeleton.
+      unawaited(ref.read(roomsListProvider.notifier).refresh());
 
       if (!mounted) return;
 

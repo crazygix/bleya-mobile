@@ -8,6 +8,7 @@ import '../services/app_badge_service.dart';
 import '../services/app_client_info.dart';
 import '../services/auth_manager.dart';
 import '../services/data_export_file.dart';
+import '../services/image_disk_cache.dart';
 import '../services/passkey_auth_service.dart';
 import '../services/provider_auth_service.dart';
 import '../services/push_messaging_service.dart';
@@ -15,6 +16,7 @@ import '../services/socket_service.dart';
 import '../constants/urls.dart';
 import '../utils/jwt_utils.dart';
 import '../utils/app_errors.dart';
+import 'profile_providers.dart';
 import 'use_case_providers.dart';
 
 final tokenProvider = StateProvider<String?>((ref) => null);
@@ -81,6 +83,11 @@ final passkeyAuthServiceProvider = Provider<PasskeyAuthService>((ref) {
 
 final pushMessagingServiceProvider = Provider<PushMessagingService>((ref) {
   return PushMessagingService(storage: ref.watch(secureStorageProvider));
+});
+
+/// The photos kept on the device between launches; signing out deletes them.
+final imageDiskCacheProvider = Provider<ImageDiskCache>((ref) {
+  return ImageDiskCache.instance;
 });
 
 final dataExportFileProvider = Provider<DataExportFile>((ref) {
@@ -479,7 +486,10 @@ final bootstrapProvider = FutureProvider<bool>((ref) async {
       final getProfileUseCase = ref.read(getProfileUseCaseProvider);
       // Validate the token by making a test API call.
       // The Dio interceptor will handle refresh and logout on 401/expired token.
-      await getProfileUseCase();
+      final profile = await getProfileUseCase();
+      // The launch screen checks the username next: it reads this profile
+      // instead of fetching it a second time.
+      ref.read(profileProvider.notifier).setProfile(profile);
       return true;
     } catch (e) {
       // Only logout on explicit 401s; otherwise keep token and let app show offline/retry

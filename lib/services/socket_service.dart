@@ -323,6 +323,9 @@ class SocketService {
 
   io.Socket? get socket => _socket;
 
+  /// Whether the socket is connected now.
+  bool get isConnected => _socket?.connected == true;
+
   /// The chat on screen: the newest claim's room and thread. A thread screen
   /// counts its room as open only when it was opened from that room's screen.
   /// Updated in a microtask, so listeners never run during a build or a

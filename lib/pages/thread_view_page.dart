@@ -101,8 +101,9 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
     if (text.isEmpty) return;
 
     // Clear right away as usual; the text comes back if the server doesn't
-    // store the reply.
+    // store the reply. Meanwhile the reply shows at the end of the thread.
     _replyController.clear();
+    _scrollToBottom();
 
     final controller =
         ref.read(chatRoomControllerProvider(widget.room).notifier);
@@ -267,6 +268,8 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
   Widget build(BuildContext context) {
     final threadState =
         ref.watch(threadMessagesProvider(widget.parentMessage.id));
+    final pendingReplies =
+        ref.watch(pendingRepliesProvider(widget.parentMessage.id));
 
     ref.listen<bool>(threadParentRemovedProvider(widget.parentMessage.id),
         (previous, removed) {
@@ -311,10 +314,15 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
                 child: threadState.when(
                   data: (data) {
                     final parentMessage = data.parentMessage;
-                    final replies = withoutBlockedAuthors(
+                    final storedReplies = withoutBlockedAuthors(
                       data.replies,
                       ref.watch(sessionBlockedUserIdsProvider),
                     );
+                    // The user's own replies on their way show at once,
+                    // after the rest.
+                    final replies = pendingReplies.isEmpty
+                        ? storedReplies
+                        : [...storedReplies, ...pendingReplies];
                     final isParentCurrentUser = currentUserId != null &&
                         parentMessage.userId == currentUserId;
 
@@ -379,6 +387,9 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
 
                         final replyIndex = hasReplies ? index - 2 : index - 1;
                         final reply = replies[replyIndex];
+                        if (replyIndex >= storedReplies.length) {
+                          return PendingMessageBubble(message: reply);
+                        }
                         final isCurrentUser = currentUserId != null &&
                             reply.userId == currentUserId;
 

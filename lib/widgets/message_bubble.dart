@@ -57,7 +57,7 @@ class MessageBubble extends StatelessWidget {
             onTap: onTap,
             child: Container(
               constraints: BoxConstraints(
-                maxWidth: MediaQuery.of(context).size.width * 0.7,
+                maxWidth: MediaQuery.sizeOf(context).width * 0.7,
               ),
               padding: const EdgeInsets.symmetric(
                 horizontal: BleyaTheme.spacingMD,

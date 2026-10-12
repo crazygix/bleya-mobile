@@ -1,3 +1,4 @@
+import 'package:bleya/services/image_disk_cache.dart';
 import 'package:bleya/widgets/profile_avatar.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -24,7 +25,7 @@ void main() {
             .having(
               (i) => i.imageProvider,
               'image',
-              const NetworkImage(_photo),
+              const DiskCachedNetworkImage(_photo),
             ),
       );
     });
@@ -69,7 +70,7 @@ void main() {
             .having(
               (i) => i.imageProvider,
               'image',
-              const NetworkImage(_photo),
+              const DiskCachedNetworkImage(_photo),
             ),
       );
     });

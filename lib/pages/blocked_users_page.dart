@@ -13,6 +13,7 @@ import '../widgets/glass_header.dart';
 import '../widgets/liquid_glass_background.dart';
 import '../widgets/profile_avatar.dart';
 import 'user_details_page.dart';
+import '../widgets/pressable.dart';
 
 class BlockedUsersPage extends ConsumerWidget {
   const BlockedUsersPage({super.key});
@@ -105,7 +106,7 @@ class BlockedUsersPage extends ConsumerWidget {
         final displayName =
             user.username.trim().isNotEmpty ? user.username : 'Guest';
 
-        return GestureDetector(
+        return Pressable(
           onTap: () => _openUserDetails(context, ref, user.id),
           child: Container(
             padding: const EdgeInsets.all(BleyaTheme.spacingMD),

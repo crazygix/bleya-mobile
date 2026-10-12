@@ -1,3 +1,4 @@
+import 'package:bleya/services/image_disk_cache.dart';
 import 'package:bleya/domain/entities/notification.dart' as entity;
 import 'package:bleya/widgets/notification_tile.dart';
 import 'package:flutter/material.dart';
@@ -72,7 +73,7 @@ void main() {
           .having(
             (i) => i.imageProvider,
             'image',
-            const NetworkImage('https://cdn.test/avatars/user-2.jpg'),
+            const DiskCachedNetworkImage('https://cdn.test/avatars/user-2.jpg'),
           ),
     );
     expect(find.text('B'), findsNothing);

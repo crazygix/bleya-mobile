@@ -18,6 +18,7 @@ import 'providers/analytics_providers.dart';
 import 'providers/auth_providers.dart';
 import 'providers/controller_providers.dart';
 import 'services/app_client_info.dart';
+import 'services/image_disk_cache.dart';
 import 'services/secure_cookie_storage.dart';
 import 'services/socket_service.dart';
 import 'utils/jwt_utils.dart';
@@ -78,6 +79,11 @@ void main() async {
   final supportDir = await getApplicationSupportDirectory();
   final cookieStoragePath = '${supportDir.path}/bleya';
 
+  // Photos are kept between launches in the app's cache folder.
+  ImageDiskCache.instance = ImageDiskCache(
+    folder: ImageDiskCache.folderIn(await getApplicationCacheDirectory()),
+  );
+
   // Moves the refresh cookie into secure storage (once) and clears a session
   // left in the Keychain by a previous install, before anything reads it.
   await SessionStorageMigration.run(
@@ -95,6 +101,13 @@ void main() async {
       appClientInfoProvider.overrideWithValue(clientInfo),
     ],
     child: MyApp(),
+  ));
+
+  // Once the app has started: drops the kept photos not seen for a month,
+  // and the oldest ones over the size limit.
+  unawaited(Future<void>.delayed(
+    const Duration(seconds: 10),
+    ImageDiskCache.instance.trim,
   ));
 }
 

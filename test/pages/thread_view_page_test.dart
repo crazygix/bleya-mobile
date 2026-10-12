@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:bleya/domain/entities/message.dart';
@@ -15,6 +16,7 @@ import 'package:bleya/services/socket_service.dart';
 import 'package:bleya/use_cases/message/get_thread_use_case.dart';
 import 'package:bleya/utils/app_errors.dart';
 import 'package:bleya/utils/navigation.dart';
+import 'package:bleya/widgets/swipeable_message_bubble.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -109,6 +111,43 @@ void main() {
     expect(socket.claims, isEmpty);
     expect(socket.openChat.value, OpenChat.none);
     expect(socket.listenerCount('new_message'), 0);
+  });
+
+  testWidgets('a sent reply shows at once, faded, until the server has it',
+      (tester) async {
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          tokenProvider.overrideWith((ref) => _myToken),
+          socketServiceProvider.overrideWithValue(socket),
+          getThreadUseCaseProvider.overrideWithValue(mockGetThreadUseCase),
+        ],
+        child: MaterialApp(
+          home: ThreadViewPage(parentMessage: parentMessage, room: room),
+        ),
+      ),
+    );
+    await tester.pump();
+    final ack = socket.pendingSend = Completer<SendMessageResult>();
+
+    await tester.enterText(find.byType(TextField), 'Count me in');
+    await tester.pump();
+    await tester.tap(find.byIcon(CupertinoIcons.arrow_up));
+    await tester.pump();
+
+    expect(find.byType(PendingMessageBubble), findsOneWidget);
+    expect(find.text('Count me in'), findsOneWidget);
+
+    ack.complete(
+      SendMessageResult.sent(reply('reply-1', 'user-me', 'Count me in')),
+    );
+    await tester.pump();
+
+    expect(find.byType(PendingMessageBubble), findsNothing);
+    expect(find.text('Count me in'), findsOneWidget);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
   });
 
   testWidgets('with the keyboard up, a long reply keeps send in view',

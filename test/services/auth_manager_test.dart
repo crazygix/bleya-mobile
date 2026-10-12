@@ -1,7 +1,9 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:bleya/services/image_disk_cache.dart';
 import 'package:bleya/constants/urls.dart';
 import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/services/auth_manager.dart';
@@ -25,7 +27,8 @@ class MockPushMessagingService extends Mock implements PushMessagingService {}
 
 class MockSocketService extends Mock implements SocketService {}
 
-/// An export that touches no files, for tests in fake time.
+/// An export that touches no files, for tests in fake time, where file
+/// operations never finish.
 class _NoDataExportFile extends DataExportFile {
   @override
   Future<void> deleteAll() async {}
@@ -71,6 +74,8 @@ void main() {
   late FakeHttpHandler apiHandler;
   late FakeAppBadgeService badge;
   late DataExportFile exportFile;
+  late Directory photoDir;
+  late ImageDiskCache photos;
 
   setUp(() async {
     cookieDir = await Directory.systemTemp.createTemp('bleya-cookie-test');
@@ -80,6 +85,11 @@ void main() {
     push = MockPushMessagingService();
     badge = FakeAppBadgeService();
     exportFile = DataExportFile(temporaryDirectory: () async => exportDir);
+    photoDir = await Directory.systemTemp.createTemp('bleya-photo-test');
+    photos = ImageDiskCache(
+      folder: ImageDiskCache.folderIn(photoDir),
+      download: (uri) async => Uint8List.fromList([1, 2, 3]),
+    );
     cleanupHandler = (_) async => jsonResponse(200, {'success': true});
     cleanup = FakeHttpAdapter((options) => cleanupHandler(options));
     apiHandler = (_) async => jsonResponse(200, {'ok': true});
@@ -101,9 +111,13 @@ void main() {
   tearDown(() async {
     await cookieDir.delete(recursive: true);
     await exportDir.delete(recursive: true);
+    await photoDir.delete(recursive: true);
   });
 
-  ProviderContainer signedIn({DataExportFile? dataExportFile}) {
+  ProviderContainer signedIn({
+    DataExportFile? dataExportFile,
+    ImageDiskCache? imageDiskCache,
+  }) {
     final container = ProviderContainer(
       overrides: [
         tokenProvider.overrideWith((ref) => aliceToken),
@@ -114,6 +128,7 @@ void main() {
         sessionCleanupDioProvider.overrideWithValue(fakeDio(cleanup)),
         dataExportFileProvider.overrideWithValue(dataExportFile ?? exportFile),
         appBadgeServiceProvider.overrideWithValue(badge),
+        imageDiskCacheProvider.overrideWithValue(imageDiskCache ?? photos),
       ],
     );
     addTearDown(container.dispose);
@@ -267,6 +282,17 @@ void main() {
       expect(await shareCopy.exists(), isFalse);
     });
 
+    test('deletes the photos kept on the device', () async {
+      await photos.load('https://cdn.test/profiles/profile-1.webp');
+      await photos.writesDone();
+      expect(ImageDiskCache.folderIn(photoDir).listSync(), isNotEmpty);
+      final container = signedIn();
+
+      await authManager(container).logout();
+
+      expect(await ImageDiskCache.folderIn(photoDir).exists(), isFalse);
+    });
+
     test('keeps the passkey, so a returning user can sign in with it',
         () async {
       final container = signedIn();
@@ -303,7 +329,11 @@ void main() {
       cleanupHandler = (_) => Completer<ResponseBody>().future;
       when(() => push.deleteTokenAfterSignOut())
           .thenAnswer((_) => Completer<void>().future);
-      final container = signedIn(dataExportFile: _NoDataExportFile());
+      final container = signedIn(
+        dataExportFile: _NoDataExportFile(),
+        // Without a folder: it touches no files either.
+        imageDiskCache: ImageDiskCache(),
+      );
       await tester.pumpWidget(MaterialApp(
         navigatorKey: navigatorKey,
         routes: {

@@ -74,7 +74,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'platform': 'mobile',
         },
       );
-      return _persistProviderResult(response.data);
+      return await _persistProviderResult(response.data);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }
@@ -95,7 +95,7 @@ class AuthRepositoryImpl implements AuthRepository {
           'platform': 'mobile',
         },
       );
-      return _persistProviderResult(response.data);
+      return await _persistProviderResult(response.data);
     } on DioException catch (e) {
       throw ApiErrorMapper.mapDioError(e);
     }

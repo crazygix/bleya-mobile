@@ -1,9 +1,11 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import '../constants/theme.dart';
+import '../services/image_disk_cache.dart';
 
 /// Loads the photo at [url] for an avatar [size] points across, decoded at
 /// no more than twice the pixels it shows on screen instead of at full size.
+/// It's downloaded once and then kept on the device ([ImageDiskCache]).
 ///
 /// Twice keeps the circle sharp for photos up to 2:1, which the avatar crops
 /// to cover. Smaller photos are never scaled up.
@@ -14,7 +16,7 @@ ImageProvider avatarImageProvider(
 }) {
   final pixels = (size * devicePixelRatio * 2).ceil();
   return ResizeImage(
-    NetworkImage(url),
+    DiskCachedNetworkImage(url),
     width: pixels,
     height: pixels,
     policy: ResizeImagePolicy.fit,
