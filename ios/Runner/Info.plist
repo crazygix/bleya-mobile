@@ -30,6 +30,8 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>Use your location to discover nearby city chat rooms</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>Use your location to discover nearby city chat rooms</string>
 	<key>NSPhotoLibraryUsageDescription</key>
