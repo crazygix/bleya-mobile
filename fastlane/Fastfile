@@ -377,7 +377,8 @@ def upload_ios_dsyms!
   upload_symbols_to_crashlytics(
     dsym_paths: dsyms,
     gsp_path: project_path("ios/Runner/Firebase/Prod/GoogleService-Info.plist"),
-    binary_path: project_path("ios/Pods/FirebaseCrashlytics/upload-symbols")
+    # Firebase comes through Swift Package Manager, which checks it out under build/.
+    binary_path: project_path("build/ios/SourcePackages/checkouts/firebase-ios-sdk/Crashlytics/upload-symbols")
   )
 rescue StandardError => error
   UI.important("Couldn't upload the dSYMs to Crashlytics (#{error.message}). This build's iOS crash reports show addresses until they are uploaded.")
