@@ -61,7 +61,7 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
   }
 
   /// Opens [notification]'s thread, and only then dismisses the item. The
-  /// thread's other items become read as it opens (threadReadSyncProvider).
+  /// thread's other items go too as it opens (threadReadSyncProvider).
   /// The loader belongs to this page rather than the item's row, which can
   /// leave the list meanwhile. Closing the loader with the back button
   /// cancels.

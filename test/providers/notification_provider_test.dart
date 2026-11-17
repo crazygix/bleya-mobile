@@ -525,37 +525,33 @@ void main() {
   });
 
   group('opening a thread', () {
-    late List<String> threadReads;
+    late List<String> threadDismissals;
 
     setUp(() {
-      threadReads = [];
-      when(() => repository.markThreadAsRead(any())).thenAnswer((invocation) {
-        threadReads.add(invocation.positionalArguments.single as String);
+      threadDismissals = [];
+      when(() => repository.dismissThread(any())).thenAnswer((invocation) {
+        threadDismissals.add(invocation.positionalArguments.single as String);
         return Future.value(null);
       });
     });
 
-    /// Whether each listed item is read, by id.
-    Map<String, bool> readById() => {
-          for (final n in activity().requireValue.notifications) n.id: n.isRead,
-        };
-
-    test('marks all of its items read, not only the one tapped', () async {
+    test('takes all of its items out, read or not, not only the one tapped',
+        () async {
       answerFetches(() async => NotificationPage(
             notifications: [
               _notification('n3', threadId: 'thread-2'),
               _notification('n2'),
-              _notification('n1'),
+              _notification('n1', isRead: true),
             ],
-            unreadCount: 3,
+            unreadCount: 2,
           ));
       await showActivity();
 
-      await notifier().markThreadAsRead('thread-1');
+      await notifier().dismissThread('thread-1');
 
-      expect(readById(), {'n3': false, 'n2': true, 'n1': true});
+      expect(ids(), ['n3']);
       expect(activity().requireValue.unreadCount, 1);
-      expect(threadReads, ['thread-1']);
+      expect(threadDismissals, ['thread-1']);
     });
 
     test("takes the server's count, which has the items not loaded yet",
@@ -567,15 +563,17 @@ void main() {
             nextCursor: 'cursor-1',
           ));
       await showActivity();
-      when(() => repository.markThreadAsRead('thread-1'))
+      when(() => repository.dismissThread('thread-1'))
           .thenAnswer((_) async => 0);
 
-      await notifier().markThreadAsRead('thread-1');
+      await notifier().dismissThread('thread-1');
 
+      expect(ids(), isEmpty);
       expect(activity().requireValue.unreadCount, 0);
     });
 
-    test('a reply that arrives while the server answers stays listed and '
+    test(
+        'a reply that arrives while the server answers stays listed and '
         'counted', () async {
       // Three more of the thread's replies are on the next page.
       answerFetches(() async => NotificationPage(
@@ -585,36 +583,37 @@ void main() {
           ));
       await showActivity();
       final answer = Completer<int?>();
-      when(() => repository.markThreadAsRead('thread-1'))
+      when(() => repository.dismissThread('thread-1'))
           .thenAnswer((_) => answer.future);
 
-      final marking = notifier().markThreadAsRead('thread-1');
+      final dismissing = notifier().dismissThread('thread-1');
       // A reply in another thread arrives after the server counted.
       socket.emit(
         'new_notification',
         _notificationEvent('n3', threadId: 'thread-2'),
       );
       answer.complete(0);
-      await marking;
+      await dismissing;
 
       // The server's count predates n3, so the app keeps its own until the
       // next refresh.
-      expect(readById(), {'n3': false, 'n2': true, 'n1': true});
+      expect(ids(), ['n3']);
       expect(activity().requireValue.unreadCount, 4);
     });
 
-    test('a marking while a refresh loads stays in its result', () async {
+    test('items taken out while a refresh loads stay out of its result',
+        () async {
       answerFetches(() async => _page(['n1']));
       await showActivity();
 
       final page = Completer<NotificationPage>();
       answerFetches(() => page.future);
       final refreshing = notifier().refresh(silent: true);
-      await notifier().markThreadAsRead('thread-1');
+      await notifier().dismissThread('thread-1');
       page.complete(_page(['n2', 'n1']));
       await refreshing;
 
-      expect(readById(), {'n2': true, 'n1': true});
+      expect(ids(), isEmpty);
       expect(activity().requireValue.unreadCount, 0);
     });
 
@@ -623,15 +622,15 @@ void main() {
       answerFetches(() => page.future);
       container.listen(notificationStateProvider, (_, __) {});
 
-      await notifier().markThreadAsRead('thread-1');
+      await notifier().dismissThread('thread-1');
 
-      expect(threadReads, ['thread-1']);
+      expect(threadDismissals, ['thread-1']);
       page.complete(_page([]));
     });
 
     test(
         'replies that arrived while the app was away from the open thread '
-        'load as read, and the server is told', () async {
+        'never show, and the server is told', () async {
       answerFetches(() async => _page(['n1']));
       await showActivity();
       final thread = socket.claimRoom(
@@ -654,15 +653,15 @@ void main() {
       socket.requestResync();
       await pumpEventQueue();
 
-      expect(readById(), {'n4': false, 'n3': true, 'n2': true, 'n1': true});
+      expect(ids(), ['n4']);
       expect(activity().requireValue.unreadCount, 1);
-      expect(threadReads, ['thread-1']);
+      expect(threadDismissals, ['thread-1']);
 
       socket.releaseClaim(thread);
       await pumpEventQueue();
     });
 
-    test('the first page loads with the open thread read', () async {
+    test('the first page loads without the open thread', () async {
       final thread = socket.claimRoom(
         Room(id: 'room-1', name: 'Belgrade'),
         threadId: 'thread-1',
@@ -678,8 +677,31 @@ void main() {
 
       await showActivity();
 
-      expect(readById(), {'n2': false, 'n1': true});
+      expect(ids(), ['n2']);
       expect(activity().requireValue.unreadCount, 1);
+
+      socket.releaseClaim(thread);
+      await pumpEventQueue();
+    });
+
+    test(
+        'a reply to the open thread is never listed, and leaves Activity '
+        'on the server', () async {
+      answerFetches(() async => _page(['n1']));
+      await showActivity();
+      final thread = socket.claimRoom(
+        Room(id: 'room-1', name: 'Belgrade'),
+        threadId: 'thread-1',
+      );
+      await pumpEventQueue();
+      // The refresh-free path: only the live event.
+      clearInteractions(repository);
+
+      socket.emit('new_notification', _notificationEvent('n2'));
+      await pumpEventQueue();
+
+      expect(ids().contains('n2'), isFalse);
+      verify(() => repository.dismissNotification('n2')).called(1);
 
       socket.releaseClaim(thread);
       await pumpEventQueue();

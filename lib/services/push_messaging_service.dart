@@ -18,6 +18,26 @@ class ApnsTokenNotReadyException implements Exception {
       'ApnsTokenNotReadyException: iOS has not received the APNs token yet';
 }
 
+/// A push that arrived while the app was open, with what its notification
+/// says.
+class ForegroundPush {
+  const ForegroundPush({
+    required this.payload,
+    required this.messageId,
+    required this.title,
+    required this.body,
+    this.sentTime,
+  });
+
+  final PushNotificationPayload payload;
+
+  /// Firebase's id for the push, which a tap on its banner hands back.
+  final String messageId;
+  final String title;
+  final String body;
+  final DateTime? sentTime;
+}
+
 class PushMessagingService {
   /// Set while this device's FCM token still has to be deleted after a
   /// sign-out, so a deletion that failed is tried again later.
@@ -129,6 +149,50 @@ class PushMessagingService {
           .where((payload) => payload != null)
           .cast<PushNotificationPayload>();
 
+  /// Pushes that arrive while the app is open. Pushes without a notification
+  /// to show, or that aren't the app's, are left out.
+  Stream<ForegroundPush> get onForegroundMessage =>
+      FirebaseMessaging.onMessage
+          .map(foregroundPushOf)
+          .where((push) => push != null)
+          .cast<ForegroundPush>();
+
+  /// [message] as a [ForegroundPush], or null when it has no notification,
+  /// no id or isn't one of the app's pushes.
+  @visibleForTesting
+  static ForegroundPush? foregroundPushOf(RemoteMessage message) {
+    final notification = message.notification;
+    final messageId = message.messageId;
+    final payload = payloadOf(message.data);
+    if (notification == null ||
+        messageId == null ||
+        messageId.isEmpty ||
+        payload == null) {
+      return null;
+    }
+    return ForegroundPush(
+      payload: payload,
+      messageId: messageId,
+      title: notification.title ?? '',
+      body: notification.body ?? '',
+      sentTime: message.sentTime,
+    );
+  }
+
+  /// The app's payload in a push's [data], or null when it isn't one.
+  static PushNotificationPayload? payloadOf(Map<String, dynamic> data) {
+    if (data.isEmpty) {
+      return null;
+    }
+    try {
+      return PushNotificationPayloadDto.fromJson(
+        Map<String, dynamic>.from(data),
+      );
+    } on FormatException {
+      return null;
+    }
+  }
+
   Future<PushNotificationPayload?> getInitialPayload() {
     return _initialPayloadFuture ??=
         _messaging.getInitialMessage().then(_parsePayload);
@@ -204,16 +268,9 @@ class PushMessagingService {
   }
 
   PushNotificationPayload? _parsePayload(RemoteMessage? message) {
-    if (message == null || message.data.isEmpty) {
+    if (message == null) {
       return null;
     }
-
-    try {
-      return PushNotificationPayloadDto.fromJson(
-        Map<String, dynamic>.from(message.data),
-      );
-    } on FormatException {
-      return null;
-    }
+    return payloadOf(message.data);
   }
 }

@@ -16,12 +16,12 @@ final _dm = Room(id: 'room-d', name: 'ana', type: 'private');
 void main() {
   late FakeSocketService socket;
   late MockNotificationRepository notifications;
-  late List<String> threadReads;
+  late List<String> threadDismissals;
 
   setUp(() {
     socket = FakeSocketService();
     notifications = MockNotificationRepository();
-    threadReads = [];
+    threadDismissals = [];
     when(
       () => notifications.fetchNotifications(
         limit: any(named: 'limit'),
@@ -30,8 +30,8 @@ void main() {
     ).thenAnswer(
       (_) async => const NotificationPage(notifications: [], unreadCount: 0),
     );
-    when(() => notifications.markThreadAsRead(any())).thenAnswer((invocation) {
-      threadReads.add(invocation.positionalArguments.single as String);
+    when(() => notifications.dismissThread(any())).thenAnswer((invocation) {
+      threadDismissals.add(invocation.positionalArguments.single as String);
       return Future.value(null);
     });
   });
@@ -49,7 +49,9 @@ void main() {
     container.listen(threadReadSyncProvider, (_, __) {});
   }
 
-  test('marks each thread that opens read, wherever it opens from', () async {
+  test(
+      'takes the items of each thread that opens out of Activity, wherever it opens from',
+      () async {
     showDashboard();
 
     // A thread from its room, then one opened from Activity or a push.
@@ -65,10 +67,10 @@ void main() {
     socket.releaseClaim(fromActivity);
     await pumpEventQueue();
 
-    expect(threadReads, ['thread-1', 'thread-2']);
+    expect(threadDismissals, ['thread-1', 'thread-2']);
   });
 
-  test('marks a thread again when it comes back on top', () async {
+  test('does it again when a thread comes back on top', () async {
     showDashboard();
     final thread = socket.claimRoom(_cityRoom, threadId: 'thread-1');
     await pumpEventQueue();
@@ -81,12 +83,12 @@ void main() {
     socket.releaseClaim(dm);
     await pumpEventQueue();
 
-    expect(threadReads, ['thread-1', 'thread-1']);
+    expect(threadDismissals, ['thread-1', 'thread-1']);
     socket.releaseClaim(thread);
     await pumpEventQueue();
   });
 
-  test('marks nothing while signed out', () async {
+  test('changes nothing while signed out', () async {
     showDashboard(token: null);
 
     final thread = socket.claimRoom(_cityRoom, threadId: 'thread-1');
@@ -94,6 +96,6 @@ void main() {
     socket.releaseClaim(thread);
     await pumpEventQueue();
 
-    expect(threadReads, isEmpty);
+    expect(threadDismissals, isEmpty);
   });
 }

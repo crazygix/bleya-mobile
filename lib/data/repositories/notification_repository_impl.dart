@@ -99,9 +99,10 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
-  Future<int?> markThreadAsRead(String threadId) async {
+  Future<int?> dismissThread(String threadId) async {
     try {
-      final response = await _dio.post('/notifications/threads/$threadId/read');
+      final response =
+          await _dio.post('/notifications/threads/$threadId/dismiss');
       final data = response.data;
       final unreadCount = data is Map ? data['unreadCount'] : null;
       return unreadCount is int ? unreadCount : null;

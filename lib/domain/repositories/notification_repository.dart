@@ -15,10 +15,10 @@ abstract class NotificationRepository {
   Future<void> markAsRead(String notificationId);
   Future<void> markAllAsRead();
 
-  /// Marks every item from the thread [threadId] read, for a thread that
-  /// opened. Returns the unread count the server has left, which includes
-  /// items the app hasn't loaded, or null when it doesn't say.
-  Future<int?> markThreadAsRead(String threadId);
+  /// Takes every item from the thread [threadId] out of Activity, for a
+  /// thread that opened. Returns the unread count the server has left, which
+  /// includes items the app hasn't loaded, or null when it doesn't say.
+  Future<int?> dismissThread(String threadId);
 
   Future<void> dismissNotification(String notificationId);
   Future<void> dismissAll();

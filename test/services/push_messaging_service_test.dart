@@ -272,4 +272,61 @@ void main() {
       await expectLater(service.markPermissionRequestedAgain(), completes);
     });
   });
+
+  group('foregroundPushOf', () {
+    const data = {
+      'type': 'reply',
+      'roomId': 'room-1',
+      'messageId': 'msg-1',
+      'senderId': 'user-2',
+      'threadId': 'thread-1',
+    };
+
+    test('reads the payload and what the notification says', () {
+      final sentTime = DateTime.fromMillisecondsSinceEpoch(1700000000000);
+      final push = PushMessagingService.foregroundPushOf(RemoteMessage(
+        messageId: 'fcm-1',
+        sentTime: sentTime,
+        data: data,
+        notification: const RemoteNotification(
+          title: 'alice replied',
+          body: 'See you there',
+        ),
+      ));
+
+      expect(push, isNotNull);
+      expect(push!.messageId, 'fcm-1');
+      expect(push.title, 'alice replied');
+      expect(push.body, 'See you there');
+      expect(push.sentTime, sentTime);
+      expect(push.payload.threadId, 'thread-1');
+      expect(push.payload.isReply, isTrue);
+    });
+
+    test('leaves out pushes with nothing to show, no id or another payload',
+        () {
+      const notification = RemoteNotification(title: 'Hi', body: 'There');
+
+      expect(
+        PushMessagingService.foregroundPushOf(
+          const RemoteMessage(messageId: 'fcm-1', data: data),
+        ),
+        isNull,
+      );
+      expect(
+        PushMessagingService.foregroundPushOf(
+          const RemoteMessage(data: data, notification: notification),
+        ),
+        isNull,
+      );
+      expect(
+        PushMessagingService.foregroundPushOf(const RemoteMessage(
+          messageId: 'fcm-1',
+          data: {'type': 'promo'},
+          notification: notification,
+        )),
+        isNull,
+      );
+    });
+  });
 }

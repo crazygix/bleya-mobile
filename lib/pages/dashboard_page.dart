@@ -22,6 +22,7 @@ import 'settings_page.dart';
 import 'join_room_dialog.dart';
 import 'notifications_page.dart';
 import '../providers/notification_provider.dart';
+import '../providers/notification_tray_provider.dart';
 
 /// Dashboard Page
 ///
@@ -129,8 +130,10 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     // Keeps the server's read position current for the chats opened from
     // here.
     ref.watch(roomReadSyncProvider);
-    // Opening a thread marks all of its Activity items read.
+    // Opening a thread takes all of its items out of Activity.
     ref.watch(threadReadSyncProvider);
+    // Opening a chat clears its notifications from the lock screen.
+    ref.watch(openChatNotificationsClearingProvider);
     // Keeps the iOS app-icon badge equal to the unread counts shown here.
     ref.watch(appBadgeProvider);
 

@@ -56,9 +56,3 @@ Remove unused / dead code and anything that causes confusion.
 - Obsolete feature flags, leftover experiments, stale TODOs
 - Duplicate or redundant implementations
 - Deliverable: list of candidates for removal before deleting (no edits until approved)
-
-### 7. Push notification appearance
-Change the in-app push notification view to use a dark background, matching the native iOS style and popular apps.
-- Update styling to dark background with appropriate contrast for title/body
-- Verify on iOS and Android
-- Ensure readability in both light and dark system themes

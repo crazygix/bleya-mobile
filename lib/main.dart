@@ -167,8 +167,8 @@ class MyApp extends ConsumerWidget {
     // Initialize token from secure storage
     ref.watch(tokenInitializerProvider);
     ref.watch(appOpenedProvider);
-    // Opening the app clears its notifications from the lock screen.
-    ref.watch(notificationTrayClearingProvider);
+    // Pushes that arrive while the app is open show as the system's banner.
+    ref.watch(inAppBannersProvider);
     // Crash reports carry the signed-in account's id, and none signed out.
     // The token starts empty and is restored or set later, so every session
     // reaches this listener.

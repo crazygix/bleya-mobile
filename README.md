@@ -166,20 +166,29 @@ App behavior:
   - `message` -> open the room
   - `reply` -> open the exact thread
 - A tap on a notification for the chat already on screen opens nothing new.
-- Opening the app, or coming back to it, clears all of its notifications from
-  the lock screen and the notification list (Notification Center on iOS, the
-  shade on Android), so opening one of five doesn't leave four behind. Logout
-  clears them too. Unread counts, Activity and the iOS badge stay as they are.
-  The `bleya/notifications` channel in `AppDelegate.swift` and
-  `MainActivity.kt` does the clearing.
-- Opening a thread, from Activity, a push or its room, marks all of its
-  Activity items read (`POST /notifications/threads/:threadId/read`), not
-  only the one that was tapped. Items that arrived while the app was away
-  from the open thread load as read too.
+- Opening a chat clears that chat's notifications from the lock screen and
+  the notification list (Notification Center on iOS, the shade on Android):
+  a room's messages when the room opens, a thread's replies when the thread
+  opens, and the open chat's again when the app comes back to the
+  foreground. Other chats' notifications stay until their chat opens. Logout
+  clears them all. iOS finds a chat's notifications by the push data; on
+  Android the backend tags each push `room:<roomId>:<messageId>` or
+  `thread:<threadId>:<messageId>`. The `bleya/notifications` channel in
+  `AppDelegate.swift` and `MainActivity.kt` does the clearing.
+- Opening a thread, from Activity, a push or its room, takes all of its
+  items out of Activity (`POST /notifications/threads/:threadId/dismiss`),
+  not only the one that was tapped. Items that arrive while the thread is
+  open, or while the app was away from it, never show.
 - The notification that launched the app opens once per app run, so it isn't
   replayed after signing out and back in.
-- Foreground realtime still comes from sockets. V1 does not show local
-  in-app banners while the user is already active in the app.
+- Foreground realtime still comes from sockets. A push that arrives while
+  the app is open shows as the system's own banner, in the phone's light or
+  dark look, not the app's: iOS presents the push itself (`willPresent` in
+  `AppDelegate.swift`, banner and sound, no Notification Center entry or
+  badge); on Android, where Firebase shows nothing then, the app posts a
+  heads-up built like Firebase's (`showBanner` in `MainActivity.kt`) that
+  removes itself after 8 s. None shows for the chat on screen or while signed
+  out (`inAppBannersProvider`). A tap opens the chat as any push does.
 - In the background the app disconnects its socket, so the server counts the
   user as away and pushes arrive even for the chat that was open. Back in the
   foreground it reconnects, reopens the chat on screen with its thread, and
