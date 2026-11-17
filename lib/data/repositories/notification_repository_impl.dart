@@ -99,6 +99,18 @@ class NotificationRepositoryImpl implements NotificationRepository {
   }
 
   @override
+  Future<int?> markThreadAsRead(String threadId) async {
+    try {
+      final response = await _dio.post('/notifications/threads/$threadId/read');
+      final data = response.data;
+      final unreadCount = data is Map ? data['unreadCount'] : null;
+      return unreadCount is int ? unreadCount : null;
+    } on DioException catch (e) {
+      throw ApiErrorMapper.mapDioError(e);
+    }
+  }
+
+  @override
   Future<void> dismissNotification(String notificationId) async {
     try {
       await _dio.post('/notifications/$notificationId/dismiss');

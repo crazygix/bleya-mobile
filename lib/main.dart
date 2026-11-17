@@ -17,6 +17,7 @@ import 'controllers/push_notifications_controller.dart';
 import 'providers/analytics_providers.dart';
 import 'providers/auth_providers.dart';
 import 'providers/controller_providers.dart';
+import 'providers/notification_tray_provider.dart';
 import 'services/app_client_info.dart';
 import 'services/image_disk_cache.dart';
 import 'services/secure_cookie_storage.dart';
@@ -166,6 +167,8 @@ class MyApp extends ConsumerWidget {
     // Initialize token from secure storage
     ref.watch(tokenInitializerProvider);
     ref.watch(appOpenedProvider);
+    // Opening the app clears its notifications from the lock screen.
+    ref.watch(notificationTrayClearingProvider);
     // Crash reports carry the signed-in account's id, and none signed out.
     // The token starts empty and is restored or set later, so every session
     // reaches this listener.

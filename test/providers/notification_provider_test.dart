@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:bleya/domain/entities/notification.dart';
+import 'package:bleya/domain/entities/room.dart';
 import 'package:bleya/domain/repositories/notification_repository.dart';
 import 'package:bleya/providers/auth_providers.dart';
 import 'package:bleya/providers/chat_room_providers.dart';
@@ -64,6 +65,7 @@ Map<String, dynamic> _removalEvent(
 Map<String, dynamic> _notificationEvent(
   String id, {
   String senderId = 'carol-id',
+  String threadId = 'thread-1',
 }) {
   return {
     'id': id,
@@ -71,7 +73,7 @@ Map<String, dynamic> _notificationEvent(
     'roomId': 'room-1',
     'roomName': 'Belgrade',
     'messageId': 'reply-$id',
-    'threadId': 'thread-1',
+    'threadId': threadId,
     'previewText': 'See you there',
     'type': 'reply',
     'read': false,
@@ -519,6 +521,168 @@ void main() {
 
       expect(ids(), ['n3', 'n1']);
       expect(activity().requireValue.unreadCount, 2);
+    });
+  });
+
+  group('opening a thread', () {
+    late List<String> threadReads;
+
+    setUp(() {
+      threadReads = [];
+      when(() => repository.markThreadAsRead(any())).thenAnswer((invocation) {
+        threadReads.add(invocation.positionalArguments.single as String);
+        return Future.value(null);
+      });
+    });
+
+    /// Whether each listed item is read, by id.
+    Map<String, bool> readById() => {
+          for (final n in activity().requireValue.notifications) n.id: n.isRead,
+        };
+
+    test('marks all of its items read, not only the one tapped', () async {
+      answerFetches(() async => NotificationPage(
+            notifications: [
+              _notification('n3', threadId: 'thread-2'),
+              _notification('n2'),
+              _notification('n1'),
+            ],
+            unreadCount: 3,
+          ));
+      await showActivity();
+
+      await notifier().markThreadAsRead('thread-1');
+
+      expect(readById(), {'n3': false, 'n2': true, 'n1': true});
+      expect(activity().requireValue.unreadCount, 1);
+      expect(threadReads, ['thread-1']);
+    });
+
+    test("takes the server's count, which has the items not loaded yet",
+        () async {
+      // Three more of the thread's replies are on the next page.
+      answerFetches(() async => NotificationPage(
+            notifications: [_notification('n5'), _notification('n4')],
+            unreadCount: 5,
+            nextCursor: 'cursor-1',
+          ));
+      await showActivity();
+      when(() => repository.markThreadAsRead('thread-1'))
+          .thenAnswer((_) async => 0);
+
+      await notifier().markThreadAsRead('thread-1');
+
+      expect(activity().requireValue.unreadCount, 0);
+    });
+
+    test('a reply that arrives while the server answers stays listed and '
+        'counted', () async {
+      // Three more of the thread's replies are on the next page.
+      answerFetches(() async => NotificationPage(
+            notifications: [_notification('n2'), _notification('n1')],
+            unreadCount: 5,
+            nextCursor: 'cursor-1',
+          ));
+      await showActivity();
+      final answer = Completer<int?>();
+      when(() => repository.markThreadAsRead('thread-1'))
+          .thenAnswer((_) => answer.future);
+
+      final marking = notifier().markThreadAsRead('thread-1');
+      // A reply in another thread arrives after the server counted.
+      socket.emit(
+        'new_notification',
+        _notificationEvent('n3', threadId: 'thread-2'),
+      );
+      answer.complete(0);
+      await marking;
+
+      // The server's count predates n3, so the app keeps its own until the
+      // next refresh.
+      expect(readById(), {'n3': false, 'n2': true, 'n1': true});
+      expect(activity().requireValue.unreadCount, 4);
+    });
+
+    test('a marking while a refresh loads stays in its result', () async {
+      answerFetches(() async => _page(['n1']));
+      await showActivity();
+
+      final page = Completer<NotificationPage>();
+      answerFetches(() => page.future);
+      final refreshing = notifier().refresh(silent: true);
+      await notifier().markThreadAsRead('thread-1');
+      page.complete(_page(['n2', 'n1']));
+      await refreshing;
+
+      expect(readById(), {'n2': true, 'n1': true});
+      expect(activity().requireValue.unreadCount, 0);
+    });
+
+    test('tells the server even before Activity has loaded', () async {
+      final page = Completer<NotificationPage>();
+      answerFetches(() => page.future);
+      container.listen(notificationStateProvider, (_, __) {});
+
+      await notifier().markThreadAsRead('thread-1');
+
+      expect(threadReads, ['thread-1']);
+      page.complete(_page([]));
+    });
+
+    test(
+        'replies that arrived while the app was away from the open thread '
+        'load as read, and the server is told', () async {
+      answerFetches(() async => _page(['n1']));
+      await showActivity();
+      final thread = socket.claimRoom(
+        Room(id: 'room-1', name: 'Belgrade'),
+        threadId: 'thread-1',
+      );
+      await pumpEventQueue();
+
+      // The app was in the background with the thread open: catching up
+      // brings its new replies, and one from another thread.
+      answerFetches(() async => NotificationPage(
+            notifications: [
+              _notification('n4', threadId: 'thread-2'),
+              _notification('n3'),
+              _notification('n2'),
+              _notification('n1'),
+            ],
+            unreadCount: 4,
+          ));
+      socket.requestResync();
+      await pumpEventQueue();
+
+      expect(readById(), {'n4': false, 'n3': true, 'n2': true, 'n1': true});
+      expect(activity().requireValue.unreadCount, 1);
+      expect(threadReads, ['thread-1']);
+
+      socket.releaseClaim(thread);
+      await pumpEventQueue();
+    });
+
+    test('the first page loads with the open thread read', () async {
+      final thread = socket.claimRoom(
+        Room(id: 'room-1', name: 'Belgrade'),
+        threadId: 'thread-1',
+      );
+      await pumpEventQueue();
+      answerFetches(() async => NotificationPage(
+            notifications: [
+              _notification('n2', threadId: 'thread-2'),
+              _notification('n1'),
+            ],
+            unreadCount: 2,
+          ));
+
+      await showActivity();
+
+      expect(readById(), {'n2': false, 'n1': true});
+      expect(activity().requireValue.unreadCount, 1);
+
+      socket.releaseClaim(thread);
+      await pumpEventQueue();
     });
   });
 }

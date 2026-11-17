@@ -129,6 +129,8 @@ class _DashboardPageState extends ConsumerState<DashboardPage> {
     // Keeps the server's read position current for the chats opened from
     // here.
     ref.watch(roomReadSyncProvider);
+    // Opening a thread marks all of its Activity items read.
+    ref.watch(threadReadSyncProvider);
     // Keeps the iOS app-icon badge equal to the unread counts shown here.
     ref.watch(appBadgeProvider);
 

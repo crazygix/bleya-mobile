@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mocktail/mocktail.dart';
 
 import '../fakes/fake_app_badge_service.dart';
+import '../fakes/fake_notification_tray_service.dart';
 import '../fakes/fake_http_adapter.dart';
 import '../fakes/in_memory_secure_storage.dart';
 
@@ -73,6 +74,7 @@ void main() {
   late FakeHttpAdapter api;
   late FakeHttpHandler apiHandler;
   late FakeAppBadgeService badge;
+  late FakeNotificationTrayService tray;
   late DataExportFile exportFile;
   late Directory photoDir;
   late ImageDiskCache photos;
@@ -84,6 +86,7 @@ void main() {
     socket = MockSocketService();
     push = MockPushMessagingService();
     badge = FakeAppBadgeService();
+    tray = FakeNotificationTrayService();
     exportFile = DataExportFile(temporaryDirectory: () async => exportDir);
     photoDir = await Directory.systemTemp.createTemp('bleya-photo-test');
     photos = ImageDiskCache(
@@ -128,6 +131,7 @@ void main() {
         sessionCleanupDioProvider.overrideWithValue(fakeDio(cleanup)),
         dataExportFileProvider.overrideWithValue(dataExportFile ?? exportFile),
         appBadgeServiceProvider.overrideWithValue(badge),
+        notificationTrayServiceProvider.overrideWithValue(tray),
         imageDiskCacheProvider.overrideWithValue(imageDiskCache ?? photos),
       ],
     );
@@ -266,6 +270,14 @@ void main() {
       await authManager(container).logout();
 
       expect(badge.counts, [0]);
+    });
+
+    test("clears the account's notifications from the lock screen", () async {
+      final container = signedIn();
+
+      await authManager(container).logout();
+
+      expect(tray.clears, 1);
     });
 
     test("deletes the data export, with Android's share copy", () async {

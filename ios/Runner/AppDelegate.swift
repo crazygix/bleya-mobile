@@ -18,6 +18,26 @@ import UserNotifications
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BleyaAppBadge") {
       AppBadgeChannel.register(with: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BleyaNotificationTray") {
+      NotificationTrayChannel.register(with: registrar.messenger())
+    }
+  }
+}
+
+/// The app's notifications on the lock screen and in Notification Center,
+/// for the Dart side (`NotificationTrayService`): `clearAll` on the
+/// `bleya/notifications` channel removes them. The badge stays as it is.
+enum NotificationTrayChannel {
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "bleya/notifications", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "clearAll" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      UNUserNotificationCenter.current().removeAllDeliveredNotifications()
+      result(nil)
+    }
   }
 }
 

@@ -166,6 +166,16 @@ App behavior:
   - `message` -> open the room
   - `reply` -> open the exact thread
 - A tap on a notification for the chat already on screen opens nothing new.
+- Opening the app, or coming back to it, clears all of its notifications from
+  the lock screen and the notification list (Notification Center on iOS, the
+  shade on Android), so opening one of five doesn't leave four behind. Logout
+  clears them too. Unread counts, Activity and the iOS badge stay as they are.
+  The `bleya/notifications` channel in `AppDelegate.swift` and
+  `MainActivity.kt` does the clearing.
+- Opening a thread, from Activity, a push or its room, marks all of its
+  Activity items read (`POST /notifications/threads/:threadId/read`), not
+  only the one that was tapped. Items that arrived while the app was away
+  from the open thread load as read too.
 - The notification that launched the app opens once per app run, so it isn't
   replayed after signing out and back in.
 - Foreground realtime still comes from sockets. V1 does not show local

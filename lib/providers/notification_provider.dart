@@ -83,14 +83,24 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       );
     }
 
+    final socketService = ref.read(socketServiceProvider);
     try {
-      return await _fetchPage();
+      final page = await _fetchPage();
+      // A thread opened meanwhile, e.g. from the push that opened the app,
+      // shows its replies. Opening it told the server (threadReadSync).
+      final threadId = socketService.openChat.value.threadId;
+      return threadId == null ? page : _withThreadRead(page, threadId);
     } catch (_) {
       // Load again once the socket connects, e.g. after an offline start.
-      ref.read(socketServiceProvider).requestResyncOnConnect();
+      socketService.requestResyncOnConnect();
       rethrow;
     }
   }
+
+  /// The thread on screen. Its replies show as they arrive, so its items
+  /// count as read.
+  String? get _openThreadId =>
+      ref.read(socketServiceProvider).openChat.value.threadId;
 
   Future<NotificationState> _fetchPage({String? cursor}) async {
     final repo = ref.read(notificationRepositoryProvider);
@@ -150,7 +160,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       // Cleared with "Clean all" meanwhile: nothing older is left to show.
       if (!latest.hasMore) return;
       final listedIds = {for (final n in latest.notifications) n.id};
-      state = AsyncData(latest.copyWith(
+      _showWithOpenThreadRead(latest.copyWith(
         notifications: [
           ...latest.notifications,
           ...page.notifications.where((n) => listedIds.add(n.id)),
@@ -214,7 +224,9 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       // A page still loading follows the old list and is dropped; the next
       // scroll loads one for this list.
       _loadingMore = null;
-      state = AsyncData(changes.fold(value, (page, change) => change(page)));
+      _showWithOpenThreadRead(
+        changes.fold(value, (page, change) => change(page)),
+      );
     } else if (!silent || !state.hasValue) {
       state = result;
     }
@@ -273,6 +285,71 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
     } catch (e) {
       // Silent fail
     }
+  }
+
+  /// Marks every item from [threadId] read once the thread opens, from
+  /// Activity, a push or its room: it shows all of the thread's replies, not
+  /// only the one that was tapped. The server is told even while the list
+  /// loads.
+  Future<void> markThreadAsRead(String threadId) {
+    _apply((current) => _withThreadRead(current, threadId));
+    return _postThreadRead(threadId);
+  }
+
+  /// Tells the server that [threadId]'s items are read. Its answer also
+  /// counts the thread's items that aren't loaded, so its count replaces the
+  /// one on screen, unless the list changed meanwhile.
+  Future<void> _postThreadRead(String threadId) async {
+    final repo = ref.read(notificationRepositoryProvider);
+    final session = _sessionGeneration;
+    final marked = state.valueOrNull;
+    try {
+      final unreadCount = await repo.markThreadAsRead(threadId);
+      if (unreadCount == null ||
+          marked == null ||
+          marked.unreadCount == unreadCount ||
+          session != _sessionGeneration ||
+          _isRefreshing ||
+          !identical(state.valueOrNull, marked)) {
+        return;
+      }
+      state = AsyncData(marked.copyWith(unreadCount: unreadCount));
+    } catch (e) {
+      // Silent fail: the next refresh shows what the server has.
+    }
+  }
+
+  /// Shows [next], a list made from the server's answer, with the items of
+  /// the thread on screen read. Those arrived while the app was away from
+  /// the thread, in the background or reconnecting, and the thread shows
+  /// them now, so the server is told too.
+  void _showWithOpenThreadRead(NotificationState next) {
+    final threadId = _openThreadId;
+    final shown = threadId == null ? next : _withThreadRead(next, threadId);
+    state = AsyncData(shown);
+    if (threadId != null && !identical(shown, next)) {
+      unawaited(_postThreadRead(threadId));
+    }
+  }
+
+  /// [current] with every item from [threadId] read, and the unread count
+  /// lowered for those that weren't.
+  static NotificationState _withThreadRead(
+    NotificationState current,
+    String threadId,
+  ) {
+    final unread = current.notifications
+        .where((n) => n.threadId == threadId && !n.isRead)
+        .length;
+    if (unread == 0) return current;
+    return current.copyWith(
+      notifications: [
+        for (final n in current.notifications)
+          n.threadId == threadId && !n.isRead ? n.copyWith(isRead: true) : n,
+      ],
+      unreadCount:
+          current.unreadCount > unread ? current.unreadCount - unread : 0,
+    );
   }
 
   Future<void> dismissNotification(String notificationId) async {
@@ -378,8 +455,7 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
       return;
     }
 
-    final openThreadId =
-        ref.read(socketServiceProvider).openChat.value.threadId;
+    final openThreadId = _openThreadId;
 
     // Suppression happens ONLY if the user is currently looking at this specific thread
     final isCurrentThread =
@@ -418,6 +494,34 @@ class NotificationNotifier extends AsyncNotifier<NotificationState> {
 final notificationStateProvider =
     AsyncNotifierProvider<NotificationNotifier, NotificationState>(
         NotificationNotifier.new);
+
+/// Marks Activity's items read for each thread that opens, from Activity, a
+/// push or its room: the thread shows every reply in it, so none of them
+/// stays unread, not only the one that was tapped. A thread that comes back
+/// on top is marked again, for replies that arrived while another chat had
+/// the socket. The dashboard keeps it alive.
+final threadReadSyncProvider = Provider<void>((ref) {
+  ref.watch(sessionVersionProvider);
+  final socketService = ref.read(socketServiceProvider);
+  var openThreadId = socketService.openChat.value.threadId;
+
+  void onOpenChatChanged() {
+    final threadId = socketService.openChat.value.threadId;
+    if (threadId == openThreadId) return;
+    openThreadId = threadId;
+    final token = ref.read(tokenProvider);
+    // Signed out: there's no Activity to mark.
+    if (threadId == null || token == null || token.isEmpty) return;
+    unawaited(
+      ref.read(notificationStateProvider.notifier).markThreadAsRead(threadId),
+    );
+  }
+
+  socketService.openChat.addListener(onOpenChatChanged);
+  ref.onDispose(() {
+    socketService.openChat.removeListener(onOpenChatChanged);
+  });
+});
 
 // Socket listener as an AsyncNotifier to properly manage lifecycle
 class NotificationSocketListenerNotifier extends AsyncNotifier<void> {

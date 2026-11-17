@@ -141,6 +141,38 @@ void main() {
     expect(request.path, '/notifications/read-all');
   });
 
+  group('markThreadAsRead', () {
+    test('POST /notifications/threads/:threadId/read, with the count left',
+        () async {
+      serve((_) async => jsonResponse(200, {'success': true, 'unreadCount': 2}));
+
+      final unreadCount = await repository.markThreadAsRead(FixtureIds.message);
+
+      final request = server.requests.single;
+      expect(request.method, 'POST');
+      expect(request.path, '/notifications/threads/${FixtureIds.message}/read');
+      expect(request.data, isNull);
+      expect(unreadCount, 2);
+    });
+
+    test('no count when the server leaves it out', () async {
+      expect(await repository.markThreadAsRead(FixtureIds.message), isNull);
+    });
+
+    test('fails with what the server said', () async {
+      serve((_) async => apiErrorResponse(
+            400,
+            'VALIDATION_ERROR',
+            "That thread isn't valid.",
+          ));
+
+      await expectLater(
+        repository.markThreadAsRead('not-an-id'),
+        throwsA(isA<AppError>()),
+      );
+    });
+  });
+
   test('POST /notifications/:id/dismiss', () async {
     await repository.dismissNotification(FixtureIds.notification);
 

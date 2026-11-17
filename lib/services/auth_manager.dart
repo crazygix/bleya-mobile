@@ -246,9 +246,10 @@ class AuthManager {
   /// Signs out. This device is cleared first, so the intro shows at once,
   /// even offline: the refresh in flight is cancelled, the socket is
   /// disconnected, and the token, the stored session and the cookies are
-  /// deleted before navigating. Then the app-icon badge, the Google session
-  /// and the data export go, and last, without waiting, the session is ended
-  /// on the server and this device's push token is deleted.
+  /// deleted before navigating. Then the app-icon badge, the account's
+  /// notifications on the lock screen, the Google session and the data
+  /// export go, and last, without waiting, the session is ended on the
+  /// server and this device's push token is deleted.
   ///
   /// [accountDeleted] also forgets the passkey this device signs in with; a
   /// plain logout keeps it, so a returning user can still use it. Calls made
@@ -296,6 +297,11 @@ class AuthManager {
       await _step(
         'clear the app badge',
         () => _ref.read(appBadgeServiceProvider).setBadgeCount(0),
+      );
+      // They show this account's messages on the lock screen.
+      await _step(
+        'clear the notifications',
+        () => _ref.read(notificationTrayServiceProvider).clearAll(),
       );
       await _step(
         'sign out of Google',

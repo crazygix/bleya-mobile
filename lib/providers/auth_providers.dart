@@ -9,6 +9,7 @@ import '../services/app_client_info.dart';
 import '../services/auth_manager.dart';
 import '../services/data_export_file.dart';
 import '../services/image_disk_cache.dart';
+import '../services/notification_tray_service.dart';
 import '../services/passkey_auth_service.dart';
 import '../services/provider_auth_service.dart';
 import '../services/push_messaging_service.dart';
@@ -96,6 +97,11 @@ final dataExportFileProvider = Provider<DataExportFile>((ref) {
 
 final appBadgeServiceProvider = Provider<AppBadgeService>((ref) {
   return AppBadgeService();
+});
+
+final notificationTrayServiceProvider =
+    Provider<NotificationTrayService>((ref) {
+  return NotificationTrayService();
 });
 
 // Auth manager provider
