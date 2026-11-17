@@ -8,7 +8,7 @@ import '../providers/auth_providers.dart';
 import '../platform/app_button.dart';
 import '../platform/app_icon.dart';
 import '../platform/app_route.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../utils/navigation.dart';
 import '../widgets/report_actions.dart';
 import '../services/socket_service.dart';
@@ -115,9 +115,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
           .errorMessages
           .listen((message) {
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(message)),
-        );
+        SystemMessage.showNotice(message);
       });
 
       _messagesSubscription = ref.listenManual<List<Message>>(
@@ -148,7 +146,7 @@ class _ChatRoomPageState extends ConsumerState<ChatRoomPage> with RouteAware {
     final error = result.error;
     if (error != null) {
       restoreUnsentDraft(_messageController, text);
-      AppToast.showError(context, error.message);
+      SystemMessage.showNotice(error.message);
     }
   }
 

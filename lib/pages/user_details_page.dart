@@ -11,7 +11,7 @@ import '../platform/app_icon.dart';
 import '../platform/app_route.dart';
 import '../platform/app_sheet.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
@@ -125,7 +125,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
         } else {
           errorMessage = "Couldn't start the chat. Try again?";
         }
-        AppToast.showError(context, errorMessage);
+        SystemMessage.showNotice(errorMessage);
       }
     }
   }
@@ -168,7 +168,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
     DirectChatActionResult result, {
     required bool shouldCloseCurrentChat,
   }) {
-    AppToast.showInfo(context, result.message);
+    SystemMessage.showConfirmation(result.message);
 
     if (shouldCloseCurrentChat &&
         widget.directRoomId != null &&
@@ -193,7 +193,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't delete this chat right now.";
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -213,7 +213,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't unblock this user right now.";
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -233,7 +233,7 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't block this user right now.";
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -313,13 +313,13 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       await ref.read(blockUserUseCaseProvider)(widget.userId);
       if (!mounted) return;
       recordBlockChange(ref, widget.userId, blocked: true);
-      AppToast.showInfo(context, 'User blocked.');
+      SystemMessage.showConfirmation('User blocked.');
     } catch (e) {
       if (!mounted) return;
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't block this user right now.";
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);
@@ -333,13 +333,13 @@ class _UserDetailsPageState extends ConsumerState<UserDetailsPage>
       await ref.read(unblockUserUseCaseProvider)(widget.userId);
       if (!mounted) return;
       recordBlockChange(ref, widget.userId, blocked: false);
-      AppToast.showInfo(context, 'User unblocked.');
+      SystemMessage.showConfirmation('User unblocked.');
     } catch (e) {
       if (!mounted) return;
       final errorMessage = e is AppError
           ? e.getUserMessage()
           : "Couldn't unblock this user right now.";
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     } finally {
       if (mounted) {
         setState(() => _isRunningDirectAction = false);

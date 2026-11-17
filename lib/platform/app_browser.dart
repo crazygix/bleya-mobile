@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../utils/app_toast.dart';
+import 'system_message.dart';
 
 /// Opens external web pages (Privacy, Terms, etc.) inside the app using a
 /// modal in-app browser: SFSafariViewController on iOS, Chrome Custom Tabs on
@@ -21,7 +21,7 @@ class AppBrowser {
       opened = await launchUrl(uri, mode: LaunchMode.inAppBrowserView);
     }
     if (!opened && context.mounted) {
-      AppToast.showError(context, "Couldn't open the link.");
+      SystemMessage.showNotice("Couldn't open the link.");
     }
   }
 }

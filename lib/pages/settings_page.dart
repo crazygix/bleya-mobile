@@ -17,7 +17,7 @@ import '../platform/app_browser.dart';
 import '../platform/app_dialog.dart';
 import '../platform/app_route.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import 'blocked_users_page.dart';
 import 'edit_profile_page.dart';
 import 'passkeys_page.dart';
@@ -123,7 +123,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final message = e is AppError
           ? e.getUserMessage()
           : "Couldn't export your data. Try again?";
-      AppToast.showError(context, message);
+      SystemMessage.showNotice(message);
     }
   }
 
@@ -147,7 +147,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
       final message = e is AppError
           ? e.getUserMessage()
           : "Couldn't delete your account. Try again?";
-      AppToast.showError(context, message);
+      SystemMessage.showNotice(message);
     }
   }
 
@@ -164,7 +164,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
     final profileImageUrl = profile?.profileImageUrl;
     final hasBio = bio != null && bio.trim().isNotEmpty;
 
-    // Hidden behind another tab: no toast for a tab the user isn't on.
+    // Hidden behind another tab: no message for a tab the user isn't on.
     final isVisible = Visibility.of(context);
     ref.listen(profileProvider, (previous, next) {
       final isNewError =
@@ -178,7 +178,7 @@ class _SettingsPageState extends ConsumerState<SettingsPage> {
           ? error.getUserMessage()
           : "Couldn't load your profile. Try again?";
 
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     });
 
     return Scaffold(

@@ -13,7 +13,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/pull_to_refresh_error_state.dart';
 import '../widgets/app_spinner.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import 'thread_view_page.dart';
 
 class NotificationsPage extends ConsumerStatefulWidget {
@@ -101,12 +101,10 @@ class _NotificationsPageState extends ConsumerState<NotificationsPage> {
       if (error is AppError && error.code == AppErrorCode.notFound) {
         // Removed, or by someone blocked: the item can never open again.
         unawaited(notifier.dismissNotification(notification.id));
-        AppToast.showInfo(context, 'This message is no longer available.');
+        SystemMessage.showNotice('This message is no longer available.');
         return;
       }
-      AppToast.showError(
-        context,
-        error is AppError
+      SystemMessage.showNotice(error is AppError
             ? error.getUserMessage()
             : "Couldn't open this message. Try again?",
       );

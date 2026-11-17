@@ -380,7 +380,7 @@ class ChatRoomController extends StateNotifier<ChatRoomState> {
   StreamSubscription<RoomJoinFailure>? _joinFailureSubscription;
 
   // Surfaces user-facing socket errors that aren't about a send (those are
-  // returned by sendMessage) to the page, which shows them as a toast.
+  // returned by sendMessage) to the page, which shows them as a system message.
   final StreamController<String> _errorMessages =
       StreamController<String>.broadcast();
   Stream<String> get errorMessages => _errorMessages.stream;

@@ -10,7 +10,7 @@ import '../domain/entities/city.dart';
 import '../providers/chat_providers.dart';
 import '../providers/controller_providers.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
 
@@ -74,9 +74,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
       if (!mounted) return;
 
       Navigator.of(context, rootNavigator: true).pop();
-      AppToast.showSuccess(
-        context,
-        'You joined ${city.name}, ${city.countryName}',
+      SystemMessage.showConfirmation('You joined ${city.name}, ${city.countryName}',
       );
     } catch (e) {
       if (!mounted) return;
@@ -84,7 +82,7 @@ class _JoinRoomDialogState extends ConsumerState<JoinRoomDialog>
       final errorMessage =
           e is AppError ? e.getUserMessage() : "Something went off. Try again?";
 
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     }
   }
 

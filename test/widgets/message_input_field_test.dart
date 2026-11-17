@@ -3,11 +3,16 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import '../fakes/system_messages.dart';
 
 /// Sixty short lines: far more than the box shows at once.
 final _sixtyLines = List.generate(60, (i) => 'Line ${i + 1}').join('\n');
 
 void main() {
+  // The short messages the app asks the system to show.
+  late List<String> systemMessages;
+  setUp(() => systemMessages = recordSystemMessages());
+
   group('restoreUnsentDraft', () {
     test('puts the unsent text back into an empty input', () {
       final controller = TextEditingController();
@@ -139,7 +144,7 @@ void main() {
       expect(controller.text, 'x' * MessageInputField.maxMessageLength);
       await tester.tap(sendButton());
       expect(sends, 1);
-      expect(find.text(MessageInputField.tooLongMessage), findsNothing);
+      expect(systemMessages, isNot(contains(MessageInputField.tooLongMessage)));
     });
 
     testWidgets('a draft put back over the limit says so instead of sending',
@@ -157,7 +162,7 @@ void main() {
       await tester.pump();
 
       expect(sends, 0);
-      expect(find.text(MessageInputField.tooLongMessage), findsOneWidget);
+      expect(systemMessages, contains(MessageInputField.tooLongMessage));
       await waitForToasts(tester);
 
       // Shortened to the limit, it sends.

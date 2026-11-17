@@ -25,6 +25,7 @@ import 'package:mocktail/mocktail.dart';
 
 import '../fakes/fake_socket_service.dart';
 import '../mocks.dart';
+import '../fakes/system_messages.dart';
 
 class MockGetThreadUseCase extends Mock implements GetThreadUseCase {}
 
@@ -36,6 +37,10 @@ final _myToken = () {
 }();
 
 void main() {
+  // The short messages the app asks the system to show.
+  late List<String> systemMessages;
+  setUp(() => systemMessages = recordSystemMessages());
+
   late FakeSocketService socket;
   late MockGetThreadUseCase mockGetThreadUseCase;
 
@@ -322,8 +327,8 @@ void main() {
           reason: ReportReason.harassment,
         ),
       ).called(1);
-      expect(find.text("Thanks for the report. We'll take a look."),
-          findsOneWidget);
+      expect(systemMessages,
+          contains("Thanks for the report. We'll take a look."));
       await closeThread(tester);
     });
 
@@ -341,7 +346,7 @@ void main() {
 
       verify(() => users.blockUser('user-1')).called(1);
       expect(container.read(sessionBlockedUserIdsProvider), {'user-1'});
-      expect(find.text('User blocked.'), findsOneWidget);
+      expect(systemMessages, contains('User blocked.'));
 
       // Still the thread, with its first message, until the user leaves.
       expect(find.byType(ThreadViewPage), findsOneWidget);
@@ -370,9 +375,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.text('Unable to connect to the server. Please check your '
+        systemMessages,
+        contains('Unable to connect to the server. Please check your '
             'internet connection.'),
-        findsOneWidget,
       );
       expect(container.read(sessionBlockedUserIdsProvider), isEmpty);
       expect(find.text('Count me in'), findsOneWidget);

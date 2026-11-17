@@ -9,7 +9,7 @@ import '../platform/app_route.dart';
 import '../platform/ui_platform.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../utils/navigation.dart';
 import '../utils/passkey_onboarding.dart';
 import '../widgets/app_navigation_bar.dart';
@@ -38,7 +38,7 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
       readAuthState: () => ref.read(authControllerProvider),
       clearAuthError: controller.clearError,
       showNotice: (message) {
-        if (mounted) AppToast.showInfo(context, message);
+        if (mounted) SystemMessage.showNotice(message);
       },
     );
 

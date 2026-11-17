@@ -9,7 +9,7 @@ import '../platform/app_icon.dart';
 import '../platform/app_route.dart';
 import '../platform/app_sheet.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/app_spinner.dart';
@@ -150,7 +150,7 @@ class _RoomDetailsPageState extends ConsumerState<RoomDetailsPage>
       final message = error is AppError
           ? error.getUserMessage()
           : "Couldn't leave that room. Try again?";
-      AppToast.showError(context, message);
+      SystemMessage.showNotice(message);
     } finally {
       if (mounted) {
         setState(() => _isLeaving = false);

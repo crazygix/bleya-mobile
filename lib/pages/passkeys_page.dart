@@ -9,7 +9,7 @@ import '../platform/app_dialog.dart';
 import '../providers/auth_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../utils/auth_error_messages.dart';
 import '../widgets/app_skeleton.dart';
 import '../widgets/error_state.dart';
@@ -42,7 +42,7 @@ class _PasskeysPageState extends ConsumerState<PasskeysPage> {
     try {
       await ref.read(registerPasskeyUseCaseProvider)();
       if (!mounted) return;
-      AppToast.showSuccess(context, 'Passkey added.');
+      SystemMessage.showConfirmation('Passkey added.');
     } catch (e) {
       if (!mounted) return;
       await _handleError(e, fallback: "Couldn't add a passkey. Try again?");
@@ -70,7 +70,7 @@ class _PasskeysPageState extends ConsumerState<PasskeysPage> {
     try {
       await ref.read(deletePasskeyUseCaseProvider)(passkey.id);
       if (!mounted) return;
-      AppToast.showInfo(context, 'Passkey deleted.');
+      SystemMessage.showConfirmation('Passkey deleted.');
     } catch (e) {
       if (!mounted) return;
       await _handleError(e,
@@ -92,7 +92,7 @@ class _PasskeysPageState extends ConsumerState<PasskeysPage> {
 
     final message = authErrorMessage(error, fallback: fallback);
     if (message.isNotEmpty && mounted) {
-      AppToast.showError(context, message);
+      SystemMessage.showNotice(message);
     }
   }
 

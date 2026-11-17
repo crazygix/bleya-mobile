@@ -9,7 +9,7 @@ import '../controllers/username_controller.dart';
 import '../providers/auth_providers.dart';
 import '../providers/controller_providers.dart';
 import '../providers/profile_providers.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../utils/lowercase_text_input_formatter.dart';
 import '../utils/navigation.dart';
 import '../utils/passkey_onboarding.dart';
@@ -45,7 +45,7 @@ class UsernamePageState extends ConsumerState<UsernamePage> {
       readAuthState: () => ref.read(authControllerProvider),
       clearAuthError: controller.clearError,
       showNotice: (message) {
-        if (mounted) AppToast.showInfo(context, message);
+        if (mounted) SystemMessage.showNotice(message);
       },
     );
 

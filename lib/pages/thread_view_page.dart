@@ -7,7 +7,7 @@ import '../platform/app_button.dart';
 import '../platform/app_route.dart';
 import '../services/socket_service.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../utils/navigation.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
@@ -56,7 +56,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
 
   /// A moderator removed the message this thread hangs off: close the thread.
   void _closeRemovedThread() {
-    AppToast.showInfo(context, 'This message was removed.');
+    SystemMessage.showNotice('This message was removed.');
     final route = ModalRoute.of(context);
     if (route == null) return;
     if (route.isCurrent) {
@@ -116,7 +116,7 @@ class _ThreadViewPageState extends ConsumerState<ThreadViewPage>
     final error = result.error;
     if (error != null) {
       restoreUnsentDraft(_replyController, text);
-      AppToast.showError(context, error.message);
+      SystemMessage.showNotice(error.message);
     }
 
     // The reply will appear automatically via socket listener in threadMessagesProvider

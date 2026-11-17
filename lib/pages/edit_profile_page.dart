@@ -7,7 +7,7 @@ import '../providers/profile_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../platform/app_text_field.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../domain/entities/user_profile.dart';
 import '../constants/theme.dart';
 import '../widgets/app_skeleton.dart';
@@ -102,7 +102,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       } else {
         errorMessage = "Couldn't load your profile. Try again?";
       }
-      AppToast.showError(context, errorMessage);
+      SystemMessage.showNotice(errorMessage);
     }
   }
 
@@ -123,8 +123,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
       }
     } catch (e) {
       if (mounted) {
-        AppToast.showError(
-            context, "Couldn't pick that image. Try another one?");
+        SystemMessage.showNotice("Couldn't pick that image. Try another one?");
       }
     }
   }
@@ -178,7 +177,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
 
       if (mounted) {
         _applyProfile(updatedProfile, clearSelectedImage: true);
-        AppToast.showSuccess(context, 'Profile updated successfully');
+        SystemMessage.showConfirmation('Profile updated successfully');
       }
     } catch (e) {
       if (mounted) {
@@ -188,7 +187,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
         } else {
           errorMessage = "Couldn't update your profile. Try again?";
         }
-        AppToast.showError(context, errorMessage);
+        SystemMessage.showNotice(errorMessage);
       }
     } finally {
       if (mounted) {

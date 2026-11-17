@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.widget.Toast
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -23,6 +24,35 @@ class MainActivity : FlutterActivity() {
         // Registers the plugins.
         super.configureFlutterEngine(flutterEngine)
         registerNotificationTrayChannel(flutterEngine)
+        registerSystemMessageChannel(flutterEngine)
+    }
+
+    /** The toast on screen, which the next message replaces. */
+    private var shownToast: Toast? = null
+
+    /**
+     * The app's short messages ("Passkey added.", "Couldn't open the link.")
+     * for the Dart side (`SystemMessage`): `show` on the `bleya/messages`
+     * channel shows one as a system toast, drawn by Android in the phone's own
+     * look. A new message replaces the one on screen.
+     */
+    private fun registerSystemMessageChannel(flutterEngine: FlutterEngine) {
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SYSTEM_MESSAGES_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                if (call.method != "show") {
+                    result.notImplemented()
+                    return@setMethodCallHandler
+                }
+                val message = call.argument<String>("message")
+                if (message.isNullOrEmpty()) {
+                    result.error("invalid-message", "A message needs its text.", null)
+                    return@setMethodCallHandler
+                }
+                shownToast?.cancel()
+                shownToast = Toast.makeText(applicationContext, message, Toast.LENGTH_LONG)
+                    .also { it.show() }
+                result.success(null)
+            }
     }
 
     private fun ensureMessagesChannel() {
@@ -169,6 +199,7 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val MESSAGES_CHANNEL_ID = "bleya_messages"
         private const val NOTIFICATIONS_CHANNEL = "bleya/notifications"
+        private const val SYSTEM_MESSAGES_CHANNEL = "bleya/messages"
 
         /** A heads-up shows for about 5 s; the banner leaves the shade soon after. */
         private const val BANNER_LIFETIME_MS = 8_000L

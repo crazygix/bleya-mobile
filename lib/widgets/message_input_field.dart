@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../constants/theme.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 import '../utils/utf16_length_limiting_text_input_formatter.dart';
 
 /// Puts [unsent] back into [controller] after the server didn't store it.
@@ -92,7 +92,7 @@ class _MessageInputFieldState extends State<MessageInputField> {
     // The trimmed text is what gets sent.
     final length = widget.controller.text.trim().length;
     if (length > MessageInputField.maxMessageLength) {
-      AppToast.showError(context, MessageInputField.tooLongMessage);
+      SystemMessage.showNotice(MessageInputField.tooLongMessage);
       return;
     }
     widget.onSend?.call();

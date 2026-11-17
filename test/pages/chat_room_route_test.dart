@@ -22,6 +22,7 @@ import 'package:mocktail/mocktail.dart';
 
 import '../fakes/fake_socket_service.dart';
 import '../mocks.dart';
+import '../fakes/system_messages.dart';
 
 final _cityRoom = Room(id: 'room-x', name: 'Belgrade, Serbia');
 final _dm = Room(
@@ -73,6 +74,10 @@ class _ProfileScreen extends StatelessWidget {
 }
 
 void main() {
+  // The short messages the app asks the system to show.
+  late List<String> systemMessages;
+  setUp(() => systemMessages = recordSystemMessages());
+
   late FakeSocketService socket;
   late MockRoomRepository rooms;
   late MockMessageRepository messages;
@@ -337,7 +342,7 @@ void main() {
     await finishTransition(tester);
 
     verify(() => users.blockUser('user-2')).called(1);
-    expect(find.text('User blocked.'), findsOneWidget);
+    expect(systemMessages, contains('User blocked.'));
     expect(find.text('On my way'), findsNothing);
     expect(find.text('Anyone at the market?'), findsNothing);
 

@@ -22,6 +22,7 @@ import 'package:mocktail/mocktail.dart';
 
 import '../fakes/fake_socket_service.dart';
 import '../mocks.dart';
+import '../fakes/system_messages.dart';
 
 final _room = Room(id: 'room-1', name: 'Belgrade');
 final _parent = Message(
@@ -75,6 +76,10 @@ class _ThreadContextLoader extends Fake
 }
 
 void main() {
+  // The short messages the app asks the system to show.
+  late List<String> systemMessages;
+  setUp(() => systemMessages = recordSystemMessages());
+
   late MockNotificationRepository notifications;
   late MockMessageRepository messages;
   late _ThreadContextLoader threadContext;
@@ -254,7 +259,7 @@ void main() {
     );
     await settle(tester);
 
-    expect(find.text('This message is no longer available.'), findsOneWidget);
+    expect(systemMessages, contains('This message is no longer available.'));
     expect(loaderShows(), isFalse);
     expect(find.byType(ThreadViewPage), findsNothing);
     verify(() => notifications.dismissNotification('n2')).called(1);
@@ -278,11 +283,14 @@ void main() {
     await settle(tester);
 
     expect(
-      find.text('Unable to connect to the server. Please check your internet '
+      systemMessages,
+      contains('Unable to connect to the server. Please check your internet '
           'connection.'),
-      findsOneWidget,
     );
-    expect(find.textContaining('Network connection error'), findsNothing);
+    expect(
+      systemMessages.where((m) => m.contains('Network connection error')),
+      isEmpty,
+    );
     expect(loaderShows(), isFalse);
     expect(listedIds(), ['n1']);
     verifyNever(() => notifications.dismissNotification(any()));

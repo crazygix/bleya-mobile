@@ -7,7 +7,7 @@ import '../platform/app_sheet.dart';
 import '../providers/block_providers.dart';
 import '../providers/use_case_providers.dart';
 import '../utils/app_errors.dart';
-import '../utils/app_toast.dart';
+import '../platform/system_message.dart';
 
 /// Shows the report-reason picker and submits a report. Reusable for reporting a
 /// user, a message, or a room — pass exactly one target id.
@@ -42,15 +42,14 @@ Future<void> showReportSheet({
       reason: reason,
     );
     if (context.mounted) {
-      AppToast.showSuccess(
-          context, "Thanks for the report. We'll take a look.");
+      SystemMessage.showConfirmation("Thanks for the report. We'll take a look.");
     }
   } catch (e) {
     if (!context.mounted) return;
     final message = e is AppError
         ? e.getUserMessage()
         : "Couldn't send the report. Try again?";
-    AppToast.showError(context, message);
+    SystemMessage.showNotice(message);
   }
 }
 
@@ -108,12 +107,12 @@ Future<void> _blockAuthor({
     await ref.read(blockUserUseCaseProvider)(userId);
     if (!context.mounted) return;
     recordBlockChange(ref, userId, blocked: true);
-    AppToast.showInfo(context, 'User blocked.');
+    SystemMessage.showConfirmation('User blocked.');
   } catch (e) {
     if (!context.mounted) return;
     final message = e is AppError
         ? e.getUserMessage()
         : "Couldn't block this user right now.";
-    AppToast.showError(context, message);
+    SystemMessage.showNotice(message);
   }
 }

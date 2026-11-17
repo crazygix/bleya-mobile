@@ -51,6 +51,9 @@ import UserNotifications
     if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BleyaNotificationTray") {
       NotificationTrayChannel.register(with: registrar.messenger())
     }
+    if let registrar = engineBridge.pluginRegistry.registrar(forPlugin: "BleyaSystemMessage") {
+      SystemMessageChannel.register(with: registrar.messenger())
+    }
   }
 }
 
@@ -178,6 +181,151 @@ enum AppBadgeChannel {
     } else {
       UIApplication.shared.applicationIconBadgeNumber = count
       result(nil)
+    }
+  }
+}
+
+/// The app's short messages for the Dart side (`SystemMessage`): `show` on
+/// the `bleya/messages` channel. iOS has no toast, so a notice ("Couldn't
+/// open the link.", "This message was removed.") is a system alert with OK,
+/// and a confirmation ("Passkey added.") is a small pill near the top of the
+/// screen that goes away by itself. Both use the system's materials, colours
+/// and fonts, so they follow the phone's light or dark appearance and text
+/// size, not the app's look.
+enum SystemMessageChannel {
+  static func register(with messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "bleya/messages", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "show" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      guard
+        let arguments = call.arguments as? [String: Any],
+        let message = arguments["message"] as? String,
+        !message.isEmpty
+      else {
+        result(FlutterError(
+          code: "invalid-message",
+          message: "A message needs its text.",
+          details: nil))
+        return
+      }
+      if arguments["kind"] as? String == "confirmation" {
+        ConfirmationPill.show(message)
+      } else {
+        showAlert(message)
+      }
+      result(nil)
+    }
+  }
+
+  private static func showAlert(_ message: String) {
+    guard let presenter = topViewController() else { return }
+    let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
+    alert.addAction(UIAlertAction(title: "OK", style: .default))
+    presenter.present(alert, animated: true)
+  }
+
+  /// The view controller on top of the app's window, which presents the alert.
+  private static func topViewController() -> UIViewController? {
+    var top = keyWindow()?.rootViewController
+    while let presented = top?.presentedViewController, !presented.isBeingDismissed {
+      top = presented
+    }
+    return top
+  }
+
+  static func keyWindow() -> UIWindow? {
+    return UIApplication.shared.connectedScenes
+      .compactMap { $0 as? UIWindowScene }
+      .flatMap { $0.windows }
+      .first { $0.isKeyWindow }
+  }
+}
+
+/// A small capsule near the top of the screen saying that something worked,
+/// like the ones Apple's own apps show. It uses the system's thick material,
+/// label colour and font, so it follows the phone's appearance and text size.
+/// It doesn't take touches, a new one replaces the one on screen, and
+/// VoiceOver reads it out.
+enum ConfirmationPill {
+  private static weak var shown: UIView?
+  private static let visibleFor: TimeInterval = 2
+
+  static func show(_ message: String) {
+    guard let window = SystemMessageChannel.keyWindow() else { return }
+    shown?.removeFromSuperview()
+
+    let blur = UIVisualEffectView(effect: UIBlurEffect(style: .systemThickMaterial))
+    blur.translatesAutoresizingMaskIntoConstraints = false
+    blur.isUserInteractionEnabled = false
+    blur.clipsToBounds = true
+    blur.layer.cornerCurve = .continuous
+
+    let icon = UIImageView(image: UIImage(systemName: "checkmark.circle.fill"))
+    icon.tintColor = .secondaryLabel
+    icon.preferredSymbolConfiguration = UIImage.SymbolConfiguration(textStyle: .subheadline)
+    icon.setContentHuggingPriority(.required, for: .horizontal)
+
+    let label = UILabel()
+    label.text = message
+    label.font = UIFont.preferredFont(forTextStyle: .subheadline)
+    label.adjustsFontForContentSizeCategory = true
+    label.textColor = .label
+    label.numberOfLines = 2
+
+    let row = UIStackView(arrangedSubviews: [icon, label])
+    row.axis = .horizontal
+    row.alignment = .center
+    row.spacing = 8
+    row.translatesAutoresizingMaskIntoConstraints = false
+    blur.contentView.addSubview(row)
+
+    let pill = UIView()
+    pill.translatesAutoresizingMaskIntoConstraints = false
+    pill.isUserInteractionEnabled = false
+    pill.layer.shadowColor = UIColor.black.cgColor
+    pill.layer.shadowOpacity = 0.12
+    pill.layer.shadowRadius = 12
+    pill.layer.shadowOffset = CGSize(width: 0, height: 4)
+    pill.addSubview(blur)
+    window.addSubview(pill)
+
+    NSLayoutConstraint.activate([
+      blur.topAnchor.constraint(equalTo: pill.topAnchor),
+      blur.bottomAnchor.constraint(equalTo: pill.bottomAnchor),
+      blur.leadingAnchor.constraint(equalTo: pill.leadingAnchor),
+      blur.trailingAnchor.constraint(equalTo: pill.trailingAnchor),
+      row.topAnchor.constraint(equalTo: blur.contentView.topAnchor, constant: 10),
+      row.bottomAnchor.constraint(equalTo: blur.contentView.bottomAnchor, constant: -10),
+      row.leadingAnchor.constraint(equalTo: blur.contentView.leadingAnchor, constant: 16),
+      row.trailingAnchor.constraint(equalTo: blur.contentView.trailingAnchor, constant: -16),
+      pill.topAnchor.constraint(equalTo: window.safeAreaLayoutGuide.topAnchor, constant: 8),
+      pill.centerXAnchor.constraint(equalTo: window.centerXAnchor),
+      pill.leadingAnchor.constraint(greaterThanOrEqualTo: window.leadingAnchor, constant: 16),
+      pill.trailingAnchor.constraint(lessThanOrEqualTo: window.trailingAnchor, constant: -16),
+    ])
+    window.layoutIfNeeded()
+    blur.layer.cornerRadius = blur.bounds.height / 2
+    shown = pill
+
+    pill.alpha = 0
+    pill.transform = CGAffineTransform(translationX: 0, y: -12).scaledBy(x: 0.96, y: 0.96)
+    UIView.animate(
+      withDuration: 0.35, delay: 0, usingSpringWithDamping: 0.85, initialSpringVelocity: 0
+    ) {
+      pill.alpha = 1
+      pill.transform = .identity
+    }
+    UIAccessibility.post(notification: .announcement, argument: message)
+
+    DispatchQueue.main.asyncAfter(deadline: .now() + visibleFor) { [weak pill] in
+      guard let pill = pill else { return }
+      UIView.animate(withDuration: 0.25, animations: {
+        pill.alpha = 0
+        pill.transform = CGAffineTransform(translationX: 0, y: -12)
+      }, completion: { _ in pill.removeFromSuperview() })
     }
   }
 }
