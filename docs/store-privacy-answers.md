@@ -53,8 +53,14 @@ data under privacy law (GDPR) is linked. Everything above carries the account ID
 linked. Nothing is tracking: no data is combined with other companies' data for advertising or shared with data
 brokers.
 
+`fastlane/app_privacy_details.json` holds this table in fastlane's format. `bundle exec fastlane app_privacy`
+uploads it and publishes it; it signs in with an Apple ID (password and 2FA code), because Apple has no API-key
+access to App Privacy, and it replaces every answer in App Store Connect. The privacy policy URL
+(https://bleyachat.com/privacy) is set in App Store Connect → App Privacy, not by the lane.
+
 The app's privacy manifest, `ios/Runner/PrivacyInfo.xcprivacy`, declares exactly this table (the same eight types
-and purposes, linked, not tracking), so Xcode's privacy report for an archive matches it. Change both together;
+and purposes, linked, not tracking), so Xcode's privacy report for an archive matches it. Change it, the JSON file
+and this table together;
 `test/config/platform_config_test.dart` checks the manifest. The Firebase SDKs ship their own manifests, which show
 as not linked in the privacy report; that is expected, because they don't know about the account ID the app adds.
 After archiving, check Organizer → Generate Privacy Report against this table. The report also lists Other Data
@@ -74,8 +80,8 @@ Don't declare:
 ## Google Play Console → Data safety
 
 **Submitted on September 30, 2026** through the Play Developer API (`applications.dataSafety`) with
-`docs/google-play-data-safety.csv`, Google's full question list with our answers. **Changed on October 11, 2026 for
-analytics, the install ID and Crashlytics; not uploaded yet.** To change the answers, edit that file (or export a
+`docs/google-play-data-safety.csv`, Google's full question list with our answers. Changed on October 11, 2026 for
+analytics, the install ID and Crashlytics, and **uploaded again on November 21, 2026** through the same API call. To change the answers, edit that file (or export a
 fresh one from Play Console) and upload it again, in Play Console (App content → Data safety → Import from CSV) or
 with the same API call. An import replaces every answer, so if anything was changed in Play Console since the last
 upload, export first and compare.
@@ -133,17 +139,12 @@ for it. Declaring it that way is the conservative choice.
 
 ## When to submit
 
-The backend has been recording sign-in outcomes, content-filter rejections and days of use with the account ID since
-it was deployed on October 11, 2026, also for app builds already in the stores. So update both forms now, not with
-the next build.
+Bleya isn't on sale yet, and the first released build includes Crashlytics, so both forms declare everything above
+from the start.
 
-- **App Store:** Apple wants the answers to match the version on sale, so publish now what the backend already
-  collects: User ID (with Analytics), Product Interaction, Other Diagnostic Data and Device ID (the push token).
-  Add Crash Data, and the Crashlytics and install-ID parts of the descriptions, when the build with Crashlytics is
-  released. Answers can be changed at any time without a new build (App Store Connect → App Privacy → Edit, then
-  Publish). The privacy manifest ships with that build.
-- **Google Play:** import the CSV now. Play has no per-version answers, and declaring the next build's crash logs
-  a little early is the safe side.
+- **App Store:** run `bundle exec fastlane app_privacy` before submitting the first version for review. Answers can
+  be changed at any time without a new build: edit the JSON file and run the lane again.
+- **Google Play:** uploaded on November 21, 2026. Play has no per-version answers.
 
 ## When this changes
 

@@ -507,6 +507,23 @@ lane :android_internal do |options|
   finish_release!(build_name, build_number)
 end
 
+# Apple has no API-key access to App Privacy, so this lane signs in with an
+# Apple ID: it asks for the password and the 2FA code, or uses FASTLANE_SESSION
+# from `fastlane spaceauth`. It replaces every answer in App Store Connect with
+# fastlane/app_privacy_details.json and publishes them.
+desc "Upload and publish the App Store App Privacy answers (username:you@example.com, or FASTLANE_USER)"
+lane :app_privacy do |options|
+  username = (options[:username] || ENV["FASTLANE_USER"]).to_s.strip
+  username = UI.input("Apple ID for App Store Connect:") if username.empty?
+
+  upload_app_privacy_details_to_app_store(
+    username: username,
+    app_identifier: APP_IDENTIFIER,
+    json_path: require_file!("fastlane/app_privacy_details.json", "App Privacy answers")
+  )
+  UI.success("App Privacy answers are published. Check the preview in App Store Connect → App Privacy.")
+end
+
 desc "Promote a tested Play internal-testing build to a draft production release (version_code:N)"
 lane :android_promote_production do |options|
   version_code = (options[:version_code] || ENV["PLAY_PROMOTE_VERSION_CODE"]).to_s.strip
