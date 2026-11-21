@@ -315,8 +315,8 @@ bundle exec fastlane testing
 ```
 
 The release lanes build only from a clean, committed tree. At the end they
-write the new build number to `pubspec.yaml` (commit it with the command they
-print) and tag the built commit locally as `build/N`. Android goes live by
+write the new build number to `pubspec.yaml`, commit it, tag the built commit
+as `build/N` and push the branch and tag to `origin`. Android goes live by
 promoting the tested internal build with `android_promote_production`.
 
 ### Manual Build Commands

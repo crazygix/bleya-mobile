@@ -39,9 +39,10 @@ Mobile release
 7. Uploads the IPA to TestFlight and assigns it to internal TestFlight groups without submitting it for external beta review.
 8. Builds a prod Android AAB with `config/env/prod.local.json`.
 9. Uploads the AAB to the Play Console internal testing track.
-10. Writes the new build number to `pubspec.yaml` and prints the `git commit` command for it. The lane never
-    commits.
-11. Tags the commit the build came from as `build/N`, locally.
+10. Writes the new build number to `pubspec.yaml` and commits it as `chore: Build X+N`, together with
+    `ios/Podfile.lock` if the iOS build updated it. No other file is ever committed.
+11. Tags the commit the build came from as `build/N`.
+12. Pushes the current branch and the tag to `origin`.
 
 If the iOS upload succeeds but the lane fails later, rerunning the same release
 reuses the existing App Store Connect build instead of trying to upload the
@@ -50,9 +51,11 @@ that upload. If you committed a fix in between, the lane stops before building:
 set `pubspec.yaml` to the number already on TestFlight, commit it and run the
 lane again, and both platforms get the next number.
 
-After a successful run, `git status` shows only the `pubspec.yaml` version bump. Commit it with the
-printed command before the next release build. If the iOS build updated `ios/Podfile.lock` (it does when the
-native plugins change), commit that too. The next build lane refuses to run until the tree is clean.
+After a successful run the tree is clean and `origin` has the version-bump commit and the `build/N` tag.
+The push includes any local commits on the branch that weren't pushed yet; they are the code that was built.
+
+If the push fails (for example, the remote branch is ahead), the lane stops after the uploads with the
+`git push` command to run once the cause is fixed. Don't rerun the lane: it would build the next number.
 
 The app IDs used by the release lane are:
 
@@ -219,9 +222,9 @@ version: 1.0.0+12
 Fastlane writes the new number back to `pubspec.yaml` only after the last
 upload of the lane: after both uploads in `testing`, after its one upload in
 `ios_testflight` or `android_internal`. If the release fails before that point,
-the next retry uses the same build number instead of skipping one. The write
-is never committed for you: the lane prints the `git commit` command, and the
-next build lane refuses to run until it is committed.
+the next retry uses the same build number instead of skipping one. The lane
+then commits and pushes that change (see
+[What The Testing Lane Does](#what-the-testing-lane-does)).
 
 The single-platform lanes write the number back too, so the other platform's
 next build uses the number after it. That's fine: each store only needs its own
@@ -247,11 +250,8 @@ taken number fails in seconds instead of after the build.
 
 `testing`, `ios_testflight` and `android_internal` tag the commit each build
 came from as `build/N` (an annotated tag, for example `build/12`, "Bleya 1.0.0 (12)").
-The tags stay local; push them when convenient:
-
-```sh
-git push origin build/12
-```
+The lane pushes the tag together with the branch. If a tag with that name
+already points at a different commit, it is left alone and not pushed.
 
 ## Commands
 
@@ -302,8 +302,6 @@ SKIP_CHECKS=1 bundle exec fastlane testing
 requires committed code.
 
 ## After Uploading
-
-Commit the version bump with the command the lane printed.
 
 TestFlight:
 
@@ -364,8 +362,7 @@ bundle install
 ```
 
 If a lane stops with "Release builds are made only from committed code", it
-lists the uncommitted and untracked files. Commit them (after a release, that's
-usually the `pubspec.yaml` version bump), then run the lane again.
+lists the uncommitted and untracked files. Commit them, then run the lane again.
 
 If `flutter analyze` crashes on this machine, the lane uses:
 

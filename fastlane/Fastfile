@@ -91,7 +91,6 @@ end
 # Moves pubspec.yaml up to the build just uploaded, so the next release starts
 # from the number after it. It never moves pubspec.yaml back: an override below
 # the current number leaves it as it is, and one above it carries on from there.
-# The lane never commits; it prints the command instead.
 def persist_release_build_number!(build_name, build_number)
   current = pubspec_version[:build_number]
   if build_number.to_i <= current
@@ -100,8 +99,54 @@ def persist_release_build_number!(build_name, build_number)
   end
 
   write_pubspec_version!(build_name, build_number)
-  UI.important("Commit the version bump before the next release build:")
-  UI.important("  git commit -m \"chore: Build #{build_name}+#{build_number}\" pubspec.yaml")
+end
+
+# The only files a release run changes and commits for you: the version bump,
+# and ios/Podfile.lock when the iOS build updated it.
+RELEASE_BOOKKEEPING_FILES = ["pubspec.yaml", "ios/Podfile.lock"].freeze
+
+# Commits the release bookkeeping files the run changed, and nothing else.
+def commit_release_bookkeeping!(build_name, build_number)
+  changed = git_output("diff", "--name-only", "HEAD", "--", *RELEASE_BOOKKEEPING_FILES).split("\n")
+  if changed.empty?
+    UI.message("No version bump to commit.")
+    return
+  end
+
+  message = "chore: Build #{build_name}+#{build_number}"
+  Actions.sh("git", "commit", "-m", message, "--", *changed, log: false)
+  UI.message("Committed #{changed.join(' and ')} as \"#{message}\".")
+end
+
+# Pushes the current branch (with the version-bump commit) and the build tag.
+# The builds are already uploaded by now, so a failed push stops the lane with
+# the command to finish by hand instead of a rerun, which would build the next
+# number.
+def push_release!(tag)
+  branch = git_output("rev-parse", "--abbrev-ref", "HEAD")
+  refs = []
+  refs << branch unless branch == "HEAD"
+  refs << tag if tag
+  return if refs.empty?
+
+  begin
+    Actions.sh("git", "push", "origin", *refs, log: false)
+  rescue StandardError => error
+    UI.user_error!(
+      "The builds are uploaded and committed locally, but pushing to origin failed. Don't rerun the lane: " \
+      "it would build the next number. Fix the cause (for example, the remote branch is ahead), then run: " \
+      "git push origin #{refs.join(' ')}\n#{error.message}"
+    )
+  end
+  UI.success("Pushed #{refs.join(' and ')} to origin.")
+end
+
+# Everything after the last upload: write the new build number, commit it, tag
+# the built commit and push both.
+def finish_release!(build_name, build_number)
+  persist_release_build_number!(build_name, build_number)
+  commit_release_bookkeeping!(build_name, build_number)
+  push_release!(tag_release_build!(build_name, build_number))
 end
 
 def run_quality_checks
@@ -123,7 +168,7 @@ end
 def ensure_release_tree_clean!
   ensure_git_status_clean(show_uncommitted_changes: true)
 rescue FastlaneCore::Interface::FastlaneError => error
-  UI.user_error!("Release builds are made only from committed code. Commit your changes first; after a release, that includes the pubspec.yaml version bump the lane printed. #{error.message}")
+  UI.user_error!("Release builds are made only from committed code. Commit your changes first. #{error.message}")
 end
 
 # The checks every build lane starts with: a clean tree (also with SKIP_CHECKS),
@@ -141,22 +186,24 @@ def release_commit_time
   Time.at(git_output("log", "-1", "--format=%ct", @release_commit || "HEAD").to_i)
 end
 
-# Tags the commit a build came from as build/N. The tag stays local; the lane
-# never pushes.
+# Tags the commit a build came from as build/N. Returns the tag to push, or nil
+# when an existing tag points at a different commit (it is left alone).
 def tag_release_build!(build_name, build_number)
   tag = "build/#{build_number}"
   if git_tag_exists(tag: tag)
     tagged_commit = git_output("rev-list", "-n", "1", tag)
     if tagged_commit == @release_commit
       UI.message("Tag #{tag} is already on this commit.")
-    else
-      UI.important("Tag #{tag} already exists on #{tagged_commit[0, 7]}, not on this build's commit #{@release_commit.to_s[0, 7]}. It stays where it is.")
+      return tag
     end
-    return
+
+    UI.important("Tag #{tag} already exists on #{tagged_commit[0, 7]}, not on this build's commit #{@release_commit.to_s[0, 7]}. It stays where it is.")
+    return nil
   end
 
   add_git_tag(tag: tag, message: "Bleya #{build_name} (#{build_number})", commit: @release_commit)
-  UI.message("Tagged #{tag} on the commit it was built from. The tag is local; to share it: git push origin #{tag}")
+  UI.message("Tagged #{tag} on the commit it was built from.")
+  tag
 end
 
 def ensure_prod_config!
@@ -443,8 +490,7 @@ lane :ios_testflight do |options|
 
   upload_ios_build!(build_name: build_name, build_number: build_number, groups: groups)
 
-  persist_release_build_number!(build_name, build_number)
-  tag_release_build!(build_name, build_number)
+  finish_release!(build_name, build_number)
 end
 
 desc "Build prod Android and upload it to Play Console internal testing"
@@ -458,8 +504,7 @@ lane :android_internal do |options|
 
   upload_android_internal_build!(build_name: build_name, build_number: build_number)
 
-  persist_release_build_number!(build_name, build_number)
-  tag_release_build!(build_name, build_number)
+  finish_release!(build_name, build_number)
 end
 
 desc "Promote a tested Play internal-testing build to a draft production release (version_code:N)"
@@ -522,8 +567,7 @@ lane :testing do |options|
 
   # Only after both uploads, so a rerun after a failure above uses the same
   # number.
-  persist_release_build_number!(build_name, build_number)
-  tag_release_build!(build_name, build_number)
+  finish_release!(build_name, build_number)
 end
 
 desc "Build prod iOS IPA and Android AAB without uploading"
