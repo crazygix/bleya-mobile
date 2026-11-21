@@ -55,61 +55,6 @@ void main() {
     );
   });
 
-  group('signInAsTestUser', () {
-    test('does nothing when the build has no test sign-in', () async {
-      expect(await controller.signInAsTestUser('tester'), isNull);
-      expect(controller.state.isLoading, false);
-      expect(storedTokens, isEmpty);
-    });
-
-    test('signs in as the named user and is not counted in analytics',
-        () async {
-      final mockSignInAsTestUser = MockSignInAsTestUserUseCase();
-      when(() => mockSignInAsTestUser(username: 'alex_travels'))
-          .thenAnswer((_) async => session);
-      final devController = AuthController(
-        mockSignInWithGoogle,
-        mockSignInWithApple,
-        mockSignInWithPasskey,
-        mockRegisterPasskey,
-        mockRecordAnalyticsEvent,
-        storedTokens.add,
-        () async => canOfferPasskey,
-        signInAsTestUserUseCase: mockSignInAsTestUser,
-      );
-
-      final result = await devController.signInAsTestUser('alex_travels');
-
-      expect(result, session);
-      expect(storedTokens, ['token-123']);
-      expect(
-        devController.state.navigationRequest?.target,
-        AuthNavigationTarget.home,
-      );
-      verifyNever(() => mockRecordAnalyticsEvent(any()));
-    });
-
-    test('points at the local backend setup when it fails', () async {
-      final mockSignInAsTestUser = MockSignInAsTestUserUseCase();
-      when(() => mockSignInAsTestUser(username: any(named: 'username')))
-          .thenThrow(Exception('404'));
-      final devController = AuthController(
-        mockSignInWithGoogle,
-        mockSignInWithApple,
-        mockSignInWithPasskey,
-        mockRegisterPasskey,
-        mockRecordAnalyticsEvent,
-        storedTokens.add,
-        () async => canOfferPasskey,
-        signInAsTestUserUseCase: mockSignInAsTestUser,
-      );
-
-      expect(await devController.signInAsTestUser('tester'), isNull);
-      expect(devController.state.errorMessage, contains('DEV_LOGIN_ENABLED'));
-      verifyNever(() => mockRecordAnalyticsEvent(any()));
-    });
-  });
-
   group('signInWithGoogle', () {
     test('returns session result on success', () async {
       when(() => mockSignInWithGoogle()).thenAnswer((_) async => session);

@@ -81,19 +81,6 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<AuthSessionResult> signInAsTestUser({required String username}) async {
-    try {
-      final response = await _dio.post(
-        '/auth/dev-login',
-        data: {'username': username},
-      );
-      return await _persistProviderResult(response.data);
-    } on DioException catch (e) {
-      throw ApiErrorMapper.mapDioError(e);
-    }
-  }
-
-  @override
   Future<AuthSessionResult> signInWithApple() async {
     try {
       final credential = await _providerAuthService.signInWithApple();

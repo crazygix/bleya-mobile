@@ -6,7 +6,6 @@ import '../use_cases/auth/get_auth_security_status_use_case.dart';
 import '../use_cases/auth/list_passkeys_use_case.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
 import '../use_cases/auth/set_username_use_case.dart';
-import '../use_cases/auth/sign_in_as_test_user_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
 import '../use_cases/auth/sign_in_with_google_use_case.dart';
 import '../use_cases/auth/sign_in_with_passkey_use_case.dart';
@@ -39,12 +38,6 @@ import '../use_cases/user/export_data_use_case.dart';
 import '../use_cases/user/block_user_use_case.dart';
 import '../use_cases/user/unblock_user_use_case.dart';
 import 'repository_providers.dart';
-
-final signInAsTestUserUseCaseProvider =
-    Provider<SignInAsTestUserUseCase>((ref) {
-  final repository = ref.watch(authRepositoryProvider);
-  return SignInAsTestUserUseCase(repository);
-});
 
 final signInWithGoogleUseCaseProvider =
     Provider<SignInWithGoogleUseCase>((ref) {

@@ -15,7 +15,6 @@ import 'package:bleya/use_cases/auth/check_username_use_case.dart';
 import 'package:bleya/use_cases/auth/register_passkey_use_case.dart';
 import 'package:bleya/use_cases/auth/set_username_use_case.dart';
 import 'package:bleya/use_cases/auth/sign_in_with_apple_use_case.dart';
-import 'package:bleya/use_cases/auth/sign_in_as_test_user_use_case.dart';
 import 'package:bleya/use_cases/auth/sign_in_with_google_use_case.dart';
 import 'package:bleya/use_cases/auth/sign_in_with_passkey_use_case.dart';
 import 'package:bleya/use_cases/user/upload_profile_image_use_case.dart';
@@ -44,9 +43,6 @@ class MockReportRepository extends Mock implements ReportRepository {}
 class MockAnalyticsRepository extends Mock implements AnalyticsRepository {}
 
 // Use case mocks (for controller tests)
-class MockSignInAsTestUserUseCase extends Mock
-    implements SignInAsTestUserUseCase {}
-
 class MockSignInWithGoogleUseCase extends Mock
     implements SignInWithGoogleUseCase {}
 

@@ -59,19 +59,6 @@ curl http://127.0.0.1:8080/health
 flutter run --flavor dev --dart-define-from-file=config/env/dev.local.json
 ```
 
-## Test Sign-In (dev builds only)
-
-Emulators and UI tests can skip Google/Apple: the sign-in screen of a `dev`
-build has a **Sign in as test user (dev)** button. Type any username; the local
-backend creates that user on first use and signs you in as them.
-
-- The backend must run locally with `DEV_LOGIN_ENABLED=true` in
-  `backend/.env.local` and a `localhost` `MONGODB_URI`. Anywhere else the backend
-  refuses to start with the flag on, so it can't reach production.
-- The button is compiled in only when `FLUTTER_ENV=dev`; prod builds don't have it.
-- Use the same username to sign in as an existing user, for example to see the
-  other side of a conversation.
-
 ## Run from Cursor (Multi-root Workspace)
 
 1) Open [bleya.code-workspace](../bleya.code-workspace), in the folder above this repo, in Cursor.
