@@ -4,6 +4,7 @@ import '../domain/entities/analytics_event.dart';
 import '../domain/entities/auth_result.dart';
 import '../use_cases/analytics/record_analytics_event_use_case.dart';
 import '../use_cases/auth/register_passkey_use_case.dart';
+import '../use_cases/auth/sign_in_as_test_user_use_case.dart';
 import '../use_cases/auth/sign_in_with_apple_use_case.dart';
 import '../use_cases/auth/sign_in_with_google_use_case.dart';
 import '../use_cases/auth/sign_in_with_passkey_use_case.dart';
@@ -14,6 +15,7 @@ enum AuthAction {
   signInWithGoogle,
   signInWithApple,
   signInWithPasskey,
+  signInAsTestUser,
   registerPasskey,
 }
 
@@ -65,6 +67,11 @@ class AuthState {
   }
 }
 
+/// Whether this build offers "Sign in as test user". A compile-time constant,
+/// so prod builds (FLUTTER_ENV=prod) leave the button and its code out.
+const bool devTestSignInAvailable =
+    String.fromEnvironment('FLUTTER_ENV') == 'dev';
+
 typedef StoreAuthToken = void Function(String token);
 typedef LoadPasskeyAvailability = Future<bool> Function();
 
@@ -76,6 +83,7 @@ class AuthController extends StateNotifier<AuthState> {
   final RecordAnalyticsEventUseCase _recordAnalyticsEvent;
   final StoreAuthToken _storeAuthToken;
   final LoadPasskeyAvailability _loadPasskeyAvailability;
+  final SignInAsTestUserUseCase? _signInAsTestUserUseCase;
 
   AuthController(
     this._signInWithGoogleUseCase,
@@ -84,8 +92,10 @@ class AuthController extends StateNotifier<AuthState> {
     this._registerPasskeyUseCase,
     this._recordAnalyticsEvent,
     this._storeAuthToken,
-    this._loadPasskeyAvailability,
-  ) : super(AuthState());
+    this._loadPasskeyAvailability, {
+    SignInAsTestUserUseCase? signInAsTestUserUseCase,
+  })  : _signInAsTestUserUseCase = signInAsTestUserUseCase,
+        super(AuthState());
 
   AuthNavigationRequest _buildUsernameNavigation(AuthSessionResult result) {
     return AuthNavigationRequest(
@@ -128,6 +138,8 @@ class AuthController extends StateNotifier<AuthState> {
       AuthAction.signInWithApple => "Apple sign-in didn't finish. Try again?",
       AuthAction.signInWithPasskey =>
         "Passkey sign-in didn't finish. Try again?",
+      AuthAction.signInAsTestUser =>
+        "Test sign-in failed. Is the local backend running with DEV_LOGIN_ENABLED=true?",
       AuthAction.registerPasskey => "Couldn't add a passkey. Try again?",
     };
     return authErrorMessage(error, fallback: fallback);
@@ -138,7 +150,7 @@ class AuthController extends StateNotifier<AuthState> {
   /// the rest, and every success).
   Future<AuthSessionResult?> _runSessionAction(
     AuthAction action,
-    SignInMethod method,
+    SignInMethod? method,
     Future<AuthSessionResult> Function() callback,
   ) async {
     state = state.copyWith(
@@ -147,7 +159,7 @@ class AuthController extends StateNotifier<AuthState> {
       clearError: true,
       clearNavigation: true,
     );
-    _recordAnalyticsEvent(SignInStarted(method));
+    if (method != null) _recordAnalyticsEvent(SignInStarted(method));
 
     try {
       final result = await callback();
@@ -161,7 +173,7 @@ class AuthController extends StateNotifier<AuthState> {
       );
       return result;
     } catch (e) {
-      final failure = signInFailureEvent(method, e);
+      final failure = method == null ? null : signInFailureEvent(method, e);
       if (failure != null) {
         _recordAnalyticsEvent(failure);
       }
@@ -225,6 +237,18 @@ class AuthController extends StateNotifier<AuthState> {
       AuthAction.signInWithPasskey,
       SignInMethod.passkey,
       () => _signInWithPasskeyUseCase(),
+    );
+  }
+
+  /// Dev builds only (see [devTestSignInAvailable]): signs in as [username]
+  /// through the local backend's dev login. Not counted in analytics.
+  Future<AuthSessionResult?> signInAsTestUser(String username) {
+    final useCase = _signInAsTestUserUseCase;
+    if (useCase == null) return Future.value(null);
+    return _runSessionAction(
+      AuthAction.signInAsTestUser,
+      null,
+      () => useCase(username: username),
     );
   }
 

@@ -7,6 +7,10 @@ abstract class AuthRepository {
   Future<AuthSessionResult> signInWithGoogle();
   Future<AuthSessionResult> signInWithApple();
   Future<AuthSessionResult> signInWithPasskey();
+
+  /// Dev builds against a local backend only (POST /auth/dev-login): signs in
+  /// as [username], creating that user on first use.
+  Future<AuthSessionResult> signInAsTestUser({required String username});
   Future<AuthSecurityStatus> getSecurityStatus();
   Future<AuthSecurityStatus> registerPasskey();
   Future<List<PasskeySummary>> listPasskeys();

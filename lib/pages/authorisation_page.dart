@@ -5,6 +5,8 @@ import '../constants/theme.dart';
 import '../controllers/auth_controller.dart';
 import '../domain/entities/auth_result.dart';
 import '../platform/app_button.dart';
+import '../platform/app_dialog.dart';
+import '../platform/app_text_field.dart';
 import '../platform/app_route.dart';
 import '../platform/ui_platform.dart';
 import '../providers/auth_providers.dart';
@@ -71,6 +73,17 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
         await showHomeAsOnlyRoute(Navigator.of(context));
         return;
     }
+  }
+
+  /// Dev builds only: asks for a username and signs in as that test user.
+  Future<void> _signInAsTestUser() async {
+    final username = await AppDialog.show<String>(
+      context: context,
+      barrierDismissible: true,
+      builder: (context) => const _TestUserDialog(),
+    );
+    if (!mounted || username == null || username.trim().isEmpty) return;
+    await ref.read(authControllerProvider.notifier).signInAsTestUser(username);
   }
 
   @override
@@ -204,6 +217,11 @@ class _AuthorisationPageState extends ConsumerState<AuthorisationPage> {
                               const SizedBox(height: BleyaTheme.spacingMD),
                             ],
                           ],
+                          if (devTestSignInAvailable)
+                            _TestUserButton(
+                              disabled: authState.isLoading,
+                              onPressed: _signInAsTestUser,
+                            ),
                           SizedBox(
                             height: MediaQuery.of(context).padding.bottom +
                                 BleyaTheme.spacingLG,
@@ -638,6 +656,80 @@ class _ProviderButton extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Dev builds only: the way into a test account on a local backend.
+class _TestUserButton extends StatelessWidget {
+  final bool disabled;
+  final VoidCallback onPressed;
+
+  const _TestUserButton({required this.disabled, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: AppButton(
+        onPressed: disabled ? null : onPressed,
+        padding: const EdgeInsets.symmetric(vertical: BleyaTheme.spacingSM),
+        child: Text(
+          'Sign in as test user (dev)',
+          style: BleyaTheme.bodyMedium.copyWith(color: BleyaTheme.primary),
+        ),
+      ),
+    );
+  }
+}
+
+class _TestUserDialog extends StatefulWidget {
+  const _TestUserDialog();
+
+  @override
+  State<_TestUserDialog> createState() => _TestUserDialogState();
+}
+
+class _TestUserDialogState extends State<_TestUserDialog> {
+  final _controller = TextEditingController(text: 'tester');
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text.trim());
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Sign in as test user'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Any username works. A new one is created on first use.',
+          ),
+          const SizedBox(height: BleyaTheme.spacingMD),
+          AppTextField(
+            controller: _controller,
+            placeholder: 'username',
+            autocorrect: false,
+            enableSuggestions: false,
+            textInputAction: TextInputAction.done,
+            onSubmitted: (_) => _submit(),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        TextButton(onPressed: _submit, child: const Text('Sign in')),
+      ],
     );
   }
 }

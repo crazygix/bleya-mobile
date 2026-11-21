@@ -42,6 +42,7 @@ final authControllerProvider =
     recordAnalyticsEvent,
     (token) => ref.read(tokenProvider.notifier).state = token,
     () => passkeyAuthService.isAvailable(),
+    signInAsTestUserUseCase: ref.watch(signInAsTestUserUseCaseProvider),
   );
 });
 
